@@ -17,6 +17,7 @@
 
 	global	assemble
 	global  cklb
+	global  readnlbl
 	global  skp2lbinst
 
 	section .text
@@ -63,6 +64,50 @@ cklb:
 
 .end:
 	pop rdi
+	pop rbp
+	ret
+
+readnlbl:
+	push rbp
+	mov rbp, rsp
+	mov rax, 0
+	mov r9, 0
+	mov r10, rdi
+
+	mov rdi, [rdi]
+.loop:
+	mov cl, [rdi]
+	cmp cl, 0x3a		; Ascii colon
+	je .end
+	inc rax
+	cmp rax, rdx
+	ja .no_copy
+	mov [rsi], cl
+.loop_end:
+	inc rdi
+	inc rsi
+	jmp .loop
+.no_copy:
+	mov r9, 1
+	jmp .loop_end
+
+.end:
+	inc rdi
+	mov [r10], rdi
+
+	cmp r9, 1
+	je .no_terminator
+	inc rax
+	cmp rax, rdx
+	ja .no_terminator
+	inc rsi
+	mov cl, 0
+	mov [rsi], cl
+	jmp .ret
+
+.no_terminator:
+	mov rax, -1
+.ret:
 	pop rbp
 	ret
 
