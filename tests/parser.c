@@ -39,6 +39,27 @@ void test_as_nop(void)
         TEST_CHECK(binary[0] == 0x90);
 }
 
+void test_as_retn(void)
+{
+        char const *assembly = "\n"
+                "        push rbp";
+        char const *assembly2 = assembly;
+        unsigned char binary[16] = { 0 };
+        size_t bytes_written = 0xff;
+
+        // Test that nothing happens if 0 bytes should be written into the output
+        as_retn(&assembly, NULL, 0, &bytes_written);
+        TEST_CHECK(assembly == assembly2);
+        TEST_CHECK(bytes_written == 0);
+
+        // Test assembling `retn` to 0xc3
+        as_retn(&assembly, binary, 16, &bytes_written);
+        TEST_CHECK(assembly == assembly2);
+        TEST_CHECK(bytes_written == 1);
+        TEST_CHECK(binary[0] == 0xc3);
+}
+
+
 void test_cklb(void)
 {
         TEST_CHECK(cklb("") == 0);
@@ -106,6 +127,7 @@ void test_skp2lbinst(void)
 TEST_LIST = {
         { "assemble", test_assemble },
         { "as_nop", test_as_nop },
+        { "as_retn", test_as_retn },
         { "cklb", test_cklb },
         { "readnlbl", test_readnlbl },
         { "skp2lbinst", test_skp2lbinst },

@@ -47,7 +47,7 @@ tests/demos/%.nasm.o: tests/demos/%.s
 tests/demos/%.nasm.text.bin: tests/demos/%.nasm.o
 	@$(OBJCOPY) -I elf64-little -j .text -O binary $< $@
 
-tests/test: src/0x864
+tests/test: src/0x864 tests/parser.c
 	@$(CC) $(CC_FLAGS) $(CC_TEST_FLAGS) tests/parser.c src/0x864.o -o tests/test
 
 .PHONY: all clean test test-binary test-unit

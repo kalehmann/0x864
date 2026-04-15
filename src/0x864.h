@@ -46,6 +46,18 @@ extern void as_snglinst(char const **assembly, void *output, size_t n, size_t *o
  */
 extern void as_nop(char const **assembly, void *output, size_t n, size_t *o);
 
+/**
+ * @param assembly is a pointer to the string with the assembly code.
+ *                 As the `retn` instruction takes no operands, this pointer will
+ *                 not be advanced.
+ * @param output is a pointer to the buffer where the binary output will be
+ *               written.
+ * @param n is the maximum number of bytes to write into the output buffer.
+ * @param o is a pointer to the location in which the actual number of bytes
+ *          written into the output buffer will be stored.
+ */
+extern void as_retn(char const **assembly, void *output, size_t n, size_t *o);
+
 extern int cklb(char const *assembly);
 
 /**

@@ -18,6 +18,7 @@
 	global	assemble
 	global  as_snglinst
 	global  as_nop
+	global  as_retn
 	global  cklb
 	global  readnlbl
 	global  skp2lbinst
@@ -81,7 +82,7 @@ assemble:
 .end:
 	mov rsp, rbp
 	pop rbp
-	ret
+	retn
 
 as_snginst:
 	push rbp
@@ -92,6 +93,9 @@ as_snginst:
 	mov al, 0x6e		; Ascii n ('n')
 	cmp [rdi], al
 	je .n
+	mov al, 0x72		; Ascii r ('r')
+	cmp [rdi], al
+	je .r
 
 .n:
 	inc rdi
@@ -110,11 +114,37 @@ as_snginst:
 	mov [r8], rdi
 	mov rdi, r8
 	call as_nop
+	jmp .end
+
+.r:
+	inc rdi
+	mov al, 0x65		; Ascii e ('e')
+	cmp [rdi], al
+	je .re
+
+.re:
+	inc rdi
+	mov al, 0x74		; Ascii t ('t')
+	cmp [rdi], al
+	je .ret
+
+.ret:
+	inc rdi
+	mov al, 0x6e		; Ascii n ('n')
+	cmp [rdi], al
+	je .retn
+
+.retn:
+	inc rdi
+	mov [r8], rdi
+	mov rdi, r8
+	call as_retn
+	jmp .end
 
 .end:
 	mov rsp, rbp
 	pop rbp
-	ret
+	retn
 
 as_nop:
 	mov r8, 0
@@ -125,8 +155,21 @@ as_nop:
 	mov [rsi], al
 	mov r8, 1
 	mov [rcx], r8
+
 .end:
-	ret
+	retn
+
+as_retn:
+	mov r8, 0
+	mov [rcx], r8
+	cmp rdx, 0
+	je .end
+	mov al, 0xc3
+	mov [rsi], al
+	mov r8, 1
+	mov [rcx], r8
+.end:
+	retn
 	
 cklb:
 	push rbp
@@ -157,7 +200,7 @@ cklb:
 .end:
 	pop rdi
 	pop rbp
-	ret
+	retn
 
 readnlbl:
 	push rbp
@@ -201,7 +244,7 @@ readnlbl:
 	mov rax, -1
 .ret:
 	pop rbp
-	ret
+	retn
 
 skp2lbinst:
 	push rbp
@@ -246,4 +289,4 @@ skp2lbinst:
 .end:
 	mov [rdi], rsi
 	pop rbp
-	ret
+	retn
