@@ -16,6 +16,8 @@
 ;;; long with 0x864. If not, see <http://www.gnu.org/licenses/>.
 
 	global	assemble
+	global  as_snglinst
+	global  as_nop
 	global  cklb
 	global  readnlbl
 	global  skp2lbinst
@@ -25,17 +27,107 @@
 assemble:
 	push rbp
 	mov rbp, rsp
+	sub rsp, 40
 
 	;; Receive args per System V ABI
 	;; Pointer to assembly text is in rdi register
 	;; Pointer to binary output is in rsi register
 	;; Max binary output size is in rdx register
 	;; Pointer to produced binary output size is in rcx register
-	mov [rcx], 0
+	mov [rbp - 8], rdi
+	mov [rbp - 16], rsi
+	mov [rbp - 24], rdx
+	mov [rbp - 32], rcx
 
+	mov [rcx], 0 		; Start with 0 bytes of binary output
+
+.parse_loop:
+	lea rdi, [rbp - 8]
+	call skp2lbinst
+
+.check_label:
+	mov rdi, [rbp - 8]
+	call cklb
+	cmp rax, 1
+	jne .parse_instruction
+
+	lea rdi, [rbp - 8]
+	mov rsi, 0
+	mov rdx, 0
+	call readnlbl
+	lea rdi, [rbp - 8]
+	call skp2lbinst
+	jmp .check_label
+
+.parse_instruction:
+	mov rdi, [rbp - 8]
+	mov cl, 0
+	cmp [rdi], cl
+	je .end
+
+	lea rdi, [rbp - 8]
+	mov rsi, [rbp - 16]
+	mov rdx, [rbp - 24]
+	lea rcx, [rbp - 40]
+	call as_snginst
+
+	mov rcx, [rbp - 40]
+	add [rbp - 16], rcx
+	mov rdi, [rbp - 32]
+	add [rdi], rcx
+
+	jmp .parse_loop
+
+.end:
+	mov rsp, rbp
 	pop rbp
 	ret
 
+as_snginst:
+	push rbp
+	mov rbp, rsp
+
+	mov r8, rdi
+	mov rdi, [rdi]
+	mov al, 0x6e		; Ascii n ('n')
+	cmp [rdi], al
+	je .n
+
+.n:
+	inc rdi
+	mov al, 0x6f		; Ascii o ('o')
+	cmp [rdi], al
+	je .no
+
+.no:
+	inc rdi
+	mov al, 0x70		; Ascii p ('p')
+	cmp [rdi], al
+	je .nop
+
+.nop:
+	inc rdi
+	mov [r8], rdi
+	mov rdi, r8
+	call as_nop
+
+.end:
+	mov rsp, rbp
+	pop rbp
+	ret
+
+as_nop:
+	mov r8, 0
+	mov [rcx], r8
+	cmp rdx, 0
+	je .end
+	mov al, 0x90
+	mov [rsi], al
+	mov r8, 1
+	mov [rcx], r8
+.end:
+	ret
+	
 cklb:
 	push rbp
 	mov rbp, rsp

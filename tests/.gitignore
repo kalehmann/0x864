@@ -1,1 +1,3 @@
 test
+demos/*.bin
+demos/*.o

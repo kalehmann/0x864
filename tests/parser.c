@@ -2,6 +2,43 @@
 #include <string.h>
 #include "0x864.h"
 
+void test_assemble(void)
+{
+        unsigned char binary[16] = { 0 };
+        size_t bytes_written = 0xff;
+
+        // Test that calling `assemble` with an output size of 0 writes nothing
+        // to the output buffer.
+        assemble("\tnop\n", NULL, 0, &bytes_written);
+        TEST_CHECK(bytes_written == 0);
+
+        // Test that the `assemble` function accepts an empty input.
+        bytes_written = 0xff;
+        assemble("", binary, 16, &bytes_written);
+        TEST_CHECK(bytes_written == 0);
+        TEST_CHECK(binary[0] == 0);
+}
+
+void test_as_nop(void)
+{
+        char const *assembly = "\n"
+                "        push rbp";
+        char const *assembly2 = assembly;
+        unsigned char binary[16] = { 0 };
+        size_t bytes_written = 0xff;
+
+        // Test that nothing happens if 0 bytes should be written into the output
+        as_nop(&assembly, NULL, 0, &bytes_written);
+        TEST_CHECK(assembly == assembly2);
+        TEST_CHECK(bytes_written == 0);
+
+        // Test assembling `nop` to 0x90
+        as_nop(&assembly, binary, 16, &bytes_written);
+        TEST_CHECK(assembly == assembly2);
+        TEST_CHECK(bytes_written == 1);
+        TEST_CHECK(binary[0] == 0x90);
+}
+
 void test_cklb(void)
 {
         TEST_CHECK(cklb("") == 0);
@@ -67,6 +104,8 @@ void test_skp2lbinst(void)
 
 
 TEST_LIST = {
+        { "assemble", test_assemble },
+        { "as_nop", test_as_nop },
         { "cklb", test_cklb },
         { "readnlbl", test_readnlbl },
         { "skp2lbinst", test_skp2lbinst },

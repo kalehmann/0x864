@@ -185,7 +185,7 @@ int main(int argc, char * const argv[])
         }
         fread(assembly_buffer, assembly_buffer_size, 1, args.fin);
 
-        assemble(assembly_buffer, &binary_buffer, 512, &binary_size);
+        assemble(assembly_buffer, binary_buffer, 512, &binary_size);
 
         fwrite(binary_buffer, binary_size, 1, args.fout);
         printf("Written %zu bytes of binary output\n", binary_size);
