@@ -105,6 +105,36 @@ void test_readnlbl(void)
         TEST_CHECK(strncmp(label, "label", 6) == 0);
 }
 
+void test_rslvref(void)
+{
+        unsigned int offset1 = 0xDEADC0DE;
+        unsigned int offset2 = 0xCAFEBABE;
+        unsigned int offset3 = 0x0DEFACED;
+        unsigned int offset = 0;
+
+        void *symtab = calloc(1, 1024);
+        TEST_ASSERT(symtab != NULL);
+
+        strcpy(symtab, "label1");
+        memcpy(symtab + 251, &offset1, 4);
+        strcpy(symtab + 256, "label2");
+        memcpy(symtab + 507, &offset2, 4);
+        strcpy(symtab + 512, "label3");
+        memcpy(symtab + 763, &offset3, 4);
+
+        // Test resolving an non existing reference gives an error
+        TEST_CHECK(rslvref("label", symtab, 4, NULL) == 1);
+        // Test resolving labels
+        TEST_CHECK(rslvref("label1", symtab, 4, &offset) == 0);
+        TEST_CHECK(offset = offset1);
+        TEST_CHECK(rslvref("label2", symtab, 4, &offset) == 0);
+        TEST_CHECK(offset = offset2);
+        TEST_CHECK(rslvref("label3", symtab, 4, &offset) == 0);
+        TEST_CHECK(offset = offset3);
+
+        free(symtab);
+}
+
 void test_skp2lbinst(void)
 {
         char const *assembly1 = ";;; Comment\n"
@@ -123,6 +153,38 @@ void test_skp2lbinst(void)
         TEST_CHECK(assembly2 == label2);
 }
 
+void test_strsymtabntr(void)
+{
+        unsigned int offset1 = 1234;
+        unsigned int offset2 = 0xCAFEBABE;
+        void *symtab = calloc(1, 512);
+
+        TEST_ASSERT(symtab != NULL);
+
+        // Test storing entry in empty symbol table
+        TEST_CHECK(strsymtabntr(symtab, 2, "test", offset1) == 0);
+        TEST_CHECK(strncmp(symtab, "test", 5) == 0);
+        TEST_CHECK(memcmp(symtab + 251, &offset1, 4) == 0);
+        TEST_CHECK(memcmp(symtab + 256, "\0\0\0\0\0", 5) == 0);
+        TEST_CHECK(memcmp(symtab + 507, "\0\0\0\0", 4) == 0);
+
+        // Test storing second entry in symbol table
+        TEST_CHECK(strsymtabntr(symtab, 2, "label2", offset2) == 0);
+        TEST_CHECK(strncmp(symtab, "test", 5) == 0);
+        TEST_CHECK(memcmp(symtab + 251, &offset1, 4) == 0);
+        TEST_CHECK(memcmp(symtab + 256, "label2", 7) == 0);
+        TEST_CHECK(memcmp(symtab + 507, &offset2, 4) == 0);
+
+        // Storing a third entry in a symbol table of size two returns an error
+        // and leaves the first two entries unchanged.
+        TEST_CHECK(strsymtabntr(symtab, 2, "foobar", 0xDEADC0DE) == 1);
+        TEST_CHECK(strncmp(symtab, "test", 5) == 0);
+        TEST_CHECK(memcmp(symtab + 251, &offset1, 4) == 0);
+        TEST_CHECK(memcmp(symtab + 256, "label2", 7) == 0);
+        TEST_CHECK(memcmp(symtab + 507, &offset2, 4) == 0);
+
+        free(symtab);
+}
 
 TEST_LIST = {
         { "assemble", test_assemble },
@@ -130,6 +192,8 @@ TEST_LIST = {
         { "as_retn", test_as_retn },
         { "cklb", test_cklb },
         { "readnlbl", test_readnlbl },
+        { "rslvref", test_rslvref },
         { "skp2lbinst", test_skp2lbinst },
+        { "strsymtabntr", test_strsymtabntr },
         { NULL, NULL }
 };

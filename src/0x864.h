@@ -76,4 +76,29 @@ extern int cklb(char const *assembly);
  */
 extern int readnlbl(char const **assembly, char *label, size_t n);
 
+/**
+ * Loads the address of the given label from the symbol table.
+ *
+ * @param label is the label to search the offset for
+ * @param symtab is a pointer to the symbol table
+ * @param n is the number of entries in the symbol table
+ * @param offset is a pointer to the location where the offset of the label will
+ *               be stored on success.
+ *
+ * @returns 0 on success or 1 in case the label is not found in the symbol table
+ */
+extern int rslvref(char *label, void *symtab, size_t n, unsigned int *offset);
+
 extern void skp2lbinst(char const **assembly);
+
+/**
+ * Stores a symbol in the next free entry of the symbol table.
+ *
+ * @param symtab is a pointer to the symbol table
+ * @param n is the number of entries in the symbol table
+ * @param label is the label of the new entry to insert
+ * @param offset is the offset to store for the label
+ *
+ * @returns 0 on success or 1 in case there is no free entry in the symbol table
+ */
+extern int strsymtabntr(void *symtab, size_t n, char *label, unsigned int offset);

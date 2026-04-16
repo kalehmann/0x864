@@ -21,7 +21,9 @@
 	global  as_retn
 	global  cklb
 	global  readnlbl
+	global  rslvref
 	global  skp2lbinst
+	global  strsymtabntr
 
 	section .text
 
@@ -243,6 +245,96 @@ readnlbl:
 .no_terminator:
 	mov rax, -1
 .ret:
+	mov rsp, rbp
+	pop rbp
+	retn
+
+;;; rdi: `char *label`
+;;; rsi: `void *symtab`
+;;; rdx: `size_t n`
+;;; rcx: `unsigned int *offset`
+rslvref:
+	push rbp
+	mov rbp, rsp
+
+	mov al, 0
+	mov r9, rdi
+	mov r10, rsi
+
+.check_label:
+	mov ah, [rdi]
+	cmp [rsi], ah
+	jne .check_next_entry
+	cmp al, ah
+	je .load_offset
+	inc rdi
+	inc rsi
+	jmp .check_label
+
+.check_next_entry:
+	add r10, 256
+	mov rdi, r9
+	mov rsi, r10
+	dec rdx
+	jz .ret_err
+	jmp .check_label
+
+.load_offset:
+	mov eax, [r10 + 251]
+	mov [rcx], eax
+	jmp .ret_suc
+
+.ret_err:
+	mov rax, 1
+	jmp .end
+
+.ret_suc:
+	mov rax, 0
+
+.end:
+	mov rsp, rbp
+	pop rbp
+	retn
+
+;;; rdi: `void *symtab`
+;;; rsi: `size_t n`
+;;; rdx: `char *label`
+;;; rcx: `unsigned int offset`
+strsymtabntr:
+	push rbp
+	mov rbp, rsp
+
+	mov al, 0
+	mov r8, 256
+.find_free_entry_loop:
+	cmp [rdi], al
+	je .store_offset
+	add rdi, r8
+	dec rsi
+	jz .ret_err
+	jmp .find_free_entry_loop
+
+.store_offset:
+	mov [rdi + 251], ecx
+
+.store_label:
+	cmp [rdx], al
+	je .ret_suc
+	mov ah, [rdx]
+	mov [rdi], ah
+	inc rdx
+	inc rdi
+	jmp .store_label
+
+.ret_err:
+	mov rax, 1
+	jmp .end
+
+.ret_suc:
+	mov rax, 0
+
+.end:
+	mov rsp, rbp
 	pop rbp
 	retn
 
