@@ -124,6 +124,24 @@ extern void clr(void *buf, size_t n);
 extern void cpy(void *src, void *dest, size_t n);
 
 /**
+ * Checks if the next token is an integer
+ *
+ * @param assembly is a pointer to the assembly string.
+ *
+ * @returns whether the next token is an integer
+ */
+extern int isint(char *assembly);
+
+/**
+ * Checks if the next token is a register
+ *
+ * @param assembly is a pointer to the assembly string.
+ *
+ * @returns whether the next token is a register
+ */
+extern int isreg(char *assembly);
+
+/**
  * Returns the length of a string (including the null terminator).
  *
  * @param str is the string

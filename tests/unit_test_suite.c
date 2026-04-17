@@ -31,6 +31,7 @@ TEST_LIST = {
         { "cklb", test_cklb },
         { "clr", test_clr },
         { "cpy", test_cpy },
+        { "isreg", test_isreg },
         { "len", test_len },
         { "readnlbl", test_readnlbl },
         { "rslvref", test_rslvref },

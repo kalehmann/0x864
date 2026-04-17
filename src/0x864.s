@@ -16,17 +16,18 @@
 ;;; long with 0x864. If not, see <http://www.gnu.org/licenses/>.
 
 	global	assemble
-	global  as_snglinst
-	global  as_nop
-	global  as_retn
-	global  cklb
-	global  clr
-	global  cpy
-	global  len
-	global  readnlbl
-	global  rslvref
-	global  skp2lbinst
-	global  strsymtabntr
+	global	as_snglinst
+	global	as_nop
+	global	as_retn
+	global	cklb
+	global	clr
+	global	cpy
+	global	isreg
+	global	len
+	global	readnlbl
+	global	rslvref
+	global	skp2lbinst
+	global	strsymtabntr
 
 	section .text
 
@@ -132,7 +133,7 @@ as_snginst:
 	push rbp
 	mov rbp, rsp
 
-	mov rsi, [rdi] 		; Stores ctx->assembly in rsi
+	mov rsi, [rdi]		; Stores ctx->assembly in rsi
 	mov al, 0x6e		; Ascii n ('n')
 	cmp [rsi], al
 	je .n
@@ -273,6 +274,196 @@ cpy:
 	xchg rdi, rsi
 	mov rcx, rdx
 	rep movsb
+	retn
+
+;;; rdi: `char *assembly`
+isreg:
+	mov al, 0x61		; Ascii lowercase letter a
+	mov ah, 0x62		; Ascii lowercase letter b
+	mov cl, 0x63		; Ascii lowercase letter c
+	mov ch, 0x64		; Ascii lowercase letter d
+	mov dl, 0x65		; Ascii lowercase letter e
+	mov dh, 0x72		; Ascii lowercase letter r
+
+	cmp [rdi], al
+	je .a_b_c
+	cmp [rdi], ah
+	je .a_b_c
+	cmp [rdi], cl
+	je .a_b_c
+	cmp [rdi], ch
+	je .d
+	cmp [rdi], dl
+	je .e
+	cmp [rdi], dh
+	je .r
+	jmp .ret_false
+
+.a_b_c:
+	inc rdi
+	mov al, 0x68		; Ascii lowercase letter h
+	mov ah, 0x6c		; Ascii lowercase letter l
+	mov cl, 0x78		; Ascii lowercase letter x
+	cmp [rdi], al		; 'ah' / 'bh' / 'ch'
+	je .check_token_delim
+	cmp [rdi], ah		; 'al' / 'bl' / 'cl'
+	je .check_token_delim
+	cmp [rdi], cl		; 'ax' / 'bx' / 'cx'
+	je .check_token_delim
+	jmp .ret_false
+
+.d:
+	inc rdi
+	mov al, 0x68		; Ascii lowercase letter h
+	mov ah, 0x69		; Ascii lowercase letter i
+	mov cl, 0x6c		; Ascii lowercase letter l
+	mov ch, 0x78		; Ascii lowercase letter x
+	cmp [rdi], al		; 'dh'
+	je .check_token_delim
+	cmp [rdi], ah		; 'di'
+	je .check_token_delim
+	cmp [rdi], cl		; 'dl'
+	je .check_token_delim
+	cmp [rdi], ch		; 'dx'
+	je .check_token_delim
+	jmp .ret_false
+
+.e:
+	inc rdi
+	mov al, 0x61		; Ascii lowercase letter a
+	mov ah, 0x62		; Ascii lowercase letter b
+	mov cl, 0x63		; Ascii lowercase letter c
+	mov ch, 0x64		; Ascii lowercase letter d
+	mov dl, 0x73		; Ascii lowercase letter s
+	cmp [rdi], al		; 'ea'
+	je .ea_ec_ra_rc
+	cmp [rdi], ah		; 'eb'
+	je .eb_rb
+	cmp [rdi], cl		; 'ec'
+	je .ea_ec_ra_rc
+	cmp [rdi], ch		; 'ed'
+	je .ed_rd
+	cmp [rdi], dl		; 'es'
+	je .es_rs
+	jmp .ret_false
+
+.ea_ec_ra_rc:
+	inc rdi
+	mov al, 0x78		; Ascii lowercase letter x
+	cmp [rdi], al
+	je .check_token_delim	; 'eax' / 'ecx' / 'rax' / 'rcx'
+	jmp .ret_false
+
+.eb_rb:
+	inc rdi
+	mov al, 0x70		; Ascii lowercase letter p
+	mov ah, 0x78		; Ascii lowercase letter x
+	cmp [rdi], ch
+	je .check_token_delim	; 'ebp' / 'rbp'
+	cmp [rdi], dl
+	je .check_token_delim	; 'ebx' / 'rbx'
+	jmp .ret_false
+
+.ed_rd:
+	inc rdi
+	mov al, 0x69		; Ascii lowercase letter i
+	mov ah, 0x78		; Ascii lowercase letter x
+	cmp [rdi], al
+	je .check_token_delim	; 'edi' / 'rdi'
+	cmp [rdi], ah
+	je .check_token_delim	; 'edx' / 'rdx'
+	jmp .ret_false
+
+.es_rs:
+	inc rdi
+	mov al, 0x69		; Ascii lowercase letter i
+	mov ah, 0x70		; Ascii lowercase letter p
+	cmp [rdi], al
+	je .check_token_delim	; 'esi' / 'rsi'
+	cmp [rdi], ah
+	je .check_token_delim	; 'esp' / 'rsp'
+	jmp .ret_false
+
+.r:
+	inc rdi
+	mov al, 0x61		; Ascii lowercase letter a
+	mov ah, 0x62		; Ascii lowercase letter b
+	mov cl, 0x63		; Ascii lowercase letter c
+	mov ch, 0x64		; Ascii lowercase letter d
+	mov dl, 0x73		; Ascii lowercase letter s
+	cmp [rdi], al		; 'ra'
+	je .ea_ec_ra_rc
+	cmp [rdi], ah		; 'rb'
+	je .eb_rb
+	cmp [rdi], cl		; 'rc'
+	je .ea_ec_ra_rc
+	cmp [rdi], ch		; 'rd'
+	je .ed_rd
+	cmp [rdi], dl		; 'rs'
+	je .es_rs
+	mov al, 0x31		; Ascii one ('1')
+	mov ah, 0x38		; Ascii eight ('8')
+	mov cl, 0x39		; Ascii nine ('9')
+	cmp [rdi], al		; 'r1'
+	je .r1
+	cmp [rdi], ah		; 'r8'
+	je .check_token_delim
+	cmp [rdi], cl		; 'r8'
+	je .check_token_delim
+	jmp .ret_false
+
+.r1:
+	inc rdi
+	mov al, 0x30		; Ascii zero ('0')
+	mov ah, 0x31		; Ascii one ('1')
+	mov cl, 0x32		; Ascii two ('2')
+	mov ch, 0x33		; Ascii three ('3')
+	mov dl, 0x34		; Ascii four ('4')
+	mov dh, 0x35		; Ascii five ('5')
+	cmp [rdi], al		; 'r10'
+	je .check_token_delim
+	cmp [rdi], ah		; 'r11'
+	je .check_token_delim
+	cmp [rdi], cl		; 'r12'
+	je .check_token_delim
+	cmp [rdi], ch		; 'r13'
+	je .check_token_delim
+	cmp [rdi], dl		; 'r14'
+	je .check_token_delim
+	cmp [rdi], dh		; 'r15'
+	je .check_token_delim
+	jmp .ret_false
+
+.check_token_delim:
+	inc rdi
+	mov al, 0x9		; Ascii tabulator ('\t')
+	mov ah, 0xa		; Ascii newline ('\n')
+	mov cl, 0x20		; Ascii space
+	mov ch, 0x2c		; Ascii comma
+	mov dl, 0x3b		; Ascii semicolon
+	mov dh, 0		; Null terminator
+	cmp [rdi], al
+	je .ret_true
+	cmp [rdi], ah
+	je .ret_true
+	cmp [rdi], cl
+	je .ret_true
+	cmp [rdi], ch
+	je .ret_true
+	cmp [rdi], dl
+	je .ret_true
+	cmp [rdi], dh
+	je .ret_true
+	jmp .ret_false
+
+.ret_false:
+	mov rax, 0
+	jmp .end
+
+.ret_true:
+	mov rax, 1
+
+.end:
 	retn
 
 ;;; rdi: `char *str`

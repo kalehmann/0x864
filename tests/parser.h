@@ -26,6 +26,7 @@ void test_assemble(void);
 void test_as_nop(void);
 void test_as_retn(void);
 void test_cklb(void);
+void test_isreg(void);
 void test_readnlbl(void);
 void test_rslvref(void);
 void test_skp2lbinst(void);

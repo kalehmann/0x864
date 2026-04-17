@@ -116,6 +116,31 @@ void test_cklb(void)
         TEST_CHECK(cklb("test: \n") == 1);
 }
 
+void test_isreg(void)
+{
+        TEST_CHECK(isreg("al") == 1);
+        TEST_CHECK(isreg("ah") == 1);
+        TEST_CHECK(isreg("ax,") == 1);
+        TEST_CHECK(isreg("axb") == 0);
+        TEST_CHECK(isreg("bl ") == 1);
+        TEST_CHECK(isreg("ch\t") == 1);
+        TEST_CHECK(isreg("esi") == 1);
+        TEST_CHECK(isreg("esx") == 0);
+        TEST_CHECK(isreg("es, ") == 0);
+        TEST_CHECK(isreg("edx;Comment here\n") == 1);
+        TEST_CHECK(isreg("r8\t\t\n") == 1);
+        TEST_CHECK(isreg("r9 ") == 1);
+        TEST_CHECK(isreg("r10 ") == 1);
+        TEST_CHECK(isreg("r11 ") == 1);
+        TEST_CHECK(isreg("r12 ") == 1);
+        TEST_CHECK(isreg("r13 ") == 1);
+        TEST_CHECK(isreg("r14 ") == 1);
+        TEST_CHECK(isreg("r15 ") == 1);
+        TEST_CHECK(isreg("r16 ") == 0);
+        TEST_CHECK(isreg("r") == 0);
+        TEST_CHECK(isreg("r7") == 0);
+}
+
 void test_readnlbl(void)
 {
         int ret = 0;
