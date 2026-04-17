@@ -27,57 +27,41 @@
 
 	section .text
 
+;;; rdi: `struct AsmCtx *ctx`
 assemble:
 	push rbp
 	mov rbp, rsp
-	sub rsp, 40
-
-	;; Receive args per System V ABI
-	;; Pointer to assembly text is in rdi register
-	;; Pointer to binary output is in rsi register
-	;; Max binary output size is in rdx register
-	;; Pointer to produced binary output size is in rcx register
+	sub rsp, 8
 	mov [rbp - 8], rdi
-	mov [rbp - 16], rsi
-	mov [rbp - 24], rdx
-	mov [rbp - 32], rcx
-
-	mov [rcx], 0 		; Start with 0 bytes of binary output
 
 .parse_loop:
-	lea rdi, [rbp - 8]
+	mov rdi, [rbp - 8]	; Stores &ctx->assembly in rdi
 	call skp2lbinst
 
 .check_label:
-	mov rdi, [rbp - 8]
+	mov rdi, [rbp - 8]	; Stores &ctx->assembly in rdi
+	mov rdi, [rdi]		; Stores ctx->assembly in rdi
 	call cklb
 	cmp rax, 1
 	jne .parse_instruction
 
-	lea rdi, [rbp - 8]
-	mov rsi, 0
-	mov rdx, 0
+	mov rdi, [rbp - 8]	; char **assembly = &ctx->assembly
+	mov rsi, 0		; char *label = NULL
+	mov rdx, 0		; size_t n = 0
 	call readnlbl
-	lea rdi, [rbp - 8]
+	mov rdi, [rbp - 8]	; char **assembly = &ctx->assembly
 	call skp2lbinst
 	jmp .check_label
 
 .parse_instruction:
-	mov rdi, [rbp - 8]
+	mov rdi, [rbp - 8]	; Stores &ctx->assembly in rdi
+	mov rsi, [rdi]		; Stores ctx->assembly in rsi
 	mov cl, 0
-	cmp [rdi], cl
+	cmp [rsi], cl
 	je .end
 
-	lea rdi, [rbp - 8]
-	mov rsi, [rbp - 16]
-	mov rdx, [rbp - 24]
-	lea rcx, [rbp - 40]
+	mov rdi, [rbp - 8]	; Stores ctx in rsi
 	call as_snginst
-
-	mov rcx, [rbp - 40]
-	add [rbp - 16], rcx
-	mov rdi, [rbp - 32]
-	add [rdi], rcx
 
 	jmp .parse_loop
 
@@ -86,60 +70,58 @@ assemble:
 	pop rbp
 	retn
 
+;;; rdi: `struct AsmCtx *ctx`
 as_snginst:
 	push rbp
 	mov rbp, rsp
 
-	mov r8, rdi
-	mov rdi, [rdi]
+	mov rsi, [rdi] 		; Stores ctx->assembly in rsi
 	mov al, 0x6e		; Ascii n ('n')
-	cmp [rdi], al
+	cmp [rsi], al
 	je .n
 	mov al, 0x72		; Ascii r ('r')
-	cmp [rdi], al
+	cmp [rsi], al
 	je .r
 
 .n:
-	inc rdi
+	inc rsi
 	mov al, 0x6f		; Ascii o ('o')
-	cmp [rdi], al
+	cmp [rsi], al
 	je .no
 
 .no:
-	inc rdi
+	inc rsi
 	mov al, 0x70		; Ascii p ('p')
-	cmp [rdi], al
+	cmp [rsi], al
 	je .nop
 
 .nop:
-	inc rdi
-	mov [r8], rdi
-	mov rdi, r8
+	inc rsi
+	mov [rdi], rsi		; ctx->assembly = rsi
 	call as_nop
 	jmp .end
 
 .r:
-	inc rdi
+	inc rsi
 	mov al, 0x65		; Ascii e ('e')
-	cmp [rdi], al
+	cmp [rsi], al
 	je .re
 
 .re:
-	inc rdi
+	inc rsi
 	mov al, 0x74		; Ascii t ('t')
-	cmp [rdi], al
+	cmp [rsi], al
 	je .ret
 
 .ret:
-	inc rdi
+	inc rsi
 	mov al, 0x6e		; Ascii n ('n')
-	cmp [rdi], al
+	cmp [rsi], al
 	je .retn
 
 .retn:
-	inc rdi
-	mov [r8], rdi
-	mov rdi, r8
+	inc rsi
+	mov [rdi], rsi		; ctx->assembly = rsi
 	call as_retn
 	jmp .end
 
@@ -148,31 +130,40 @@ as_snginst:
 	pop rbp
 	retn
 
+;;; rdi: `struct AsmCtx *ctx`
 as_nop:
-	mov r8, 0
-	mov [rcx], r8
-	cmp rdx, 0
-	je .end
+	mov rsi, [rdi + 8]	; rsi = ctx->bintxt
+	mov r8, [rdi + 16]	; r8 = ctx->max_bintxt_size
+	mov r9, [rdi + 24]	; r9 = ctx->bintxt_size
+	add rsi, r9
+	inc r9			; Plan to write one byte
+	cmp r9, r8
+	ja .end
 	mov al, 0x90
-	mov [rsi], al
+	mov [rsi], al		; ctx->bintxt[ctx->bintxt_size + 1] = 0x90
 	mov r8, 1
-	mov [rcx], r8
+	add [rdi + 24], r8	; ctx->bintxt_size += 1
 
 .end:
 	retn
 
+;;; rdi: `struct AsmCtx *ctx`
 as_retn:
-	mov r8, 0
-	mov [rcx], r8
-	cmp rdx, 0
-	je .end
+	mov rsi, [rdi + 8]	; rsi = ctx->bintxt
+	mov r8, [rdi + 16]	; r8 = ctx->max_bintxt_size
+	mov r9, [rdi + 24]	; r9 = ctx->bintxt_size
+	add rsi, r9
+	inc r9			; Plan to write one byte
+	cmp r9, r8
+	ja .end
 	mov al, 0xc3
-	mov [rsi], al
+	mov [rsi], al		; ctx->bintxt[ctx->bintxt_size + 1] = 0xc3
 	mov r8, 1
-	mov [rcx], r8
+	add [rdi + 24], r8	; ctx->bintxt_size += 1
+
 .end:
 	retn
-	
+
 cklb:
 	push rbp
 	mov rbp, rsp
@@ -250,9 +241,9 @@ readnlbl:
 	retn
 
 ;;; rdi: `char *label`
-;;; rsi: `void *symtab`
+;;; rsi: `uint8_t (*symtab)[256]`
 ;;; rdx: `size_t n`
-;;; rcx: `unsigned int *offset`
+;;; rcx: `uint32_t *offset`
 rslvref:
 	push rbp
 	mov rbp, rsp
@@ -296,10 +287,10 @@ rslvref:
 	pop rbp
 	retn
 
-;;; rdi: `void *symtab`
+;;; rdi: `uint8_t (*symtab)[256]`
 ;;; rsi: `size_t n`
 ;;; rdx: `char *label`
-;;; rcx: `unsigned int offset`
+;;; rcx: `uint32_t offset`
 strsymtabntr:
 	push rbp
 	mov rbp, rsp

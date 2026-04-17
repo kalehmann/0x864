@@ -2,21 +2,28 @@
 #include <string.h>
 #include "0x864.h"
 
+void test_struct_AsmCtx_is_packed(void)
+{
+        // The assembly code makes assumptions about the offsets in the
+        // structure. Verify, that the struct is packed.
+        TEST_CHECK(sizeof(struct AsmCtx) == 64);
+}
+
 void test_assemble(void)
 {
-        unsigned char binary[16] = { 0 };
-        size_t bytes_written = 0xff;
-
         // Test that calling `assemble` with an output size of 0 writes nothing
         // to the output buffer.
-        assemble("\tnop\n", NULL, 0, &bytes_written);
-        TEST_CHECK(bytes_written == 0);
+        struct AsmCtx *ctx = make_asmctx("\tnop\n", 0, 0, 0);
+        TEST_ASSERT(ctx != NULL);
+        assemble(ctx);
+        TEST_CHECK(ctx->bintxt_size == 0);
+        free_asmctx(ctx);
 
         // Test that the `assemble` function accepts an empty input.
-        bytes_written = 0xff;
-        assemble("", binary, 16, &bytes_written);
-        TEST_CHECK(bytes_written == 0);
-        TEST_CHECK(binary[0] == 0);
+        ctx = make_asmctx("", 0, 0, 0);
+        TEST_ASSERT(ctx != NULL);
+        assemble(ctx);
+        TEST_CHECK(ctx->bintxt_size == 0);
 }
 
 void test_as_nop(void)
@@ -24,19 +31,23 @@ void test_as_nop(void)
         char const *assembly = "\n"
                 "        push rbp";
         char const *assembly2 = assembly;
-        unsigned char binary[16] = { 0 };
-        size_t bytes_written = 0xff;
 
         // Test that nothing happens if 0 bytes should be written into the output
-        as_nop(&assembly, NULL, 0, &bytes_written);
+        struct AsmCtx *ctx = make_asmctx(assembly, 0, 0, 0);
+        TEST_ASSERT(ctx != NULL);
+        as_nop(ctx);
         TEST_CHECK(assembly == assembly2);
-        TEST_CHECK(bytes_written == 0);
+        TEST_CHECK(ctx->bintxt_size == 0);
+        free_asmctx(ctx);
 
         // Test assembling `nop` to 0x90
-        as_nop(&assembly, binary, 16, &bytes_written);
+        ctx = make_asmctx(assembly, 16, 0, 0);
+        TEST_ASSERT(ctx != NULL);
+        as_nop(ctx);
         TEST_CHECK(assembly == assembly2);
-        TEST_CHECK(bytes_written == 1);
-        TEST_CHECK(binary[0] == 0x90);
+        TEST_CHECK(ctx->bintxt_size == 1);
+        TEST_CHECK(ctx->bintxt[0] == 0x90);
+        free_asmctx(ctx);
 }
 
 void test_as_retn(void)
@@ -44,19 +55,27 @@ void test_as_retn(void)
         char const *assembly = "\n"
                 "        push rbp";
         char const *assembly2 = assembly;
-        unsigned char binary[16] = { 0 };
-        size_t bytes_written = 0xff;
 
         // Test that nothing happens if 0 bytes should be written into the output
-        as_retn(&assembly, NULL, 0, &bytes_written);
+        struct AsmCtx *ctx = make_asmctx(assembly, 0, 0, 0);
+        TEST_ASSERT(ctx != NULL);
+        as_retn(ctx);
         TEST_CHECK(assembly == assembly2);
-        TEST_CHECK(bytes_written == 0);
+        TEST_CHECK(ctx->bintxt_size == 0);
+        free_asmctx(ctx);
 
         // Test assembling `retn` to 0xc3
-        as_retn(&assembly, binary, 16, &bytes_written);
+        ctx = make_asmctx(assembly, 16, 0, 0);
+        TEST_ASSERT(ctx != NULL);
+        as_retn(ctx);
         TEST_CHECK(assembly == assembly2);
-        TEST_CHECK(bytes_written == 1);
-        TEST_CHECK(binary[0] == 0xc3);
+        TEST_CHECK(ctx->bintxt_size == 1);
+        TEST_CHECK(ctx->bintxt[0] == 0xc3);
+        as_retn(ctx);
+        TEST_CHECK(ctx->bintxt_size == 2);
+        TEST_CHECK(ctx->bintxt[1] == 0xc3);
+        TEST_CHECK(ctx->bintxt[2] == 0);
+        free_asmctx(ctx);
 }
 
 
@@ -107,12 +126,12 @@ void test_readnlbl(void)
 
 void test_rslvref(void)
 {
-        unsigned int offset1 = 0xDEADC0DE;
-        unsigned int offset2 = 0xCAFEBABE;
-        unsigned int offset3 = 0x0DEFACED;
-        unsigned int offset = 0;
+        uint32_t offset1 = 0xDEADC0DE;
+        uint32_t offset2 = 0xCAFEBABE;
+        uint32_t offset3 = 0x0DEFACED;
+        uint32_t offset = 0;
 
-        void *symtab = calloc(1, 1024);
+        void *symtab = calloc(4, 256);
         TEST_ASSERT(symtab != NULL);
 
         strcpy(symtab, "label1");
@@ -155,9 +174,9 @@ void test_skp2lbinst(void)
 
 void test_strsymtabntr(void)
 {
-        unsigned int offset1 = 1234;
-        unsigned int offset2 = 0xCAFEBABE;
-        void *symtab = calloc(1, 512);
+        uint32_t offset1 = 1234;
+        uint32_t offset2 = 0xCAFEBABE;
+        void *symtab = calloc(2, 256);
 
         TEST_ASSERT(symtab != NULL);
 
@@ -187,6 +206,7 @@ void test_strsymtabntr(void)
 }
 
 TEST_LIST = {
+        { "struct_AsmCtx_is_packed", test_struct_AsmCtx_is_packed },
         { "assemble", test_assemble },
         { "as_nop", test_as_nop },
         { "as_retn", test_as_retn },

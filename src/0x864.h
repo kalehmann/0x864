@@ -17,9 +17,50 @@
  *  long with 0x864. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <stddef.h>
+#ifndef _0x864_H
+#define _0x864_H
 
-extern void assemble(char const *assembly, void *output, size_t n, size_t *o);
+#include <stddef.h>
+#include <stdint.h>
+
+struct AsmCtx {
+        char const *assembly;
+        uint8_t *bintxt;
+        size_t max_bintxt_size;
+        size_t bintxt_size;
+        uint8_t (*symtab)[256];
+        size_t max_symtab_entries;
+        uint8_t (*reftab)[256];
+        size_t max_reftab_entries;
+};
+
+/**
+ * Allocates a AsmCtx structure including it's members.
+ *
+ * @param assembly is a pointer to the string containing the assembly code
+ * @param max_bintxt_size is the size of the buffer allocated for binary output
+ * @param max_symbtab_entries is the number of entries for the allocated symbol
+ *                            table. This parameter should be larger than the
+ *                            number of labels in the assembly could.
+ * @param max_reftab_entries is the number of entries for the allocated reference
+ *                           table. This parameter should be largern than the
+ *                           number of jump and call instructions in the assembly
+ *                           code, that use labels as target.
+ *
+ * @returns a pointer to the newly allocated AsmCtx structure or NULL on failure
+ */
+struct AsmCtx *make_asmctx(char const *assembly, size_t max_bintxt_size,
+                           size_t max_symtab_entries, size_t max_reftab_entries);
+
+/**
+ * Cleans up a AsmCtx structure including all it's members allocated by
+ * `max_asmctx`.
+ *
+ * @param ctx is the pointer to the AsmCtx structure.
+ */
+void free_asmctx(struct AsmCtx *ctx);
+
+extern void assemble(struct AsmCtx *);
 
 /**
  * Assembles a single instruction.
@@ -32,7 +73,7 @@ extern void assemble(char const *assembly, void *output, size_t n, size_t *o);
  * @param o is a pointer to the location in which the actual number of bytes
  *          written into the output buffer will be stored.
  */
-extern void as_snglinst(char const **assembly, void *output, size_t n, size_t *o);
+extern void as_snglinst(struct AsmCtx *);
 
 /**
  * @param assembly is a pointer to the string with the assembly code.
@@ -44,7 +85,7 @@ extern void as_snglinst(char const **assembly, void *output, size_t n, size_t *o
  * @param o is a pointer to the location in which the actual number of bytes
  *          written into the output buffer will be stored.
  */
-extern void as_nop(char const **assembly, void *output, size_t n, size_t *o);
+extern void as_nop(struct AsmCtx *);
 
 /**
  * @param assembly is a pointer to the string with the assembly code.
@@ -56,7 +97,7 @@ extern void as_nop(char const **assembly, void *output, size_t n, size_t *o);
  * @param o is a pointer to the location in which the actual number of bytes
  *          written into the output buffer will be stored.
  */
-extern void as_retn(char const **assembly, void *output, size_t n, size_t *o);
+extern void as_retn(struct AsmCtx *);
 
 extern int cklb(char const *assembly);
 
@@ -87,7 +128,8 @@ extern int readnlbl(char const **assembly, char *label, size_t n);
  *
  * @returns 0 on success or 1 in case the label is not found in the symbol table
  */
-extern int rslvref(char *label, void *symtab, size_t n, unsigned int *offset);
+extern int rslvref(char *label, uint8_t (*symtab)[256], size_t n,
+                   uint32_t *offset);
 
 extern void skp2lbinst(char const **assembly);
 
@@ -101,4 +143,7 @@ extern void skp2lbinst(char const **assembly);
  *
  * @returns 0 on success or 1 in case there is no free entry in the symbol table
  */
-extern int strsymtabntr(void *symtab, size_t n, char *label, unsigned int offset);
+extern int strsymtabntr(uint8_t (*symtab)[256], size_t n, char *label,
+                        uint32_t offset);
+
+#endif /* _0x864_H */

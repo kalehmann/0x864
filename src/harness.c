@@ -17,6 +17,7 @@
  *  long with 0x864. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <assert.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -159,11 +160,10 @@ void usage(const char * const argv0)
 int main(int argc, char * const argv[])
 {
         struct args args = { 0 };
+        struct AsmCtx *ctx = NULL;
         char *assembly_buffer = NULL;
-        char binary_buffer[512] = { 0 };
         int exit_code = 0;
         size_t assembly_buffer_size = 0;
-        size_t binary_size = 0;
         banner();
 
         if (parse_args(argc, argv, &args) != 0)
@@ -185,18 +185,21 @@ int main(int argc, char * const argv[])
         }
         fread(assembly_buffer, assembly_buffer_size, 1, args.fin);
 
-        assemble(assembly_buffer, binary_buffer, 512, &binary_size);
+        ctx = make_asmctx(assembly_buffer, 512, 256, 1024);
+        assert(ctx != NULL);
 
-        fwrite(binary_buffer, binary_size, 1, args.fout);
-        printf("Written %zu bytes of binary output\n", binary_size);
+        assemble(ctx);
+
+        fwrite(ctx->bintxt, ctx->bintxt_size, 1, args.fout);
+        printf("Written %zu bytes of binary output\n", ctx->bintxt_size);
 
 cleanup:
         if (args.fin != NULL)
                 fclose(args.fin);
         if (args.fout != NULL)
                 fclose(args.fout);
-        if (assembly_buffer != NULL)
-                free(assembly_buffer);
+        if (ctx != NULL)
+                free_asmctx(ctx);
 
         return exit_code;
 }

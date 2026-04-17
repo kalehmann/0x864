@@ -4,17 +4,29 @@ CC_TEST_FLAGS = -Isrc -Ivendor/acutest/include
 NASM = nasm
 OBJCOPY = objcopy
 
+0x864_SOURCES = \
+	src/harness.c \
+	src/0x864.c.o \
+	src/0x864.h \
+	src/0x864.s.o
+
 DEMO_SOURCES = $(wildcard tests/demos/*.s)
 DEMO_0x864_TEXT_BINARIES = $(DEMO_SOURCES:.s=.0x864.text.bin)
 DEMO_NASM_OBJECTS = $(DEMO_SOURCES:.s=.nasm.o)
 DEMO_NASM_TEXT_BINARIES = $(DEMO_SOURCES:.s=.nasm.text.bin)
+
+TEST_SOURCES = \
+	tests/parser.c \
+	src/0x864.c.o \
+	src/0x864.h \
+	src/0x864.s.o
 
 all: src/0x864
 
 clean:
 	@rm -rf \
 		src/0x864 \
-		src/0x864.o \
+		src/*.o \
 		tests/test \
 		tests/demos/*.o \
 		tests/demos/*.bin
@@ -31,11 +43,14 @@ test-unit: tests/test
 	@printf '\e[1m>> Running Unit Test suite ...\e[0m\n'
 	@./tests/test
 
-src/0x864: src/harness.c src/0x864.o
-	@$(CC) $(CC_FLAGS) src/harness.c src/0x864.o -o src/0x864
+src/0x864: $(0x864_SOURCES)
+	@$(CC) $(CC_FLAGS) src/harness.c src/0x864.c.o src/0x864.s.o -o src/0x864
 
-src/0x864.o: src/0x864.s
-	@$(NASM) -felf64 src/0x864.s -o src/0x864.o
+src/%.c.o: src/%.c
+	@$(CC) $(CC_FLAGS) -c $< -o $@
+
+src/%.s.o: src/%.s
+	@$(NASM) -felf64 $< -o $@
 
 tests/demos/%.0x864.text.bin: tests/demos/%.s src/0x864
 	@./src/0x864 $< -o $@ > /dev/null
@@ -47,7 +62,7 @@ tests/demos/%.nasm.o: tests/demos/%.s
 tests/demos/%.nasm.text.bin: tests/demos/%.nasm.o
 	@$(OBJCOPY) -I elf64-little -j .text -O binary $< $@
 
-tests/test: src/0x864 tests/parser.c
-	@$(CC) $(CC_FLAGS) $(CC_TEST_FLAGS) tests/parser.c src/0x864.o -o tests/test
+tests/test: $(TEST_SOURCES)
+	@$(CC) $(CC_FLAGS) $(CC_TEST_FLAGS) tests/parser.c src/0x864.c.o src/0x864.s.o -o tests/test
 
 .PHONY: all clean test test-binary test-unit
