@@ -21,6 +21,8 @@
 	global  as_retn
 	global  cklb
 	global  clr
+	global  cpy
+	global  len
 	global  readnlbl
 	global  rslvref
 	global  skp2lbinst
@@ -35,6 +37,14 @@ assemble:
 	sub rsp, 8
 	mov [rbp - 8], rdi
 
+	;; Reserve and clear stack space for the current label and sub-label
+	;; char label[252] starting at [rbp - 260]
+	;; char sublabel[252] starting at [rbp - 512]
+	sub rsp, 504
+	lea rdi, [rbp - 512]
+	mov rsi, 504
+	call clr
+
 .parse_loop:
 	mov rdi, [rbp - 8]	; Stores &ctx->assembly in rdi
 	call skp2lbinst
@@ -46,10 +56,56 @@ assemble:
 	cmp rax, 1
 	jne .parse_instruction
 
+	;; Check if the label starts with a dot
+	mov rdi, [rbp - 8]	; Stores &ctx->assembly in rdi
+	mov rdi, [rdi]		; Stores ctx->assembly in rdi
+	mov al, 0x2e		; Ascii dot ('.')
+	cmp [rdi], al
+	jne .store_top_label
+
+.store_sub_label:
+	lea rdi, [rbp - 260]	; void *src = label
+	lea rsi, [rbp - 512]	; void *dst = sublabel
+	mov rdx, 252		; size_t n = 252
+	call cpy
+
+	lea rdi, [rbp - 260]	; void *str = label
+	call len
+
+	lea rsi, [rbp - 512]	; char *label = sublabel
+	add rsi, rax		; sublabel += len(label)
+	dec rsi
 	mov rdi, [rbp - 8]	; char **assembly = &ctx->assembly
-	mov rsi, 0		; char *label = NULL
-	mov rdx, 0		; size_t n = 0
+	mov rdx, 252		; size_t n = 252
 	call readnlbl
+
+	mov rdi, [rbp - 8]	; Stores ctx in rdi
+	mov rsi, [rdi + 40]	; size_t n = ctx->max_symtab_entries
+	lea rdx, [rbp - 512]	; char *label = sublabel
+	mov rcx, [rdi + 24]	; uint32_t offset = ctx->bintxt_size
+	mov rdi, [rdi + 32]	; uint8_t (*symtab)[256] = ctx->symtab
+	call strsymtabntr
+
+	jmp .check_label_end
+
+.store_top_label:
+	lea rdi, [rbp - 512]
+	mov rsi, 504
+	call clr
+
+	mov rdi, [rbp - 8]	; char **assembly = &ctx->assembly
+	lea rsi, [rbp - 260]	; char *label = label
+	mov rdx, 252		; size_t n = 252
+	call readnlbl
+
+	mov rdi, [rbp - 8]	; Stores ctx in rdi
+	mov rsi, [rdi + 40]	; size_t n = ctx->max_symtab_entries
+	lea rdx, [rbp - 260]	; char *label = label
+	mov rcx, [rdi + 24]	; uint32_t offset = ctx->bintxt_size
+	mov rdi, [rdi + 32]	; uint8_t (*symtab)[256] = ctx->symtab
+	call strsymtabntr
+
+.check_label_end:
 	mov rdi, [rbp - 8]	; char **assembly = &ctx->assembly
 	call skp2lbinst
 	jmp .check_label
@@ -165,20 +221,6 @@ as_retn:
 .end:
 	retn
 
-;;; rdi: `void *buf`
-;;; rsi: `size_t n`
-clr:
-	mov rcx, rsi
-	cmp rcx, 0
-	je .end
-	mov al, 0
-.loop:
-	mov [rdi], al
-	inc rdi
-	loop .loop
-.end:
-	retn
-
 cklb:
 	push rbp
 	mov rbp, rsp
@@ -208,6 +250,45 @@ cklb:
 .end:
 	pop rdi
 	pop rbp
+	retn
+
+;;; rdi: `void *buf`
+;;; rsi: `size_t n`
+clr:
+	mov rcx, rsi
+	cmp rcx, 0
+	je .end
+	mov al, 0
+.loop:
+	mov [rdi], al
+	inc rdi
+	loop .loop
+.end:
+	retn
+
+;;; rdi: `void *src`
+;;; rsi: `void *dst`
+;;; rdx: `size_t n`
+cpy:
+	xchg rdi, rsi
+	mov rcx, rdx
+	rep movsb
+	retn
+
+;;; rdi: `char *str`
+len:
+	mov rax, 0
+	mov cl, 0
+.loop:
+	cmp [rdi], cl
+	je .end
+	inc rax
+	inc rdi
+	jmp .loop
+.end:
+	inc rax
+	inc rdi
+
 	retn
 
 readnlbl:
@@ -321,7 +402,7 @@ strsymtabntr:
 	jmp .find_free_entry_loop
 
 .store_offset:
-	mov [rdi + 251], ecx
+	mov [rdi + 252], ecx
 
 .store_label:
 	cmp [rdx], al

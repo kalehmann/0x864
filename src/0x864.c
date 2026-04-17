@@ -38,7 +38,8 @@ struct AsmCtx *make_asmctx(char const *assembly, size_t max_bintxt_size,
         }
         ctx->max_bintxt_size = max_bintxt_size;
         if (max_symtab_entries > 0) {
-                ctx->symtab = calloc(max_symtab_entries, 256);
+                ctx->symtab = calloc(max_symtab_entries,
+                                     (sizeof(struct SymTabNtr)));
                 if (ctx->symtab == NULL) {
                         free(ctx->bintxt);
                         free(ctx);
@@ -48,7 +49,8 @@ struct AsmCtx *make_asmctx(char const *assembly, size_t max_bintxt_size,
         }
         ctx->max_symtab_entries = max_symtab_entries;
         if (max_reftab_entries > 0) {
-                ctx->reftab = calloc(max_reftab_entries, 256);
+                ctx->reftab = calloc(max_reftab_entries,
+                                     sizeof(struct SymTabNtr));
                 if (ctx->reftab == NULL) {
                         free(ctx->bintxt);
                         free(ctx->symtab);

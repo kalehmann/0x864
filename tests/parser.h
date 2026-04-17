@@ -21,6 +21,7 @@
 #define PARSER_H
 
 void test_struct_AsmCtx_is_packed(void);
+void test_struct_SymTabNtr_is_packed(void);
 void test_assemble(void);
 void test_as_nop(void);
 void test_as_retn(void);
@@ -29,5 +30,6 @@ void test_readnlbl(void);
 void test_rslvref(void);
 void test_skp2lbinst(void);
 void test_strsymtabntr(void);
+void test_symbol_table_generation(void);
 
 #endif /* PARSER_H */

@@ -29,6 +29,13 @@ void test_struct_AsmCtx_is_packed(void)
         TEST_CHECK(sizeof(struct AsmCtx) == 64);
 }
 
+void test_struct_SymTabNtr_is_packed(void)
+{
+        // The assembly code makes assumptions about the offsets in the
+        // structure. Verify, that the struct is packed.
+        TEST_CHECK(sizeof(struct SymTabNtr) == 256);
+}
+
 void test_assemble(void)
 {
         // Test that calling `assemble` with an output size of 0 writes nothing
@@ -194,33 +201,59 @@ void test_skp2lbinst(void)
 
 void test_strsymtabntr(void)
 {
-        uint32_t offset1 = 1234;
-        uint32_t offset2 = 0xCAFEBABE;
-        void *symtab = calloc(2, 256);
+        struct SymTabNtr *symtab = calloc(2, sizeof(struct SymTabNtr));
 
         TEST_ASSERT(symtab != NULL);
 
         // Test storing entry in empty symbol table
-        TEST_CHECK(strsymtabntr(symtab, 2, "test", offset1) == 0);
-        TEST_CHECK(strncmp(symtab, "test", 5) == 0);
-        TEST_CHECK(memcmp(symtab + 251, &offset1, 4) == 0);
-        TEST_CHECK(memcmp(symtab + 256, "\0\0\0\0\0", 5) == 0);
-        TEST_CHECK(memcmp(symtab + 507, "\0\0\0\0", 4) == 0);
+        TEST_CHECK(strsymtabntr((void *)symtab, 2, "test", 1234) == 0);
+        TEST_CHECK(strncmp(symtab[0].label, "test", 5) == 0);
+        TEST_CHECK(symtab[0].offset == 1234);
+        TEST_CHECK(memcmp(symtab[1].label, "\0\0\0\0\0", 5) == 0);
+        TEST_CHECK(memcmp(&symtab[1].offset, "\0\0\0\0", 4) == 0);
 
         // Test storing second entry in symbol table
-        TEST_CHECK(strsymtabntr(symtab, 2, "label2", offset2) == 0);
-        TEST_CHECK(strncmp(symtab, "test", 5) == 0);
-        TEST_CHECK(memcmp(symtab + 251, &offset1, 4) == 0);
-        TEST_CHECK(memcmp(symtab + 256, "label2", 7) == 0);
-        TEST_CHECK(memcmp(symtab + 507, &offset2, 4) == 0);
+        TEST_CHECK(strsymtabntr((void *)symtab, 2, "label2", 0xCAFEBABE) == 0);
+        TEST_CHECK(strncmp(symtab[0].label, "test", 5) == 0);
+        TEST_CHECK(symtab[0].offset == 1234);
+        TEST_CHECK(strncmp(symtab[1].label, "label2", 7) == 0);
+        TEST_CHECK(symtab[1].offset == 0xCAFEBABE);
 
         // Storing a third entry in a symbol table of size two returns an error
         // and leaves the first two entries unchanged.
-        TEST_CHECK(strsymtabntr(symtab, 2, "foobar", 0xDEADC0DE) == 1);
-        TEST_CHECK(strncmp(symtab, "test", 5) == 0);
-        TEST_CHECK(memcmp(symtab + 251, &offset1, 4) == 0);
-        TEST_CHECK(memcmp(symtab + 256, "label2", 7) == 0);
-        TEST_CHECK(memcmp(symtab + 507, &offset2, 4) == 0);
+        TEST_CHECK(strsymtabntr((void *)symtab, 2, "foobar", 0xDEADC0DE) == 1);
+        TEST_CHECK(strncmp(symtab[0].label, "test", 5) == 0);
+        TEST_CHECK(symtab[0].offset == 1234);
+        TEST_CHECK(strncmp(symtab[1].label, "label2", 7) == 0);
+        TEST_CHECK(symtab[1].offset == 0xCAFEBABE);
 
         free(symtab);
+}
+
+void test_symbol_table_generation(void)
+{
+        struct AsmCtx *ctx = make_asmctx(
+                "label1:\n"
+                "\tnop\n"
+                ".sublabel1:\n"
+                "\tnop\n"
+                ".end:\n"
+                "\tnop\n"
+                "label3:\n"
+                "\tnop\n",
+                8, 4, 0);
+        TEST_ASSERT(ctx != NULL);
+        assemble(ctx);
+        TEST_CHECK(ctx->bintxt_size == 4);
+
+        TEST_CHECK(strncmp(ctx->symtab[0].label, "label1", 7) == 0);
+        TEST_CHECK(ctx->symtab[0].offset == 0);
+        TEST_CHECK(strncmp(ctx->symtab[1].label, "label1.sublabel1", 16) == 0);
+        TEST_CHECK(ctx->symtab[1].offset == 1);
+        TEST_CHECK(strncmp(ctx->symtab[2].label, "label1.end", 16) == 0);
+        TEST_CHECK(ctx->symtab[2].offset == 2);
+        TEST_CHECK(strncmp(ctx->symtab[3].label, "label3", 7) == 0);
+        TEST_CHECK(ctx->symtab[3].offset == 3);
+
+        free_asmctx(ctx);
 }

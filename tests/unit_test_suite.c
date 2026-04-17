@@ -24,14 +24,18 @@
 
 TEST_LIST = {
         { "struct_AsmCtx_is_packed", test_struct_AsmCtx_is_packed },
+        { "struct_SymTabNtr_is_packed", test_struct_SymTabNtr_is_packed },
         { "assemble", test_assemble },
         { "as_nop", test_as_nop },
         { "as_retn", test_as_retn },
         { "cklb", test_cklb },
         { "clr", test_clr },
+        { "cpy", test_cpy },
+        { "len", test_len },
         { "readnlbl", test_readnlbl },
         { "rslvref", test_rslvref },
         { "skp2lbinst", test_skp2lbinst },
         { "strsymtabntr", test_strsymtabntr },
+        { "symbol_table_generation", test_symbol_table_generation },
         { NULL, NULL }
 };

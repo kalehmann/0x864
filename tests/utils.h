@@ -21,5 +21,7 @@
 #define UTILS_H
 
 void test_clr(void);
+void test_cpy(void);
+void test_len(void);
 
 #endif /* UTILS_H */

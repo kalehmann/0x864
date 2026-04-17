@@ -23,14 +23,19 @@
 #include <stddef.h>
 #include <stdint.h>
 
+struct SymTabNtr {
+        char label[252];
+        uint32_t offset;
+};
+
 struct AsmCtx {
         char const *assembly;
         uint8_t *bintxt;
         size_t max_bintxt_size;
         size_t bintxt_size;
-        uint8_t (*symtab)[256];
+        struct SymTabNtr *symtab;
         size_t max_symtab_entries;
-        uint8_t (*reftab)[256];
+        struct SymTabNtr *reftab;
         size_t max_reftab_entries;
 };
 
@@ -108,6 +113,23 @@ extern int cklb(char const *assembly);
  * @param n is size of the buffer in bytes
  */
 extern void clr(void *buf, size_t n);
+
+/**
+ * Copies bytes from one buffer into another.
+ *
+ * @param src is a pointer to the source buffer
+ * @param dst is a pointer to the destination buffer
+ * @param n is the number of bytes to copy.
+ */
+extern void cpy(void *src, void *dest, size_t n);
+
+/**
+ * Returns the length of a string (including the null terminator).
+ *
+ * @param str is the string
+ * @returns the length of the string
+ */
+extern size_t len(char *str);
 
 /**
  * Parses next token as a label and writes it to the `label` parameter.
