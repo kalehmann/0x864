@@ -20,6 +20,7 @@
 	global  as_nop
 	global  as_retn
 	global  cklb
+	global  clr
 	global  readnlbl
 	global  rslvref
 	global  skp2lbinst
@@ -161,6 +162,20 @@ as_retn:
 	mov r8, 1
 	add [rdi + 24], r8	; ctx->bintxt_size += 1
 
+.end:
+	retn
+
+;;; rdi: `void *buf`
+;;; rsi: `size_t n`
+clr:
+	mov rcx, rsi
+	cmp rcx, 0
+	je .end
+	mov al, 0
+.loop:
+	mov [rdi], al
+	inc rdi
+	loop .loop
 .end:
 	retn
 

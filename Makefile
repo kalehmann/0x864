@@ -1,6 +1,6 @@
 CC = gcc
 CC_FLAGS = -Wall -g
-CC_TEST_FLAGS = -Isrc -Ivendor/acutest/include
+CC_TEST_FLAGS = -Isrc -Ivendor/acutest/include -Itests
 NASM = nasm
 OBJCOPY = objcopy
 
@@ -15,8 +15,12 @@ DEMO_0x864_TEXT_BINARIES = $(DEMO_SOURCES:.s=.0x864.text.bin)
 DEMO_NASM_OBJECTS = $(DEMO_SOURCES:.s=.nasm.o)
 DEMO_NASM_TEXT_BINARIES = $(DEMO_SOURCES:.s=.nasm.text.bin)
 
-TEST_SOURCES = \
-	tests/parser.c \
+UNIT_TEST_SOURCES = \
+	tests/unit_test_suite.c \
+	tests/parser.h \
+	tests/parser.o \
+	tests/utils.h \
+	tests/utils.o \
 	src/0x864.c.o \
 	src/0x864.h \
 	src/0x864.s.o
@@ -27,7 +31,8 @@ clean:
 	@rm -rf \
 		src/0x864 \
 		src/*.o \
-		tests/test \
+		tests/*.o \
+		tests/unit_test_suite \
 		tests/demos/*.o \
 		tests/demos/*.bin
 
@@ -39,9 +44,9 @@ test-binary: $(DEMO_0x864_TEXT_BINARIES) \
 	@printf '\e[1m>> Running Binary Test suite ...\e[0m\n'
 	@./tests/demos/compare_binaries.sh $(DEMO_SOURCES)
 
-test-unit: tests/test
+test-unit: tests/unit_test_suite
 	@printf '\e[1m>> Running Unit Test suite ...\e[0m\n'
-	@./tests/test
+	@./tests/unit_test_suite
 
 src/0x864: $(0x864_SOURCES)
 	@$(CC) $(CC_FLAGS) src/harness.c src/0x864.c.o src/0x864.s.o -o src/0x864
@@ -62,7 +67,18 @@ tests/demos/%.nasm.o: tests/demos/%.s
 tests/demos/%.nasm.text.bin: tests/demos/%.nasm.o
 	@$(OBJCOPY) -I elf64-little -j .text -O binary $< $@
 
-tests/test: $(TEST_SOURCES)
-	@$(CC) $(CC_FLAGS) $(CC_TEST_FLAGS) tests/parser.c src/0x864.c.o src/0x864.s.o -o tests/test
+tests/%.o: tests/%.c
+	@$(CC) $(CC_FLAGS) $(CC_TEST_FLAGS) -DTEST_NO_MAIN -c $< -o $@
+
+tests/unit_test_suite: $(UNIT_TEST_SOURCES)
+	@$(CC) \
+		$(CC_FLAGS) \
+		$(CC_TEST_FLAGS) \
+		tests/unit_test_suite.c \
+		src/0x864.c.o \
+		src/0x864.s.o \
+		tests/parser.o \
+		tests/utils.o \
+		-o $@
 
 .PHONY: all clean test test-binary test-unit

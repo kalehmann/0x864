@@ -102,6 +102,14 @@ extern void as_retn(struct AsmCtx *);
 extern int cklb(char const *assembly);
 
 /**
+ * Fills a buffer with zeros.
+ *
+ * @param buf is a pointer to the buffer
+ * @param n is size of the buffer in bytes
+ */
+extern void clr(void *buf, size_t n);
+
+/**
  * Parses next token as a label and writes it to the `label` parameter.
  * Writes at most `n` bytes (including the null-terminator after the label).
  *

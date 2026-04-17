@@ -1,3 +1,4 @@
-test
+unit_test_suite
+*.o
 demos/*.bin
 demos/*.o
