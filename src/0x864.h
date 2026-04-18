@@ -24,19 +24,19 @@
 #include <stdint.h>
 
 struct SymTabNtr {
-        char label[252];
-        uint32_t offset;
+	char label[252];
+	uint32_t offset;
 };
 
 struct AsmCtx {
-        char const *assembly;
-        uint8_t *bintxt;
-        size_t max_bintxt_size;
-        size_t bintxt_size;
-        struct SymTabNtr *symtab;
-        size_t max_symtab_entries;
-        struct SymTabNtr *reftab;
-        size_t max_reftab_entries;
+	char const *assembly;
+	uint8_t *bintxt;
+	size_t max_bintxt_size;
+	size_t bintxt_size;
+	struct SymTabNtr *symtab;
+	size_t max_symtab_entries;
+	struct SymTabNtr *reftab;
+	size_t max_reftab_entries;
 };
 
 /**
@@ -45,17 +45,17 @@ struct AsmCtx {
  * @param assembly is a pointer to the string containing the assembly code
  * @param max_bintxt_size is the size of the buffer allocated for binary output
  * @param max_symbtab_entries is the number of entries for the allocated symbol
- *                            table. This parameter should be larger than the
- *                            number of labels in the assembly could.
+ *			      table. This parameter should be larger than the
+ *			      number of labels in the assembly could.
  * @param max_reftab_entries is the number of entries for the allocated reference
- *                           table. This parameter should be largern than the
- *                           number of jump and call instructions in the assembly
- *                           code, that use labels as target.
+ *			     table. This parameter should be largern than the
+ *			     number of jump and call instructions in the assembly
+ *			     code, that use labels as target.
  *
  * @returns a pointer to the newly allocated AsmCtx structure or NULL on failure
  */
 struct AsmCtx *make_asmctx(char const *assembly, size_t max_bintxt_size,
-                           size_t max_symtab_entries, size_t max_reftab_entries);
+			   size_t max_symtab_entries, size_t max_reftab_entries);
 
 /**
  * Cleans up a AsmCtx structure including all it's members allocated by
@@ -70,37 +70,37 @@ extern void assemble(struct AsmCtx *);
 /**
  * Assembles a single instruction.
  * @param assembly is a pointer to the string with the assembly code.
- *                 This pointer gets advanced to the character following the
- *                 last operand of the instruction.
+ *		   This pointer gets advanced to the character following the
+ *		   last operand of the instruction.
  * @param output is a pointer to the buffer where the binary output will be
- *               written.
+ *		 written.
  * @param n is the maximum number of bytes to write into the output buffer.
  * @param o is a pointer to the location in which the actual number of bytes
- *          written into the output buffer will be stored.
+ *	    written into the output buffer will be stored.
  */
 extern void as_snglinst(struct AsmCtx *);
 
 /**
  * @param assembly is a pointer to the string with the assembly code.
- *                 As the `nop` instruction takes no operands, this pointer will
- *                 not be advanced.
+ *		   As the `nop` instruction takes no operands, this pointer will
+ *		   not be advanced.
  * @param output is a pointer to the buffer where the binary output will be
- *               written.
+ *		 written.
  * @param n is the maximum number of bytes to write into the output buffer.
  * @param o is a pointer to the location in which the actual number of bytes
- *          written into the output buffer will be stored.
+ *	    written into the output buffer will be stored.
  */
 extern void as_nop(struct AsmCtx *);
 
 /**
  * @param assembly is a pointer to the string with the assembly code.
- *                 As the `retn` instruction takes no operands, this pointer will
- *                 not be advanced.
+ *		   As the `retn` instruction takes no operands, this pointer will
+ *		   not be advanced.
  * @param output is a pointer to the buffer where the binary output will be
- *               written.
+ *		 written.
  * @param n is the maximum number of bytes to write into the output buffer.
  * @param o is a pointer to the location in which the actual number of bytes
- *          written into the output buffer will be stored.
+ *	    written into the output buffer will be stored.
  */
 extern void as_retn(struct AsmCtx *);
 
@@ -124,13 +124,24 @@ extern void clr(void *buf, size_t n);
 extern void cpy(void *src, void *dest, size_t n);
 
 /**
- * Checks if the next token is an integer
+ * Checks if the next token is an decimal or hexadecimal integer
  *
  * @param assembly is a pointer to the assembly string.
  *
  * @returns whether the next token is an integer
  */
 extern int isint(char *assembly);
+
+/**
+ * Checks if the next character is a delimiter for operants.
+ *
+ * @param assembly is a pointer to the assembly string.
+ *
+ * @returns whether the next token is a null terminator, tabulator, newline,
+ *	    space, comma or semicolon
+ */
+extern int isopdlm(char *assembly);
+
 
 /**
  * Checks if the next token is a register
@@ -154,14 +165,14 @@ extern size_t len(char *str);
  * Writes at most `n` bytes (including the null-terminator after the label).
  *
  * @param assembly is a pointer to the string with the assembly code.
- *                 This pointer gets advanced to the character following the
- *                 colon after the label.
+ *		   This pointer gets advanced to the character following the
+ *		   colon after the label.
  * @param label is a pointer to the string where the label will be written into.
- *              Should be at least `n` bytes in size.
+ *		Should be at least `n` bytes in size.
  * @param n is the maximum number of bytes to write into `label`.
  *
  * @returns the number of bytes written or -1 if the label does not fit into `n`
- *          bytes.
+ *	    bytes.
  */
 extern int readnlbl(char const **assembly, char *label, size_t n);
 
@@ -172,12 +183,12 @@ extern int readnlbl(char const **assembly, char *label, size_t n);
  * @param symtab is a pointer to the symbol table
  * @param n is the number of entries in the symbol table
  * @param offset is a pointer to the location where the offset of the label will
- *               be stored on success.
+ *		 be stored on success.
  *
  * @returns 0 on success or 1 in case the label is not found in the symbol table
  */
 extern int rslvref(char *label, uint8_t (*symtab)[256], size_t n,
-                   uint32_t *offset);
+		   uint32_t *offset);
 
 extern void skp2lbinst(char const **assembly);
 
@@ -192,6 +203,6 @@ extern void skp2lbinst(char const **assembly);
  * @returns 0 on success or 1 in case there is no free entry in the symbol table
  */
 extern int strsymtabntr(uint8_t (*symtab)[256], size_t n, char *label,
-                        uint32_t offset);
+			uint32_t offset);
 
 #endif /* _0x864_H */

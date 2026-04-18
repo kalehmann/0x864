@@ -22,6 +22,8 @@
 	global	cklb
 	global	clr
 	global	cpy
+	global	isint
+	global	isopdlm
 	global	isreg
 	global	len
 	global	readnlbl
@@ -277,6 +279,95 @@ cpy:
 	retn
 
 ;;; rdi: `char *assembly`
+isint:
+	push rdi
+	call isopdlm
+	pop rdi
+	cmp rax, 1
+	je .ret_false
+
+	mov al, 0x30		; Ascii zero ('0')
+	mov ah, 0x78		; Ascii lowercase letter x
+	cmp [rdi], al
+	jne .check_decimal
+	cmp [rdi + 1], ah
+	jne .check_decimal
+
+.check_hexdecimal:
+	add rdi, 2
+	push rdi
+	call isopdlm
+	pop rdi
+	cmp rax, 1
+	je .ret_false
+
+	mov al, 0x30		; Ascii zero ('0')
+	mov ah, 0x39		; Ascii nine ('9')
+	mov cl, 0x61		; Ascii lowercase letter a
+	mov ch, 0x66		; Ascii lowercase letter f
+.check_hex_loop:
+	cmp [rdi], al
+	jb .check_token_delim
+	cmp [rdi], ch
+	ja .check_token_delim
+	cmp [rdi], ah
+	jbe .check_hex_next
+	cmp [rdi], cl
+	jae .check_hex_next
+	jmp .check_token_delim
+.check_hex_next:
+	inc rdi
+	jmp .check_hex_loop
+
+.check_decimal:
+	mov al, 0x30		; Ascii zero ('0')
+	mov ah, 0x39		; Ascii nine ('9')
+	cmp [rdi], al
+	jb .check_token_delim
+	cmp [rdi], ah
+	ja .check_token_delim
+	inc rdi
+	jmp .check_decimal
+
+.ret_false:
+	mov rax, 0
+	retn
+
+.check_token_delim:
+	call isopdlm
+	retn
+
+;;; rdi: `char *assembly`
+isopdlm:
+	mov al, 0x9		; Ascii tabulator ('\t')
+	mov ah, 0xa		; Ascii newline ('\n')
+	mov cl, 0x20		; Ascii space
+	mov ch, 0x2c		; Ascii comma
+	mov dl, 0x3b		; Ascii semicolon
+	mov dh, 0		; Null terminator
+	cmp [rdi], al
+	je .ret_true
+	cmp [rdi], ah
+	je .ret_true
+	cmp [rdi], cl
+	je .ret_true
+	cmp [rdi], ch
+	je .ret_true
+	cmp [rdi], dl
+	je .ret_true
+	cmp [rdi], dh
+	je .ret_true
+
+.ret_false:
+	mov rax, 0
+	jmp .end
+.ret_true:
+	mov rax, 1
+
+.end:
+	retn
+
+;;; rdi: `char *assembly`
 isreg:
 	mov al, 0x61		; Ascii lowercase letter a
 	mov ah, 0x62		; Ascii lowercase letter b
@@ -436,34 +527,11 @@ isreg:
 
 .check_token_delim:
 	inc rdi
-	mov al, 0x9		; Ascii tabulator ('\t')
-	mov ah, 0xa		; Ascii newline ('\n')
-	mov cl, 0x20		; Ascii space
-	mov ch, 0x2c		; Ascii comma
-	mov dl, 0x3b		; Ascii semicolon
-	mov dh, 0		; Null terminator
-	cmp [rdi], al
-	je .ret_true
-	cmp [rdi], ah
-	je .ret_true
-	cmp [rdi], cl
-	je .ret_true
-	cmp [rdi], ch
-	je .ret_true
-	cmp [rdi], dl
-	je .ret_true
-	cmp [rdi], dh
-	je .ret_true
-	jmp .ret_false
+	call isopdlm
+	retn
 
 .ret_false:
 	mov rax, 0
-	jmp .end
-
-.ret_true:
-	mov rax, 1
-
-.end:
 	retn
 
 ;;; rdi: `char *str`
