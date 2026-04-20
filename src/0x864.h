@@ -23,8 +23,13 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#define FLAG_RELATIVE 0x01
+
 struct SymTabNtr {
-	char label[252];
+	char label[240];
+        uint32_t __reserved;
+	uint32_t flags;
+	uint32_t rel_target;
 	uint32_t offset;
 };
 
@@ -187,8 +192,8 @@ extern int readnlbl(char const **assembly, char *label, size_t n);
  *
  * @returns 0 on success or 1 in case the label is not found in the symbol table
  */
-extern int rslvref(char *label, uint8_t (*symtab)[256], size_t n,
-		   uint32_t *offset);
+extern int rslvref(char *label, struct SymTabNtr *symtab, size_t n,
+		   uint32_t *offset, uint32_t *flags, uint32_t *rel_target);
 
 extern void skp2lbinst(char const **assembly);
 
@@ -199,10 +204,15 @@ extern void skp2lbinst(char const **assembly);
  * @param n is the number of entries in the symbol table
  * @param label is the label of the new entry to insert
  * @param offset is the offset to store for the label
+ * @param flags is only relevant when the symbol table is used to resolve
+ *              references and holds additional information how the references
+ *              shall be resolved. Available flags:
+ *              - 0x01 RESOLVE_RELATIVE
+ * @param rel_target is used when the RESOLVE_RELATIVE bit is set in the flags
  *
  * @returns 0 on success or 1 in case there is no free entry in the symbol table
  */
-extern int strsymtabntr(uint8_t (*symtab)[256], size_t n, char *label,
-			uint32_t offset);
+extern int strsymtabntr(struct SymTabNtr *symtab, size_t n, char *label,
+			uint32_t offset, uint32_t flags, uint32_t rel_target);
 
 #endif /* _0x864_H */

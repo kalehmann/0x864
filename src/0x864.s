@@ -41,11 +41,11 @@ assemble:
 	mov [rbp - 8], rdi
 
 	;; Reserve and clear stack space for the current label and sub-label
-	;; char label[252] starting at [rbp - 260]
-	;; char sublabel[252] starting at [rbp - 512]
-	sub rsp, 504
-	lea rdi, [rbp - 512]
-	mov rsi, 504
+	;; char label[240] starting at [rbp - 248]
+	;; char sublabel[240] starting at [rbp - 488]
+	sub rsp, 480
+	lea rdi, [rbp - 488]
+	mov rsi, 480
 	call clr
 
 .parse_loop:
@@ -67,43 +67,45 @@ assemble:
 	jne .store_top_label
 
 .store_sub_label:
-	lea rdi, [rbp - 260]	; void *src = label
-	lea rsi, [rbp - 512]	; void *dst = sublabel
-	mov rdx, 252		; size_t n = 252
+	lea rdi, [rbp - 248]	; void *src = label
+	lea rsi, [rbp - 488]	; void *dst = sublabel
+	mov rdx, 240		; size_t n = 240
 	call cpy
 
-	lea rdi, [rbp - 260]	; void *str = label
+	lea rdi, [rbp - 248]	; void *str = label
 	call len
 
-	lea rsi, [rbp - 512]	; char *label = sublabel
+	lea rsi, [rbp - 488]	; char *label = sublabel
 	add rsi, rax		; sublabel += len(label)
 	dec rsi
 	mov rdi, [rbp - 8]	; char **assembly = &ctx->assembly
-	mov rdx, 252		; size_t n = 252
+	mov rdx, 240		; size_t n = 240
 	call readnlbl
 
 	mov rdi, [rbp - 8]	; Stores ctx in rdi
 	mov rsi, [rdi + 40]	; size_t n = ctx->max_symtab_entries
-	lea rdx, [rbp - 512]	; char *label = sublabel
+	lea rdx, [rbp - 488]	; char *label = sublabel
 	mov rcx, [rdi + 24]	; uint32_t offset = ctx->bintxt_size
-	mov rdi, [rdi + 32]	; uint8_t (*symtab)[256] = ctx->symtab
+	mov rdi, [rdi + 32]	; struct SymTabNtr *symtab = ctx->symtab
+	mov r8, 0		; uint32_t flags = 0
+	mov r9, 0		; uint32_t rel_target = 0
 	call strsymtabntr
 
 	jmp .check_label_end
 
 .store_top_label:
-	lea rdi, [rbp - 512]
-	mov rsi, 504
+	lea rdi, [rbp - 488]
+	mov rsi, 480
 	call clr
 
 	mov rdi, [rbp - 8]	; char **assembly = &ctx->assembly
-	lea rsi, [rbp - 260]	; char *label = label
-	mov rdx, 252		; size_t n = 252
+	lea rsi, [rbp - 248]	; char *label = label
+	mov rdx, 240		; size_t n = 240
 	call readnlbl
 
 	mov rdi, [rbp - 8]	; Stores ctx in rdi
 	mov rsi, [rdi + 40]	; size_t n = ctx->max_symtab_entries
-	lea rdx, [rbp - 260]	; char *label = label
+	lea rdx, [rbp - 248]	; char *label = label
 	mov rcx, [rdi + 24]	; uint32_t offset = ctx->bintxt_size
 	mov rdi, [rdi + 32]	; uint8_t (*symtab)[256] = ctx->symtab
 	call strsymtabntr
@@ -599,13 +601,15 @@ readnlbl:
 ;;; rsi: `uint8_t (*symtab)[256]`
 ;;; rdx: `size_t n`
 ;;; rcx: `uint32_t *offset`
+;;; r8: `uint32_t *flags`
+;;; r9: `uint32_t *rel_target`
 rslvref:
 	push rbp
 	mov rbp, rsp
 
 	mov al, 0
-	mov r9, rdi
-	mov r10, rsi
+	mov r10, rdi
+	mov r11, rsi
 
 .check_label:
 	mov ah, [rdi]
@@ -618,16 +622,26 @@ rslvref:
 	jmp .check_label
 
 .check_next_entry:
-	add r10, 256
-	mov rdi, r9
-	mov rsi, r10
+	add r11, 256
+	mov rdi, r10
+	mov rsi, r11
 	dec rdx
 	jz .ret_err
 	jmp .check_label
 
 .load_offset:
-	mov eax, [r10 + 251]
+	mov eax, [r11 + 252]
 	mov [rcx], eax
+.load_flags:
+	cmp r8, 0
+	je .load_relative_target
+	mov eax, [r11 + 244]
+	mov [r8], eax
+.load_relative_target:
+	cmp r9, 0
+	je .ret_suc
+	mov eax, [r11 + 248]
+	mov [r9], eax
 	jmp .ret_suc
 
 .ret_err:
@@ -646,22 +660,26 @@ rslvref:
 ;;; rsi: `size_t n`
 ;;; rdx: `char *label`
 ;;; rcx: `uint32_t offset`
+;;; r8: `uint32_t flags`
+;;; r9: `uint32_t rel_target`
 strsymtabntr:
 	push rbp
 	mov rbp, rsp
 
 	mov al, 0
-	mov r8, 256
+	mov r10, 256
 .find_free_entry_loop:
 	cmp [rdi], al
 	je .store_offset
-	add rdi, r8
+	add rdi, r10
 	dec rsi
 	jz .ret_err
 	jmp .find_free_entry_loop
 
 .store_offset:
 	mov [rdi + 252], ecx
+	mov [rdi + 244], r8d
+	mov [rdi + 248], r9d
 
 .store_label:
 	cmp [rdx], al

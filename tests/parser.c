@@ -206,27 +206,33 @@ void test_rslvref(void)
 	uint32_t offset1 = 0xDEADC0DE;
 	uint32_t offset2 = 0xCAFEBABE;
 	uint32_t offset3 = 0x0DEFACED;
+	uint32_t flags = 0;
 	uint32_t offset = 0;
+	uint32_t rel_target = 0;
 
-	void *symtab = calloc(4, 256);
+	struct SymTabNtr *symtab = calloc(4, sizeof(struct SymTabNtr));
 	TEST_ASSERT(symtab != NULL);
 
-	strcpy(symtab, "label1");
-	memcpy(symtab + 251, &offset1, 4);
-	strcpy(symtab + 256, "label2");
-	memcpy(symtab + 507, &offset2, 4);
-	strcpy(symtab + 512, "label3");
-	memcpy(symtab + 763, &offset3, 4);
+	strcpy(symtab[0].label, "label1");
+        symtab[0].flags = FLAG_RELATIVE;
+        symtab[0].rel_target = 0xAABBCCDD;
+        symtab[0].offset = offset1;
+	strcpy(symtab[1].label, "label2");
+        symtab[1].offset = offset2;
+	strcpy(symtab[2].label, "label3");
+        symtab[2].offset = offset3;
 
 	// Test resolving an non existing reference gives an error
-	TEST_CHECK(rslvref("label", symtab, 4, NULL) == 1);
+	TEST_CHECK(rslvref("label", symtab, 4, NULL, NULL, NULL) == 1);
 	// Test resolving labels
-	TEST_CHECK(rslvref("label1", symtab, 4, &offset) == 0);
-	TEST_CHECK(offset = offset1);
-	TEST_CHECK(rslvref("label2", symtab, 4, &offset) == 0);
-	TEST_CHECK(offset = offset2);
-	TEST_CHECK(rslvref("label3", symtab, 4, &offset) == 0);
-	TEST_CHECK(offset = offset3);
+	TEST_CHECK(rslvref("label1", symtab, 4, &offset, &flags, &rel_target) == 0);
+	TEST_CHECK(flags == FLAG_RELATIVE);
+	TEST_CHECK(offset == offset1);
+	TEST_CHECK(rel_target == 0xAABBCCDD);
+	TEST_CHECK(rslvref("label2", symtab, 4, &offset, NULL, NULL) == 0);
+	TEST_CHECK(offset == offset2);
+	TEST_CHECK(rslvref("label3", symtab, 4, &offset, NULL, NULL) == 0);
+	TEST_CHECK(offset == offset3);
 
 	free(symtab);
 }
@@ -251,19 +257,19 @@ void test_skp2lbinst(void)
 
 void test_strsymtabntr(void)
 {
-	struct SymTabNtr *symtab = calloc(2, sizeof(struct SymTabNtr));
+	struct SymTabNtr *symtab = calloc(3, sizeof(struct SymTabNtr));
 
 	TEST_ASSERT(symtab != NULL);
 
 	// Test storing entry in empty symbol table
-	TEST_CHECK(strsymtabntr((void *)symtab, 2, "test", 1234) == 0);
+	TEST_CHECK(strsymtabntr(symtab, 2, "test", 1234, 0, 0) == 0);
 	TEST_CHECK(strncmp(symtab[0].label, "test", 5) == 0);
 	TEST_CHECK(symtab[0].offset == 1234);
 	TEST_CHECK(memcmp(symtab[1].label, "\0\0\0\0\0", 5) == 0);
 	TEST_CHECK(memcmp(&symtab[1].offset, "\0\0\0\0", 4) == 0);
 
 	// Test storing second entry in symbol table
-	TEST_CHECK(strsymtabntr((void *)symtab, 2, "label2", 0xCAFEBABE) == 0);
+	TEST_CHECK(strsymtabntr(symtab, 2, "label2", 0xCAFEBABE, 0, 0) == 0);
 	TEST_CHECK(strncmp(symtab[0].label, "test", 5) == 0);
 	TEST_CHECK(symtab[0].offset == 1234);
 	TEST_CHECK(strncmp(symtab[1].label, "label2", 7) == 0);
@@ -271,11 +277,23 @@ void test_strsymtabntr(void)
 
 	// Storing a third entry in a symbol table of size two returns an error
 	// and leaves the first two entries unchanged.
-	TEST_CHECK(strsymtabntr((void *)symtab, 2, "foobar", 0xDEADC0DE) == 1);
+	TEST_CHECK(strsymtabntr(symtab, 2, "foobar", 0xDEADC0DE, 0, 0) == 1);
 	TEST_CHECK(strncmp(symtab[0].label, "test", 5) == 0);
 	TEST_CHECK(symtab[0].offset == 1234);
 	TEST_CHECK(strncmp(symtab[1].label, "label2", 7) == 0);
 	TEST_CHECK(symtab[1].offset == 0xCAFEBABE);
+
+        // Test that a relative target and flags can be stored
+	TEST_CHECK(strsymtabntr(symtab, 3, "relative", 0xABCD11EF,
+                                FLAG_RELATIVE, 1234) == 0);
+	TEST_CHECK(strncmp(symtab[0].label, "test", 5) == 0);
+	TEST_CHECK(symtab[0].offset == 1234);
+	TEST_CHECK(strncmp(symtab[1].label, "label2", 7) == 0);
+	TEST_CHECK(symtab[1].offset == 0xCAFEBABE);
+	TEST_CHECK(strncmp(symtab[2].label, "relative", 9) == 0);
+	TEST_CHECK(symtab[2].offset == 0xABCD11EF);
+	TEST_CHECK(symtab[2].flags == FLAG_RELATIVE);
+	TEST_CHECK(symtab[2].rel_target == 1234);
 
 	free(symtab);
 }
