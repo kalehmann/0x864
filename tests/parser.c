@@ -175,6 +175,76 @@ void test_isopdlm(void)
 	TEST_CHECK(isopdlm(" ,") == 1);
 }
 
+void test_isr8(void)
+{
+	TEST_CHECK(isr8("al") == 1);
+	TEST_CHECK(isr8("ah") == 1);
+	TEST_CHECK(isr8("bl") == 1);
+	TEST_CHECK(isr8("bh") == 1);
+	TEST_CHECK(isr8("cl; Comment here") == 1);
+	TEST_CHECK(isr8("ch  test") == 1);
+	TEST_CHECK(isr8("dl\n") == 1);
+	TEST_CHECK(isr8("dh\t") == 1);
+	TEST_CHECK(isr8("ax\t") == 0);
+	TEST_CHECK(isr8("rax") == 0);
+	TEST_CHECK(isr8("ecx") == 0);
+	TEST_CHECK(isr8("alt") == 0);
+}
+
+void test_isr16(void)
+{
+	TEST_CHECK(isr16("ax") == 1);
+	TEST_CHECK(isr16("bx") == 1);
+	TEST_CHECK(isr16("cx; Comment here") == 1);
+	TEST_CHECK(isr16("dx  test") == 1);
+	TEST_CHECK(isr16("rax") == 0);
+	TEST_CHECK(isr16("ecx") == 0);
+	TEST_CHECK(isr16("ex") == 0);
+}
+
+void test_isr32(void)
+{
+	TEST_CHECK(isr32("eax") == 1);
+	TEST_CHECK(isr32("ebx") == 1);
+	TEST_CHECK(isr32("ecx; Comment here") == 1);
+	TEST_CHECK(isr32("edx  test") == 1);
+	TEST_CHECK(isr32("edi") == 1);
+	TEST_CHECK(isr32("esi") == 1);
+	TEST_CHECK(isr32("r8d") == 1);
+	TEST_CHECK(isr32("r9d") == 1);
+	TEST_CHECK(isr32("r10d") == 1);
+	TEST_CHECK(isr32("r12d") == 1);
+	TEST_CHECK(isr32("r13d") == 1);
+	TEST_CHECK(isr32("r14d") == 1);
+	TEST_CHECK(isr32("r15d") == 1);
+	TEST_CHECK(isr32("r8") == 0);
+	TEST_CHECK(isr32("r9") == 0);
+	TEST_CHECK(isr32("r10") == 0);
+	TEST_CHECK(isr32("r12") == 0);
+	TEST_CHECK(isr32("r13") == 0);
+	TEST_CHECK(isr32("r14") == 0);
+	TEST_CHECK(isr32("r15") == 0);
+}
+
+void test_isr64(void)
+{
+	TEST_CHECK(isr64("rax") == 1);
+	TEST_CHECK(isr64("rbx") == 1);
+	TEST_CHECK(isr64("rcx; Comment here") == 1);
+	TEST_CHECK(isr64("rdx  test") == 1);
+	TEST_CHECK(isr64("rsp") == 1);
+	TEST_CHECK(isr64("rbp") == 1);
+	TEST_CHECK(isr64("rdi") == 1);
+	TEST_CHECK(isr64("rsi") == 1);
+	TEST_CHECK(isr64("r8") == 1);
+	TEST_CHECK(isr64("r9") == 1);
+	TEST_CHECK(isr64("r10") == 1);
+	TEST_CHECK(isr64("r12") == 1);
+	TEST_CHECK(isr64("r13") == 1);
+	TEST_CHECK(isr64("r14") == 1);
+	TEST_CHECK(isr64("r15\t") == 1);
+}
+
 void test_isreg(void)
 {
 	TEST_CHECK(isreg("al") == 1);

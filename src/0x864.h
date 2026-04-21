@@ -140,6 +140,41 @@ extern int isint(char *assembly);
  */
 extern int isopdlm(char *assembly);
 
+/**
+ * Checks if the next token is a 8-bit register
+ *
+ * @param assembly is a pointer to the assembly string.
+ *
+ * @returns whether the next token is a 8-bit register
+ */
+extern int isr8(char *assembly);
+
+/**
+ * Checks if the next token is a 16-bit register
+ *
+ * @param assembly is a pointer to the assembly string.
+ *
+ * @returns whether the next token is a 16-bit register
+ */
+extern int isr16(char *assembly);
+
+/**
+ * Checks if the next token is a 32-bit register
+ *
+ * @param assembly is a pointer to the assembly string.
+ *
+ * @returns whether the next token is a 32-bit register
+ */
+extern int isr32(char *assembly);
+
+/**
+ * Checks if the next token is a 64-bit register
+ *
+ * @param assembly is a pointer to the assembly string.
+ *
+ * @returns whether the next token is a 64-bit register
+ */
+extern int isr64(char *assembly);
 
 /**
  * Checks if the next token is a register
