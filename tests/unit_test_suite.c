@@ -37,6 +37,7 @@ TEST_LIST = {
         { "len", test_len },
         { "readnlbl", test_readnlbl },
         { "rslvref", test_rslvref },
+        { "scndpss", test_scndpss },
         { "skp2lbinst", test_skp2lbinst },
         { "strlbl", test_strlbl },
         { "strsymtabntr", test_strsymtabntr },

@@ -214,13 +214,13 @@ void test_rslvref(void)
 	TEST_ASSERT(symtab != NULL);
 
 	strcpy(symtab[0].label, "label1");
-        symtab[0].flags = FLAG_RELATIVE;
-        symtab[0].rel_target = 0xAABBCCDD;
-        symtab[0].offset = offset1;
+	symtab[0].flags = FLAG_RELATIVE;
+	symtab[0].rel_target = 0xAABBCCDD;
+	symtab[0].offset = offset1;
 	strcpy(symtab[1].label, "label2");
-        symtab[1].offset = offset2;
+	symtab[1].offset = offset2;
 	strcpy(symtab[2].label, "label3");
-        symtab[2].offset = offset3;
+	symtab[2].offset = offset3;
 
 	// Test resolving an non existing reference gives an error
 	TEST_CHECK(rslvref("label", symtab, 4, NULL, NULL, NULL) == 1);
@@ -235,6 +235,43 @@ void test_rslvref(void)
 	TEST_CHECK(offset == offset3);
 
 	free(symtab);
+}
+
+void test_scndpss(void)
+{
+	int *target = NULL;
+	struct AsmCtx *ctx = make_asmctx(NULL, 32, 8, 8);
+	TEST_ASSERT(ctx != NULL);
+
+	ctx->bintxt_size = 32;
+	// Fill symbol table with dummy entries
+	strncpy(ctx->symtab[0].label, "test", 5);
+	ctx->symtab[0].offset = 20;
+	strncpy(ctx->symtab[1].label, "foobar", 7);
+	ctx->symtab[1].offset = 13;
+
+	// Fill reference table with dummy entries
+	strncpy(ctx->reftab[0].label, "test", 5);
+	ctx->reftab[0].offset = 4;
+	ctx->reftab[0].flags = 0;
+	ctx->reftab[0].rel_target = 0;
+	strncpy(ctx->reftab[1].label, "foobar", 7);
+	ctx->reftab[1].offset = 16;
+	ctx->reftab[1].flags = FLAG_RELATIVE;
+	ctx->reftab[1].rel_target = 20;
+
+	// Act
+	scndpss(ctx);
+
+	// Test can replace an absolute reference
+	target = ((void *)ctx->bintxt) + 4;
+	TEST_CHECK(*target == 20);
+
+	// Test can replace a relative reference
+	target = ((void *)ctx->bintxt) + 16;
+	TEST_CHECK(*target == -7);
+
+	free_asmctx(ctx);
 }
 
 void test_skp2lbinst(void)
@@ -257,38 +294,38 @@ void test_skp2lbinst(void)
 
 void test_strlbl(void)
 {
-        const char *assembly = "label1:\n"
-                ".sublabel1:\n"
-                ".sublabel2:\n"
-                ".end:\n"
-                "label2:\n"
-                "end:\n";
+	const char *assembly = "label1:\n"
+		".sublabel1:\n"
+		".sublabel2:\n"
+		".end:\n"
+		"label2:\n"
+		"end:\n";
 
 	struct AsmCtx *ctx = make_asmctx(assembly, 0, 0, 0);
 	TEST_ASSERT(ctx != NULL);
 
-        strlbl(ctx);
-        TEST_CHECK(strncmp(ctx->label, "label1", 7) == 0);
+	strlbl(ctx);
+	TEST_CHECK(strncmp(ctx->label, "label1", 7) == 0);
 
-        skp2lbinst(&ctx->assembly);
-        strlbl(ctx);
-        TEST_CHECK(strncmp(ctx->label, "label1.sublabel1", 17) == 0);
+	skp2lbinst(&ctx->assembly);
+	strlbl(ctx);
+	TEST_CHECK(strncmp(ctx->label, "label1.sublabel1", 17) == 0);
 
-        skp2lbinst(&ctx->assembly);
-        strlbl(ctx);
-        TEST_CHECK(strncmp(ctx->label, "label1.sublabel2", 17) == 0);
+	skp2lbinst(&ctx->assembly);
+	strlbl(ctx);
+	TEST_CHECK(strncmp(ctx->label, "label1.sublabel2", 17) == 0);
 
-        skp2lbinst(&ctx->assembly);
-        strlbl(ctx);
-        TEST_CHECK(strncmp(ctx->label, "label1.end", 11) == 0);
+	skp2lbinst(&ctx->assembly);
+	strlbl(ctx);
+	TEST_CHECK(strncmp(ctx->label, "label1.end", 11) == 0);
 
-        skp2lbinst(&ctx->assembly);
-        strlbl(ctx);
-        TEST_CHECK(strncmp(ctx->label, "label2", 7) == 0);
+	skp2lbinst(&ctx->assembly);
+	strlbl(ctx);
+	TEST_CHECK(strncmp(ctx->label, "label2", 7) == 0);
 
-        skp2lbinst(&ctx->assembly);
-        strlbl(ctx);
-        TEST_CHECK(strncmp(ctx->label, "end", 4) == 0);
+	skp2lbinst(&ctx->assembly);
+	strlbl(ctx);
+	TEST_CHECK(strncmp(ctx->label, "end", 4) == 0);
 
 	free_asmctx(ctx);
 }
@@ -321,9 +358,9 @@ void test_strsymtabntr(void)
 	TEST_CHECK(strncmp(symtab[1].label, "label2", 7) == 0);
 	TEST_CHECK(symtab[1].offset == 0xCAFEBABE);
 
-        // Test that a relative target and flags can be stored
+	// Test that a relative target and flags can be stored
 	TEST_CHECK(strsymtabntr(symtab, 3, "relative", 0xABCD11EF,
-                                FLAG_RELATIVE, 1234) == 0);
+				FLAG_RELATIVE, 1234) == 0);
 	TEST_CHECK(strncmp(symtab[0].label, "test", 5) == 0);
 	TEST_CHECK(symtab[0].offset == 1234);
 	TEST_CHECK(strncmp(symtab[1].label, "label2", 7) == 0);

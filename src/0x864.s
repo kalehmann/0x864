@@ -28,6 +28,7 @@
 	global	len
 	global	readnlbl
 	global	rslvref
+	global	scndpss
 	global	skp2lbinst
 	global	strlbl
 	global	strsymtabntr
@@ -81,6 +82,9 @@ assemble:
 	jmp .parse_loop
 
 .end:
+	mov rdi, [rbp - 8]	; Stores ctx in rdi
+	call scndpss
+
 	mov rsp, rbp
 	pop rbp
 	retn
@@ -636,6 +640,87 @@ rslvref:
 
 .ret_suc:
 	mov rax, 0
+
+.end:
+	mov rsp, rbp
+	pop rbp
+	retn
+
+;;; rdi: `struct AsmCtx *ctx`
+scndpss:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 40
+
+	mov rax, 0
+	mov [rbp - 8], rdi
+	mov [rbp - 12], eax	; uint32_t flags
+	mov [rbp - 16], eax	; uint32_t rel_target
+	mov [rbp - 20], eax	; uint32_t offset
+	mov [rbp - 24], eax	; uint32_t target_offset
+	mov rsi, [rdi + 48]
+	mov [rbp - 32], rsi	; struct SymTabNtr *reftab
+	mov rsi, [rdi + 56]
+	mov [rbp - 40], rsi	; struct size_t max_reftab_entries
+
+.loop_reftab:
+	mov rsi, [rbp - 32]
+	mov rcx, [rbp - 40]
+	cmp rcx, 0
+	je .end
+	mov dl, 0
+	cmp [rsi], dl		; if (reftab[0].label == '\0')
+	je .end
+
+	mov eax, [rsi + 244]
+	mov [rbp - 12], eax	; flags = reftab[0].flags
+	mov eax, [rsi + 248]
+	mov [rbp - 16], eax	; rel_target = reftab[0].rel_target
+	mov eax, [rsi + 252]
+	mov [rbp - 20], eax	; offset = reftab[0].offset
+
+	mov rdi, [rbp - 32]	; char *label = &reftab[0].label
+	mov r8, [rbp - 8]
+	mov rsi, [r8 + 32]	; struct SymTabNtr *symtab = ctx->symtab
+	mov rdx, [r8 + 40]	; size_t n = ctx->max_symtab_entries
+	lea rcx, [rbp - 24]	; uint32_t *offset = &target_offset
+	mov r8, 0		; uint32_t *flags = 0
+	mov r9, 0		; uint32_t *rel_target = 0
+	call rslvref
+
+	mov eax, [rbp - 12]
+	cmp eax, 0x1
+	je .resolve_relative
+
+.resolve_absolute:
+	mov rax, 0
+	mov eax, [rbp - 20]
+	mov rdi, [rbp - 8]
+	mov rsi, [rdi + 8]
+	add rsi, rax
+	mov eax, [rbp - 24]
+	mov [rsi], eax		; memcpy(ctx->bintxt + offset, target_offset, 4)
+	jmp .loop_reftab_end
+
+.resolve_relative:
+	mov rax, 0
+	mov eax, [rbp - 20]
+	mov ecx, [rbp - 24]
+	mov edx, [rbp - 16]
+	sub ecx, edx		; target_offset -= rel_target
+	mov rdi, [rbp - 8]
+	mov rsi, [rdi + 8]
+	add rsi, rax
+	mov [rsi], ecx		; memcpy(ctx->bintxt + offset, target_offset, 4)
+
+.loop_reftab_end:
+	mov rsi, [rbp - 32]
+	add rsi, 256
+	mov [rbp - 32], rsi	; reftab++
+	mov rcx, [rbp - 40]
+	dec rcx
+	mov [rbp - 40], rcx	; max_reftab_entries--
+	jmp .loop_reftab
 
 .end:
 	mov rsp, rbp

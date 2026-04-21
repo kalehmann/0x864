@@ -31,6 +31,7 @@ void test_isopdlm(void);
 void test_isreg(void);
 void test_readnlbl(void);
 void test_rslvref(void);
+void test_scndpss(void);
 void test_skp2lbinst(void);
 void test_strlbl(void);
 void test_strsymtabntr(void);

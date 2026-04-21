@@ -177,6 +177,13 @@ extern int readnlbl(char const **assembly, char *label, size_t n);
 extern int rslvref(char *label, struct SymTabNtr *symtab, size_t n,
 		   uint32_t *offset, uint32_t *flags, uint32_t *rel_target);
 
+/**
+ * Performs the second pass of the output generation and resolves all references.
+ *
+ * @param ctx is the pointer to the AsmCtx structure.
+ */
+extern void scndpss(struct AsmCtx *ctx);
+
 extern void skp2lbinst(char const **assembly);
 
 /**
