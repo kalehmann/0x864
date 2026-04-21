@@ -38,6 +38,7 @@ TEST_LIST = {
         { "readnlbl", test_readnlbl },
         { "rslvref", test_rslvref },
         { "skp2lbinst", test_skp2lbinst },
+        { "strlbl", test_strlbl },
         { "strsymtabntr", test_strsymtabntr },
         { "symbol_table_generation", test_symbol_table_generation },
         { NULL, NULL }

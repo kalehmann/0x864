@@ -42,6 +42,8 @@ struct AsmCtx {
 	size_t max_symtab_entries;
 	struct SymTabNtr *reftab;
 	size_t max_reftab_entries;
+        char label[240];
+        char _label[240];
 };
 
 /**
@@ -74,38 +76,18 @@ extern void assemble(struct AsmCtx *);
 
 /**
  * Assembles a single instruction.
- * @param assembly is a pointer to the string with the assembly code.
- *		   This pointer gets advanced to the character following the
- *		   last operand of the instruction.
- * @param output is a pointer to the buffer where the binary output will be
- *		 written.
- * @param n is the maximum number of bytes to write into the output buffer.
- * @param o is a pointer to the location in which the actual number of bytes
- *	    written into the output buffer will be stored.
+ *
+ * @param ctx is the pointer to the AsmCtx structure.
  */
 extern void as_snglinst(struct AsmCtx *);
 
 /**
- * @param assembly is a pointer to the string with the assembly code.
- *		   As the `nop` instruction takes no operands, this pointer will
- *		   not be advanced.
- * @param output is a pointer to the buffer where the binary output will be
- *		 written.
- * @param n is the maximum number of bytes to write into the output buffer.
- * @param o is a pointer to the location in which the actual number of bytes
- *	    written into the output buffer will be stored.
+ * @param ctx is the pointer to the AsmCtx structure.
  */
 extern void as_nop(struct AsmCtx *);
 
 /**
- * @param assembly is a pointer to the string with the assembly code.
- *		   As the `retn` instruction takes no operands, this pointer will
- *		   not be advanced.
- * @param output is a pointer to the buffer where the binary output will be
- *		 written.
- * @param n is the maximum number of bytes to write into the output buffer.
- * @param o is a pointer to the location in which the actual number of bytes
- *	    written into the output buffer will be stored.
+ * @param ctx is the pointer to the AsmCtx structure.
  */
 extern void as_retn(struct AsmCtx *);
 
@@ -196,6 +178,16 @@ extern int rslvref(char *label, struct SymTabNtr *symtab, size_t n,
 		   uint32_t *offset, uint32_t *flags, uint32_t *rel_target);
 
 extern void skp2lbinst(char const **assembly);
+
+/**
+ * Stores next token of the assembly text as label in `ctx->label`.
+ *
+ * If the label starts with a dot, it will be prepended with the previous label
+ * that did not start with a dot.
+ *
+ * @param ctx is the pointer to the AsmCtx structure.
+ */
+extern void strlbl(struct AsmCtx *ctx);
 
 /**
  * Stores a symbol in the next free entry of the symbol table.

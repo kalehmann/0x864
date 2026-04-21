@@ -32,6 +32,7 @@ void test_isreg(void);
 void test_readnlbl(void);
 void test_rslvref(void);
 void test_skp2lbinst(void);
+void test_strlbl(void);
 void test_strsymtabntr(void);
 void test_symbol_table_generation(void);
 

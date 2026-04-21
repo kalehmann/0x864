@@ -26,7 +26,7 @@ void test_struct_AsmCtx_is_packed(void)
 {
 	// The assembly code makes assumptions about the offsets in the
 	// structure. Verify, that the struct is packed.
-	TEST_CHECK(sizeof(struct AsmCtx) == 64);
+	TEST_CHECK(sizeof(struct AsmCtx) == 544);
 }
 
 void test_struct_SymTabNtr_is_packed(void)
@@ -253,6 +253,44 @@ void test_skp2lbinst(void)
 
 	skp2lbinst(&assembly2);
 	TEST_CHECK(assembly2 == label2);
+}
+
+void test_strlbl(void)
+{
+        const char *assembly = "label1:\n"
+                ".sublabel1:\n"
+                ".sublabel2:\n"
+                ".end:\n"
+                "label2:\n"
+                "end:\n";
+
+	struct AsmCtx *ctx = make_asmctx(assembly, 0, 0, 0);
+	TEST_ASSERT(ctx != NULL);
+
+        strlbl(ctx);
+        TEST_CHECK(strncmp(ctx->label, "label1", 7) == 0);
+
+        skp2lbinst(&ctx->assembly);
+        strlbl(ctx);
+        TEST_CHECK(strncmp(ctx->label, "label1.sublabel1", 17) == 0);
+
+        skp2lbinst(&ctx->assembly);
+        strlbl(ctx);
+        TEST_CHECK(strncmp(ctx->label, "label1.sublabel2", 17) == 0);
+
+        skp2lbinst(&ctx->assembly);
+        strlbl(ctx);
+        TEST_CHECK(strncmp(ctx->label, "label1.end", 11) == 0);
+
+        skp2lbinst(&ctx->assembly);
+        strlbl(ctx);
+        TEST_CHECK(strncmp(ctx->label, "label2", 7) == 0);
+
+        skp2lbinst(&ctx->assembly);
+        strlbl(ctx);
+        TEST_CHECK(strncmp(ctx->label, "end", 4) == 0);
+
+	free_asmctx(ctx);
 }
 
 void test_strsymtabntr(void)
