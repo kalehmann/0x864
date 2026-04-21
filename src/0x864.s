@@ -505,42 +505,75 @@ len:
 
 	retn
 
+;;; rdi: `char const **assembly`
+;;; rsi: `char *label`
+;;; rdx: `size_t n`
 readnlbl:
 	push rbp
 	mov rbp, rsp
-	mov rax, 0
-	mov r9, 0
-	mov r10, rdi
+	sub rsp, 40
 
-	mov rdi, [rdi]
+	mov [rbp - 8], rdi
+	mov [rbp - 16], rsi
+	mov [rbp - 24], rdx
+	mov rax, 0
+	mov [rbp - 32], rax	; size_t bytes_written = 0
+	mov [rbp - 40], rax	; uint64_t overflow = 0
+
 .loop:
-	mov cl, [rdi]
-	cmp cl, 0x3a		; Ascii colon
+	mov rdi, [rbp - 8]
+	mov rdi, [rdi]
+	call isopdlm
+	cmp rax, 0x1		; if (isopdlm(*assembly))
 	je .end
+
+	mov rdi, [rbp - 8]
+	mov rdi, [rdi]
+	mov cl, 0x3a		; Ascii colon
+	cmp [rdi], cl		; if ((*assembly)[0] == ':')
+	je .end
+
+	mov rax, [rbp - 32]
 	inc rax
-	cmp rax, rdx
+	mov [rbp - 32], rax	; bytes_written++
+	mov rdx, [rbp - 24]
+	cmp rax, rdx		; if (bytes_written > n)
 	ja .no_copy
-	mov [rsi], cl
+
+	mov cl, [rdi]
+	mov rsi, [rbp - 16]
+	mov [rsi], cl		; label[0] = (*assembly)[0]
 .loop_end:
-	inc rdi
-	inc rsi
+	inc rdi			; (*assembly)++
+	inc rsi			; label++
+	mov r9, [rbp - 8]
+	mov [r9], rdi
+	mov [rbp - 16], rsi
 	jmp .loop
 .no_copy:
 	mov r9, 1
+	mov [rbp - 40], r9	; overflow = 1
 	jmp .loop_end
 
 .end:
+	mov rsi, [rbp - 8]
+	mov rdi, [rsi]
 	inc rdi
-	mov [r10], rdi
+	mov [rsi], rdi		; (*assembly)++
 
-	cmp r9, 1
+	mov r9, [rbp - 40]
+	cmp r9, 1		; if (overflow == 1)
 	je .no_terminator
-	inc rax
-	cmp rax, rdx
+	mov rax, [rbp - 32]
+	inc rax			; bytes_written++
+	mov rdx, [rbp - 24]
+	cmp rax, rdx		; if (bytes_written > n)
 	ja .no_terminator
-	inc rsi
+
+	mov rsi, [rbp - 16]
+	inc rsi			; label++
 	mov cl, 0
-	mov [rsi], cl
+	mov [rsi], cl		; label[0] = '\0'
 	jmp .ret
 
 .no_terminator:
