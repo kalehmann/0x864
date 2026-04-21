@@ -17,6 +17,7 @@
 
 	global	assemble
 	global	as_snglinst
+	global	as_call
 	global	as_nop
 	global	as_retn
 	global	cklb
@@ -95,12 +96,39 @@ as_snginst:
 	mov rbp, rsp
 
 	mov rsi, [rdi]		; Stores ctx->assembly in rsi
+	mov al, 0x63		; Ascii c ('c')
+	cmp [rsi], al
+	je .c
 	mov al, 0x6e		; Ascii n ('n')
 	cmp [rsi], al
 	je .n
 	mov al, 0x72		; Ascii r ('r')
 	cmp [rsi], al
 	je .r
+
+.c:
+	inc rsi
+	mov al, 0x61		; Ascii a ('a')
+	cmp [rsi], al
+	je .ca
+
+.ca:
+	inc rsi
+	mov al, 0x6c		; Ascii l ('l')
+	cmp [rsi], al
+	je .cal
+
+.cal:
+	inc rsi
+	mov al, 0x6c		; Ascii l ('l')
+	cmp [rsi], al
+	je .call
+
+.call:
+	inc rsi
+	mov [rdi], rsi		; ctx->assembly = rsi
+	call as_call
+	jmp .end
 
 .n:
 	inc rsi
@@ -144,6 +172,66 @@ as_snginst:
 	call as_retn
 	jmp .end
 
+.end:
+	mov rsp, rbp
+	pop rbp
+	retn
+
+;;; rdi: `struct AsmCtx *ctx`
+as_call:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 8
+
+	mov [rbp - 8], rdi
+	call skp2lbinst
+
+	mov rdi, [rbp - 8]
+	mov rdi, [rdi]		; char *assembly = ctx->assembly
+	call isreg
+	cmp rax, 1
+	je .call_reg
+
+	mov rdi, [rbp - 8]
+	mov rdi, [rdi]		; char *assembly = ctx->assembly
+	call isint
+	cmp rax, 1
+	je .call_int
+
+.call_label:
+	mov rdi, [rbp - 8]
+	call strlbl
+
+	mov rdi, [rbp - 8]
+	mov rsi, [rdi + 8]	; rsi = ctx->bintxt
+	mov r8, [rdi + 16]	; r8 = ctx->max_bintxt_size
+	mov r9, [rdi + 24]	; r9 = ctx->bintxt_size
+	add rsi, r9
+	add r9, 5		; Plan to write five bytes
+	cmp r9, r8
+	ja .label_no_output
+
+	mov al, 0xe8
+	mov [rsi], al		; ctx->bintxt[ctx->bintxt_size] = 0xe8
+	mov r10, 5
+	add [rdi + 24], r10	; ctx->bintxt_size += 5
+
+	mov rsi, [rdi + 56]	; size_t n = ctx->max_reftab_entries
+	lea rdx, [rdi + 64]	; char *label = ctx->label
+	mov rcx, [rdi + 24]
+	sub rcx, 4		; uint32_t offset = ctx->bintxt_size - 4
+	mov r8, 0x1		; uint32_t flags = FLAG_RELATIVE
+	mov r9, [rdi + 24]	; uint32_t rel_target = ctx->bintxt_size
+	mov rdi, [rdi + 48]	; struct SymTabNtr *symtab = ctx->reftab
+	call strsymtabntr
+
+	jmp .end
+
+.label_no_output:
+	jmp .end
+
+.call_int:
+.call_reg:
 .end:
 	mov rsp, rbp
 	pop rbp

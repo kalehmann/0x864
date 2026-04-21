@@ -79,17 +79,28 @@ extern void assemble(struct AsmCtx *);
  *
  * @param ctx is the pointer to the AsmCtx structure.
  */
-extern void as_snglinst(struct AsmCtx *);
+extern void as_snglinst(struct AsmCtx *ctx);
 
 /**
+ * Assembles the call instruction.
+ *
  * @param ctx is the pointer to the AsmCtx structure.
  */
-extern void as_nop(struct AsmCtx *);
+extern void as_call(struct AsmCtx *ctx);
 
 /**
+ * Assembles the nop instruction.
+ *
  * @param ctx is the pointer to the AsmCtx structure.
  */
-extern void as_retn(struct AsmCtx *);
+extern void as_nop(struct AsmCtx *ctx);
+
+/**
+ * Assembles the retn instruction.
+ *
+ * @param ctx is the pointer to the AsmCtx structure.
+ */
+extern void as_retn(struct AsmCtx *ctx);
 
 extern int cklb(char const *assembly);
 

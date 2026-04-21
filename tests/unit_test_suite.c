@@ -26,6 +26,7 @@ TEST_LIST = {
         { "struct_AsmCtx_is_packed", test_struct_AsmCtx_is_packed },
         { "struct_SymTabNtr_is_packed", test_struct_SymTabNtr_is_packed },
         { "assemble", test_assemble },
+        { "as_call", test_as_call },
         { "as_nop", test_as_nop },
         { "as_retn", test_as_retn },
         { "cklb", test_cklb },
