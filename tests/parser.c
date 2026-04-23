@@ -166,6 +166,56 @@ void test_isrgndrct(void)
 	TEST_CHECK(isrgndrct("0xff") == 0);
 }
 
+void test_pint(void)
+{
+	char *b = NULL;
+	char *buf = calloc(32, 1);
+	TEST_ASSERT(buf != NULL);
+	b = buf;
+
+	strncpy(buf, "0", 32);
+	TEST_CHECK(pint(&buf) == 0);
+	TEST_CHECK(buf == b + 1);
+	buf = b;
+
+	strncpy(buf, "42", 32);
+	TEST_CHECK(pint(&buf) == 42);
+	TEST_CHECK(buf == b + 2);
+	buf = b;
+
+	strncpy(buf, "4294967295", 32);
+	TEST_CHECK(pint(&buf) == 0xffffffff);
+	TEST_CHECK(buf == b + 10);
+	buf = b;
+
+	strncpy(buf, "0x00", 32);
+	TEST_CHECK(pint(&buf) == 0);
+	TEST_CHECK(buf == b + 4);
+	buf = b;
+
+	strncpy(buf, "0x10", 32);
+	TEST_CHECK(pint(&buf) == 16);
+	TEST_CHECK(buf == b + 4);
+	buf = b;
+
+	strncpy(buf, "0xcafebabe", 32);
+	TEST_CHECK(pint(&buf) == 0xcafebabe);
+	TEST_CHECK(buf == b + 10);
+	buf = b;
+
+	strncpy(buf, "0xdeadc0de", 32);
+	TEST_CHECK(pint(&buf) == 0xdeadc0de);
+	TEST_CHECK(buf == b + 10);
+	buf = b;
+
+	strncpy(buf, "0xffffffff", 32);
+	TEST_CHECK(pint(&buf) == 0xffffffff);
+	TEST_CHECK(buf == b + 10);
+	buf = b;
+
+	free(buf);
+}
+
 void test_pr8(void)
 {
 	char *b = NULL;

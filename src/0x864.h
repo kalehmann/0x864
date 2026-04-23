@@ -270,6 +270,17 @@ extern int isreg(char *assembly);
 extern size_t len(char *str);
 
 /**
+ * Parses the next token as integer.
+ *
+ * @param assembly is a pointer to the string with the assembly code.
+ *		   This pointer gets advanced to the character following the
+ *		   integer.
+ *
+ * @returns the unsigned 32 bit integer
+ */
+extern uint32_t pint(char **assembly);
+
+/**
  * Parses the next token as 8-bit register.
  *
  * @param assembly is a pointer to the string with the assembly code.

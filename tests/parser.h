@@ -31,6 +31,7 @@ void test_isint(void);
 void test_isopdlm(void);
 void test_isreg(void);
 void test_isrgndrct(void);
+void test_pint(void);
 void test_pr8(void);
 void test_pr16(void);
 void test_pr32(void);

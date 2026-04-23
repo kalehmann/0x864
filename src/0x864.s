@@ -29,6 +29,7 @@
 	global	isrgndrct
 	global	isreg
 	global	len
+	global	pint
 	global	pr8
 	global	pr16
 	global	pr32
@@ -974,6 +975,80 @@ len:
 	inc rax
 	inc rdi
 
+	retn
+
+;;; rdi: `char **assembly`
+pint:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 8
+	mov [rbp - 8], rdi
+	xor eax, eax
+	xor r8d, r8d
+
+	mov rsi, [rdi]
+	mov cl, 0x30		; Ascii zero ('0')
+	cmp [rsi], cl
+	jne .parse_decimal
+	mov cl, 0x78		; Ascii lowercase letter x
+	cmp [rsi + 1], cl
+	jne .parse_decimal
+
+.parse_hexdecimal:
+	add rsi, 2
+	mov cl, 0x30		; Ascii zero ('0')
+	mov ch, 0x39		; Ascii nine ('9')
+	mov dl, 0x61		; Ascii lowercase letter a
+	mov dh, 0x66		; Ascii lowercase letter f
+.parse_hex_loop:
+	cmp [rsi], cl
+	jb .ret
+	cmp [rsi], dh
+	ja .ret
+	cmp [rsi], ch
+	jbe .parse_hex_digit
+	cmp [rsi], dl
+	jae .parse_hex_letter
+	jmp .ret
+
+.parse_hex_digit:
+	shl eax, 4
+	mov r8b, [rsi]
+	sub r8b, 0x30
+	or al, r8b
+	jmp .parse_hex_next
+
+.parse_hex_letter:
+	shl eax, 4
+	mov r8b, [rsi]
+	sub r8b, 0x57		; 0x61 - 10 or ten below ord('a')
+	or al, r8b
+	jmp .parse_hex_next
+
+.parse_hex_next:
+	inc rsi
+	jmp .parse_hex_loop
+
+.parse_decimal:
+	mov cl, 0x30		; Ascii zero ('0')
+	mov ch, 0x39		; Ascii nine ('9')
+	mov r8d, 10
+.parse_decimal_loop:
+	cmp [rsi], cl
+	jb .ret
+	cmp [rsi], ch
+	ja .ret
+	mul r8d			; eax = 10 * eax
+	mov r9b, [rsi]
+	sub r9b, 0x30
+	add al, r9b
+	inc rsi
+	jmp .parse_decimal_loop
+
+.ret:
+	mov [rdi], rsi
+	mov rsp, rbp
+	pop rbp
 	retn
 
 ;;; rdi: `char **assembly`

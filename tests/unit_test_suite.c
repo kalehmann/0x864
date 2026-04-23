@@ -40,6 +40,7 @@ TEST_LIST = {
 	{ "isreg", test_isreg },
 	{ "isrgndrct", test_isrgndrct },
 	{ "len", test_len },
+	{ "pint", test_pint },
 	{ "pr8", test_pr8 },
 	{ "pr16", test_pr16 },
 	{ "pr32", test_pr32 },
