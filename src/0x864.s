@@ -16,6 +16,7 @@
 ;;; long with 0x864. If not, see <http://www.gnu.org/licenses/>.
 
 	global	assemble
+	global	assemble_op
 	global	as_snglinst
 	global	as_call
 	global	as_nop
@@ -95,10 +96,507 @@ assemble:
 	retn
 
 ;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
+assemble_op:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 40
+	mov [rbp - 8], rdi	; Store ctx
+	mov [rbp - 16], rsi	; Store op
+	mov al, 0
+	mov [rbp - 33], al	; uint8_t bytes_to_write = 0
+	mov [rbp - 34], al	; uint8_t rex = 0
+	mov [rbp - 35], al	; uint8_t modrm = 0
+
+	lea rdi, [rbp - 32]	; uint8_t buffer[16]
+	mov rsi, 16
+	call clr		; clr(buffer, 16)
+
+	mov rdi, [rbp - 16]
+	mov al, [rdi]
+	cmp al, 0		; if (op->encoding == ENCODING_ZO)
+	je .zo
+	cmp al, 1		; if (op->encoding == ENCODING_D)
+	je .d
+	cmp al, 2		; if (op->encoding == ENCODING_I)
+	je .i
+	cmp al, 3		; if (op->encoding == ENCODING_M)
+	je .m
+	cmp al, 4		; if (op->encoding == ENCODING_MI)
+	je .mi
+	cmp al, 5		; if (op->encoding == ENCODING_MR)
+	je .mr
+	cmp al, 6		; if (op->encoding == ENCODING_OI)
+	je .oi
+	cmp al, 7		; if (op->encoding == ENCODING_RM)
+	je .rm
+
+;;; rdi: `struct AsmOp *op`
+;;; rsi: `uint8_t *buffer`
+;;; rdx: `uint8_t *bytes_to_write`
+.store_disp:
+	xor rax, rax
+	mov al, [rdx]
+	add rsi, rax
+	mov al, [rdi + 4]
+	cmp al, 0x0		; if (op->modrm_mod == MOD_INDIRECT)
+	je .store_disp_end
+	cmp al, 0x1		; if (op->modrm_mod == MOD_INDIRECT_8)
+	je .store_disp8
+	cmp al, 0x2		; if (op->modrm_mod == MOD_INDIRECT_32)
+	je .store_disp32
+	cmp al, 0x3		; if (op->modrm_mod == MOD_DIRECT)
+	je .store_disp_end
+
+.store_disp8:
+	mov al, [rdi + 12]
+	mov [rsi], al
+	mov al, [rdx]
+	inc al
+	mov [rdx], al		; bytes_to_write++
+	jmp .store_disp_end
+
+.store_disp32:
+	mov eax, [rdi + 12]
+	mov [rsi], eax
+	mov al, [rdx]
+	add al, 4
+	mov [rdx], al		; bytes_to_write += 4
+	jmp .store_disp_end
+
+.store_disp_end:
+	retn
+
+;;; rdi: `struct AsmOp *op`
+;;; rsi: `uint8_t *buffer`
+;;; rdx: `uint8_t *bytes_to_write`
+.store_immediate:
+	xor cl, cl
+	mov cl, [rdx]		; rcx = *bytes_to_write
+	add rsi, rcx		; buffer += bytes_to_write
+
+	mov al, [rdi + 9]	; al = op->imm_size
+	cmp al, 8
+	je .store_immediate_8
+	cmp al, 16
+	je .store_immediate_16
+	cmp al, 32
+	je .store_immediate_32
+	cmp al, 64
+	je .store_immediate_64
+
+.store_immediate_8:
+	mov al, [rdi + 16]	; al = op->imm.imm8
+	mov [rsi], al
+	inc cl
+	mov [rdx], cl
+	jmp .store_immediate_end
+
+.store_immediate_16:
+	mov ax, [rdi + 16]	; ax = op->imm.imm16
+	mov [rsi], ax
+	add cl, 2
+	mov [rdx], cl
+	jmp .store_immediate_end
+
+.store_immediate_32:
+	mov eax, [rdi + 16]	; eax = op->imm.imm32
+	mov [rsi], eax
+	add cl, 4
+	mov [rdx], cl
+	jmp .store_immediate_end
+
+.store_immediate_64:
+	mov rax, [rdi + 16]	; rax = op->imm.imm64
+	mov [rsi], rax
+	add cl, 8
+	mov [rdx], cl
+	jmp .store_immediate_end
+
+.store_immediate_end:
+	retn
+
+;;; rdi: `struct AsmOp *op`
+;;; rsi: `uint8_t *rex`
+;;; rdx: `uint8_t *modrm`
+;;; rcx: `uint8_t register`
+.store_modrm_rm:
+	cmp cl, 7		; if (register < 7)
+	jb .store_modrm_rm_skip_rex_b
+	mov al, [rsi]
+	or al, 0x41		; Set the REX.B bit
+	mov [rsi], al
+.store_modrm_rm_skip_rex_b:
+	mov al, [rdx]		; al = modrm
+	mov ah, [rdi + 4]	; ah = op->modrm_mod
+	shl ah, 6
+	or al, ah
+	and cl, 0x07
+	or al, cl
+	mov [rdx], al
+	retn
+
+;;; rdi: `uint8_t *modrm`
+;;; rsi: `uint8_t *buffer`
+;;; rdx: `uint8_t *bytes_to_write`
+.store_modrm:
+	mov al, [rdi]
+	xor rcx, rcx
+	mov cl, [rdx]
+	add rsi, rcx		; buffer += *bytes_to_write
+	mov [rsi], al
+	inc cl
+	mov [rdx], cl
+	retn
+
+;;; rdi: `struct AsmOp *op`
+;;; rsi: `uint8_t *rex`
+;;; rdx: `uint8_t *modrm`
+;;; rcx: `uint8_t register`
+.store_modrm_reg:
+	cmp cl, 7		; if (register < 7)
+	jb .store_modrm_reg_skip_rex_r
+	mov al, [rsi]
+	or al, 0x44		; Set the REX.R bit
+	mov [rsi], al
+.store_modrm_reg_skip_rex_r:
+	mov al, [rdx]		; al = modrm
+	and cl, 0x07
+	shl cl, 3
+	or al, cl
+	mov [rdx], al
+	retn
+
+;;; rdi: `struct AsmOp *op`
+;;; rsi: `uint8_t *buffer`
+;;; rdx: `uint8_t *bytes_to_write`
+.store_opcodes:
+	mov cl, [rdi + 5]	; op->n_opcodes
+	lea rdi, [rdi + 6]	; op->opcodes
+	xor rax, rax
+	mov al, [rdx]
+	add rsi, rax
+.store_opcodes_loop:
+	mov al, [rdi]
+	mov [rsi], al
+	inc rdi
+	inc rsi
+	mov al, [rdx]
+	inc al
+	mov [rdx], al	; bytes_to_write++
+	dec cl
+	jnz .store_opcodes_loop
+	retn
+
+;;; rdi: `uint8_t *rex`
+;;; rsi: `uint8_t *buffer`
+;;; rdx: `uint8_t *bytes_to_write`
+.store_rex:
+	mov al, [rdi]
+	cmp al, 0		; if (*rex == 0)
+	je .store_rex_end
+
+	xor rcx, rcx
+	mov cl, [rdx]
+	add rsi, rcx		; buffer += *bytes_to_write
+	mov [rsi], al
+	inc cl
+	mov [rdx], cl
+.store_rex_end:
+	retn
+
+;;; rdi: `struct AsmOp *op`
+;;; rsi: `uint8_t *rex`
+.store_rex_w:
+	mov cl, [rdi + 1]
+	cmp cl, 64		; if (op->opsize != 64)
+	jne .store_rex_w_end
+	mov al, [rsi]
+	or al, 0x48
+	mov [rsi], al
+.store_rex_w_end:
+	retn
+
+.zo:
+	lea rsi, [rbp - 32]	; uint8_t *buffer = &buffer
+	lea rdx, [rbp - 33]	; uint8_t *bytes_to_write = &bytes_to_write
+	call .store_opcodes
+	jmp .write_buffer
+
+.d:
+	lea rsi, [rbp - 32]	; uint8_t *buffer = &buffer
+	lea rdx, [rbp - 33]	; uint8_t *bytes_to_write = &bytes_to_write
+	call .store_opcodes
+
+	mov rdi, [rbp - 16]
+	mov al, 0
+	cmp [rdi + 10], al	; if (op->d_label == D_LABEL_NONE)
+	je .d_immediate
+	mov al, 1
+	cmp [rdi + 10], al	; if (op->d_label == D_LABEL_ABSOLUTE)
+	je .d_absolute_label
+	mov al, 2
+	cmp [rdi + 10], al	; if (op->d_label == D_LABEL_RELATIVE)
+	je .d_relative_label
+
+.d_absolute_label:
+	mov rdi, [rbp - 8]
+	mov rsi, [rdi + 56]	; size_t n = ctx->max_reftab_entries
+	lea rdx, [rdi + 64]	; char *label = ctx->label
+	mov rcx, [rdi + 24]
+	xor rax, rax
+	mov al, [rbp - 33]
+	add rcx, rax		; uint32_t offset = ctx->bintxt_size + bytes_to_write
+	mov r8, 0x0		; uint32_t flags = 0
+	mov r9, 0		; uint32_t rel_target = 0
+	mov rdi, [rdi + 48]	; struct SymTabNtr *symtab = ctx->reftab
+	call strsymtabntr
+	jmp .d_immediate
+
+.d_relative_label:
+	mov rdi, [rbp - 8]
+	mov rsi, [rdi + 56]	; size_t n = ctx->max_reftab_entries
+	lea rdx, [rdi + 64]	; char *label = ctx->label
+	mov rcx, [rdi + 24]
+	xor rax, rax
+	mov al, [rbp - 33]
+	add rcx, rax		; uint32_t offset = ctx->bintxt_size + bytes_to_write
+	mov r8, 0x1		; uint32_t flags = FLAG_RELATIVE
+	mov r9, rcx
+	add r9, 4		; uint32_t rel_target = offset + 4
+	mov rdi, [rdi + 48]	; struct SymTabNtr *symtab = ctx->reftab
+	call strsymtabntr
+	;; Still store the immediate value to act as a dummy value until the
+	;; reference to the label is resolved.
+.d_immediate:
+	mov rdi, [rbp - 16]
+	lea rsi, [rbp - 32]
+	lea rdx, [rbp - 33]
+	call .store_immediate
+	jmp .write_buffer
+
+.i:
+	lea rsi, [rbp - 32]	; uint8_t *buffer = &buffer
+	lea rdx, [rbp - 33]	; uint8_t *bytes_to_write = &bytes_to_write
+	call .store_opcodes
+
+	mov rdi, [rbp - 16]
+	lea rsi, [rbp - 32]
+	lea rdx, [rbp - 33]
+	call .store_immediate
+	jmp .write_buffer
+
+.m:
+	lea rsi, [rbp - 34]
+	call .store_rex_w
+
+	lea rsi, [rbp - 34]
+	lea rdx, [rbp - 35]
+	xor rcx, rcx
+	mov cl, [rdi + 2]
+	call .store_modrm_reg
+
+	lea rsi, [rbp - 34]
+	lea rdx, [rbp - 35]
+	xor rcx, rcx
+	mov cl, [rdi + 3]
+	call .store_modrm_rm
+
+	lea rdi, [rbp - 34]
+	lea rsi, [rbp - 32]
+	lea rdx, [rbp - 33]
+	call .store_rex
+
+	mov rdi, [rbp - 16]	; struct AsmOp *op = op
+	lea rsi, [rbp - 32]	; uint8_t *buffer = &buffer
+	lea rdx, [rbp - 33]	; uint8_t *bytes_to_write = &bytes_to_write
+	call .store_opcodes
+
+	lea rdi, [rbp - 35]
+	lea rsi, [rbp - 32]
+	lea rdx, [rbp - 33]
+	call .store_modrm
+
+	jmp .write_buffer
+
+.mi:
+	lea rsi, [rbp - 34]
+	call .store_rex_w
+
+	lea rsi, [rbp - 34]
+	lea rdx, [rbp - 35]
+	xor rcx, rcx
+	mov cl, [rdi + 3]
+	call .store_modrm_rm
+
+	lea rdi, [rbp - 34]
+	lea rsi, [rbp - 32]
+	lea rdx, [rbp - 33]
+	call .store_rex
+
+	mov rdi, [rbp - 16]	; struct AsmOp *op = op
+	lea rsi, [rbp - 32]	; uint8_t *buffer = &buffer
+	lea rdx, [rbp - 33]	; uint8_t *bytes_to_write = &bytes_to_write
+	call .store_opcodes
+
+	lea rdi, [rbp - 35]
+	lea rsi, [rbp - 32]
+	lea rdx, [rbp - 33]
+	call .store_modrm
+
+	mov rdi, [rbp - 16]
+	lea rsi, [rbp - 32]
+	lea rdx, [rbp - 33]
+	call .store_immediate
+	jmp .write_buffer
+
+.mr:
+	lea rsi, [rbp - 34]
+	call .store_rex_w
+
+	lea rsi, [rbp - 34]
+	lea rdx, [rbp - 35]
+	xor rcx, rcx
+	mov cl, [rdi + 2]
+	call .store_modrm_reg
+
+	lea rsi, [rbp - 34]
+	lea rdx, [rbp - 35]
+	xor rcx, rcx
+	mov cl, [rdi + 3]
+	call .store_modrm_rm
+
+	lea rdi, [rbp - 34]
+	lea rsi, [rbp - 32]
+	lea rdx, [rbp - 33]
+	call .store_rex
+
+	mov rdi, [rbp - 16]	; struct AsmOp *op = op
+	lea rsi, [rbp - 32]	; uint8_t *buffer = &buffer
+	lea rdx, [rbp - 33]	; uint8_t *bytes_to_write = &bytes_to_write
+	call .store_opcodes
+
+	lea rdi, [rbp - 35]
+	lea rsi, [rbp - 32]
+	lea rdx, [rbp - 33]
+	call .store_modrm
+
+	mov rdi, [rbp - 16]	; struct AsmOp *op = op
+	lea rsi, [rbp - 32]
+	lea rdx, [rbp - 33]
+	call .store_disp
+	jmp .write_buffer
+
+.oi:
+	lea rsi, [rbp - 34]
+	call .store_rex_w
+
+	lea rsi, [rbp - 34]
+	lea rdx, [rbp - 35]
+	xor rcx, rcx
+	mov cl, [rdi + 3]
+	call .store_modrm_rm
+
+	lea rdi, [rbp - 34]
+	lea rsi, [rbp - 32]
+	lea rdx, [rbp - 33]
+	call .store_rex
+
+	mov rdi, [rbp - 16]
+	lea rsi, [rdi + 6]	; rsi = op->opcodes
+	mov ah, [rdi + 3]	; ah = op->dest_reg
+	lea rdi, [rbp - 32]	; rdi = buffer
+	xor rcx, rcx
+	mov cl, [rbp - 33]
+	add rdi, rcx		; rdi += bytes_written
+
+	mov al, [rsi]		; uint8_t opcode = op->opcodes[0]
+	and ah, 0x07
+	add al, ah		; opcode += (op->dest_reg & 0b111)
+	mov [rdi], al
+	inc cl
+	mov [rbp - 33], cl	; bytes_to_write++
+
+	mov rdi, [rbp - 16]
+	lea rsi, [rbp - 32]
+	lea rdx, [rbp - 33]
+	call .store_immediate
+	jmp .write_buffer
+
+.rm:
+	lea rsi, [rbp - 34]
+	call .store_rex_w
+
+	lea rsi, [rbp - 34]
+	lea rdx, [rbp - 35]
+	xor rcx, rcx
+	mov cl, [rdi + 3]
+	call .store_modrm_reg
+
+	lea rsi, [rbp - 34]
+	lea rdx, [rbp - 35]
+	xor rcx, rcx
+	mov cl, [rdi + 2]
+	call .store_modrm_rm
+
+	lea rdi, [rbp - 34]
+	lea rsi, [rbp - 32]
+	lea rdx, [rbp - 33]
+	call .store_rex
+
+	mov rdi, [rbp - 16]	; struct AsmOp *op = op
+	lea rsi, [rbp - 32]	; uint8_t *buffer = &buffer
+	lea rdx, [rbp - 33]	; uint8_t *bytes_to_write = &bytes_to_write
+	call .store_opcodes
+
+	lea rdi, [rbp - 35]
+	lea rsi, [rbp - 32]
+	lea rdx, [rbp - 33]
+	call .store_modrm
+
+	mov rdi, [rbp - 16]	; struct AsmOp *op = op
+	lea rsi, [rbp - 32]
+	lea rdx, [rbp - 33]
+	call .store_disp
+	jmp .write_buffer
+
+.write_buffer:
+	mov rdi, [rbp - 8]
+	mov r10, [rdi + 8]	; rsi = ctx->bintxt
+	mov r8, [rdi + 16]	; r8 = ctx->max_bintxt_size
+	mov r9, [rdi + 24]	; r9 = ctx->bintxt_size
+	xor cx, cx
+	mov cl, [rbp - 33]	; cl = bytes_to_write
+	add r10, r9
+	add r9, rcx		; r9 += bytes_to_write
+	cmp r9, r8
+	ja .end
+	mov [rdi + 24], r9
+	lea rsi, [rbp - 32]	; rsi = buffer
+.write_buffer_copy:
+	mov al, [rsi]
+	mov [r10], al
+	inc rsi
+	inc r10
+	dec cl
+	jne .write_buffer_copy
+.end:
+	mov rsp, rbp
+	pop rbp
+	retn
+
+;;; rdi: `struct AsmCtx *ctx`
 as_snginst:
 	push rbp
 	mov rbp, rsp
+	sub rsp, 32
+	mov [rbp - 8], rdi
 
+	lea rdi, [rbp - 32]
+	mov rsi, 24
+	call clr
+
+	mov rdi, [rbp - 8]
 	mov rsi, [rdi]		; Stores ctx->assembly in rsi
 	mov al, 0x63		; Ascii c ('c')
 	cmp [rsi], al
@@ -131,6 +629,7 @@ as_snginst:
 .call:
 	inc rsi
 	mov [rdi], rsi		; ctx->assembly = rsi
+	lea rsi, [rbp - 32]
 	call as_call
 	jmp .end
 
@@ -149,6 +648,7 @@ as_snginst:
 .nop:
 	inc rsi
 	mov [rdi], rsi		; ctx->assembly = rsi
+	lea rsi, [rbp - 32]
 	call as_nop
 	jmp .end
 
@@ -173,21 +673,28 @@ as_snginst:
 .retn:
 	inc rsi
 	mov [rdi], rsi		; ctx->assembly = rsi
+	lea rsi, [rbp - 32]
 	call as_retn
 	jmp .end
 
 .end:
+	mov rdi, [rbp - 8]
+	lea rsi, [rbp - 32]
+	call assemble_op
+
 	mov rsp, rbp
 	pop rbp
 	retn
 
 ;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
 as_call:
 	push rbp
 	mov rbp, rsp
-	sub rsp, 8
+	sub rsp, 16
 
 	mov [rbp - 8], rdi
+	mov [rbp - 16], rsi
 	call skp2lbinst
 
 	mov rdi, [rbp - 8]
@@ -206,32 +713,20 @@ as_call:
 	mov rdi, [rbp - 8]
 	call strlbl
 
-	mov rdi, [rbp - 8]
-	mov rsi, [rdi + 8]	; rsi = ctx->bintxt
-	mov r8, [rdi + 16]	; r8 = ctx->max_bintxt_size
-	mov r9, [rdi + 24]	; r9 = ctx->bintxt_size
-	add rsi, r9
-	add r9, 5		; Plan to write five bytes
-	cmp r9, r8
-	ja .label_no_output
-
+	mov rsi, [rbp - 16]
+	mov al, 1
+	mov [rsi], al		; op->encoding = ENCODING_D
+	mov al, 32
+	mov [rsi + 1], al	; op->op_size = 32
+	mov al, 1
+	mov [rsi + 5], al	; op->n_opcodes = 1
 	mov al, 0xe8
-	mov [rsi], al		; ctx->bintxt[ctx->bintxt_size] = 0xe8
-	mov r10, 5
-	add [rdi + 24], r10	; ctx->bintxt_size += 5
+	mov [rsi + 6], al	; op->opcodes[0] = 0xe8
+	mov al, 32
+	mov [rsi + 9], al	; op->imm_size = 32
+	mov al, 2
+	mov [rsi + 10], al	; op->d_label = D_LABEL_RELATIVE
 
-	mov rsi, [rdi + 56]	; size_t n = ctx->max_reftab_entries
-	lea rdx, [rdi + 64]	; char *label = ctx->label
-	mov rcx, [rdi + 24]
-	sub rcx, 4		; uint32_t offset = ctx->bintxt_size - 4
-	mov r8, 0x1		; uint32_t flags = FLAG_RELATIVE
-	mov r9, [rdi + 24]	; uint32_t rel_target = ctx->bintxt_size
-	mov rdi, [rdi + 48]	; struct SymTabNtr *symtab = ctx->reftab
-	call strsymtabntr
-
-	jmp .end
-
-.label_no_output:
 	jmp .end
 
 .call_int:
@@ -242,37 +737,25 @@ as_call:
 	retn
 
 ;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
 as_nop:
-	mov rsi, [rdi + 8]	; rsi = ctx->bintxt
-	mov r8, [rdi + 16]	; r8 = ctx->max_bintxt_size
-	mov r9, [rdi + 24]	; r9 = ctx->bintxt_size
-	add rsi, r9
-	inc r9			; Plan to write one byte
-	cmp r9, r8
-	ja .end
+	mov al, 0
+	mov [rsi], al		; op->encoding = ENCODING_ZO
+	mov al, 1
+	mov [rsi + 5], al	; op->n_opcodes = 1
 	mov al, 0x90
-	mov [rsi], al		; ctx->bintxt[ctx->bintxt_size + 1] = 0x90
-	mov r8, 1
-	add [rdi + 24], r8	; ctx->bintxt_size += 1
-
-.end:
+	mov [rsi + 6], al	; op->opcodes[0] = 0x90
 	retn
 
 ;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
 as_retn:
-	mov rsi, [rdi + 8]	; rsi = ctx->bintxt
-	mov r8, [rdi + 16]	; r8 = ctx->max_bintxt_size
-	mov r9, [rdi + 24]	; r9 = ctx->bintxt_size
-	add rsi, r9
-	inc r9			; Plan to write one byte
-	cmp r9, r8
-	ja .end
+	mov al, 0
+	mov [rsi], al		; op->encoding = ENCODING_ZO
+	mov al, 1
+	mov [rsi + 5], al	; op->n_opcodes = 1
 	mov al, 0xc3
-	mov [rsi], al		; ctx->bintxt[ctx->bintxt_size + 1] = 0xc3
-	mov r8, 1
-	add [rdi + 24], r8	; ctx->bintxt_size += 1
-
-.end:
+	mov [rsi + 6], al	; op->opcodes[0] = 0x90
 	retn
 
 cklb:

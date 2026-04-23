@@ -17,6 +17,8 @@ DEMO_NASM_TEXT_BINARIES = $(DEMO_SOURCES:.s=.nasm.text.bin)
 
 UNIT_TEST_SOURCES = \
 	tests/unit_test_suite.c \
+	tests/assembler.h \
+	tests/assembler.o \
 	tests/parser.h \
 	tests/parser.o \
 	tests/utils.h \
@@ -77,6 +79,7 @@ tests/unit_test_suite: $(UNIT_TEST_SOURCES)
 		tests/unit_test_suite.c \
 		src/0x864.c.o \
 		src/0x864.s.o \
+		tests/assembler.o \
 		tests/parser.o \
 		tests/utils.o \
 		-o $@

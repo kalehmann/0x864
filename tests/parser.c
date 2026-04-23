@@ -55,87 +55,45 @@ void test_assemble(void)
 
 void test_as_call(void)
 {
-	char const *assembly = " foobar ; Comment here\n";
-	char const *assembly2 = assembly + 8;
-
-	// Test that nothing happens if 0 bytes should be written into the output
-	// and the reftab has a size of zero.
-	struct AsmCtx *ctx = make_asmctx(assembly, 0, 0, 0);
+	struct AsmOp op = { 0 };
+	struct AsmCtx *ctx = make_asmctx(" .label ; Comment", 16, 8, 8);
 	TEST_ASSERT(ctx != NULL);
-	as_call(ctx);
-	TEST_CHECK(ctx->assembly == assembly2);
-	TEST_CHECK(ctx->bintxt_size == 0);
-	free_asmctx(ctx);
+	as_call(ctx, &op);
 
-	// Test a near relative call (0xE8) is written to the output if the size
-	// allows it and a reference to the target label stored in the reference
-	// table.
-	ctx = make_asmctx(assembly, 16, 0, 1);
-	TEST_ASSERT(ctx != NULL);
-	as_call(ctx);
-	TEST_CHECK(ctx->assembly == assembly2);
-	TEST_CHECK(ctx->bintxt_size == 5);
-	TEST_CHECK(ctx->bintxt[0] == 0xe8);
-	TEST_CHECK(ctx->bintxt[1] == 0);
-	TEST_CHECK(ctx->bintxt[2] == 0);
-	TEST_CHECK(ctx->bintxt[3] == 0);
-	TEST_CHECK(ctx->bintxt[4] == 0);
-	TEST_CHECK(strncmp(ctx->reftab[0].label, "foobar", 7) == 0);
-	// Place resolved reference after first 0xe8 byte
-	TEST_CHECK(ctx->reftab[0].offset == 1);
-	// Resolve reference relative to `rel_target`
-	TEST_CHECK(ctx->reftab[0].flags & FLAG_RELATIVE);
-	TEST_CHECK(ctx->reftab[0].rel_target == 5);
+	TEST_CHECK(op.encoding == ENCODING_D);
+	TEST_CHECK(op.op_size == 32);
+	TEST_CHECK(op.n_opcodes == 1);
+	TEST_CHECK(op.opcodes[0] == 0xE8);
+	TEST_CHECK(op.imm_size == 32);
+
 	free_asmctx(ctx);
 }
 
 void test_as_nop(void)
 {
-	char const *assembly = "\n"
-		"	 push rbp";
-
-	// Test that nothing happens if 0 bytes should be written into the output
-	struct AsmCtx *ctx = make_asmctx(assembly, 0, 0, 0);
+	struct AsmOp op = { 0 };
+	struct AsmCtx *ctx = make_asmctx("", 0, 0, 0);
 	TEST_ASSERT(ctx != NULL);
-	as_nop(ctx);
-	TEST_CHECK(ctx->assembly == assembly);
-	TEST_CHECK(ctx->bintxt_size == 0);
-	free_asmctx(ctx);
+	as_nop(ctx, &op);
 
-	// Test assembling `nop` to 0x90
-	ctx = make_asmctx(assembly, 16, 0, 0);
-	TEST_ASSERT(ctx != NULL);
-	as_nop(ctx);
-	TEST_CHECK(assembly == assembly);
-	TEST_CHECK(ctx->bintxt_size == 1);
-	TEST_CHECK(ctx->bintxt[0] == 0x90);
+	TEST_CHECK(op.encoding == ENCODING_ZO);
+	TEST_CHECK(op.n_opcodes == 1);
+	TEST_CHECK(op.opcodes[0] == 0x90);
+
 	free_asmctx(ctx);
 }
 
 void test_as_retn(void)
 {
-	char const *assembly = "\n"
-		"	 push rbp";
-
-	// Test that nothing happens if 0 bytes should be written into the output
-	struct AsmCtx *ctx = make_asmctx(assembly, 0, 0, 0);
+	struct AsmOp op = { 0 };
+	struct AsmCtx *ctx = make_asmctx("", 0, 0, 0);
 	TEST_ASSERT(ctx != NULL);
-	as_retn(ctx);
-	TEST_CHECK(ctx->assembly == assembly);
-	TEST_CHECK(ctx->bintxt_size == 0);
-	free_asmctx(ctx);
+	as_retn(ctx, &op);
 
-	// Test assembling `retn` to 0xc3
-	ctx = make_asmctx(assembly, 16, 0, 0);
-	TEST_ASSERT(ctx != NULL);
-	as_retn(ctx);
-	TEST_CHECK(ctx->assembly == assembly);
-	TEST_CHECK(ctx->bintxt_size == 1);
-	TEST_CHECK(ctx->bintxt[0] == 0xc3);
-	as_retn(ctx);
-	TEST_CHECK(ctx->bintxt_size == 2);
-	TEST_CHECK(ctx->bintxt[1] == 0xc3);
-	TEST_CHECK(ctx->bintxt[2] == 0);
+	TEST_CHECK(op.encoding == ENCODING_ZO);
+	TEST_CHECK(op.n_opcodes == 1);
+	TEST_CHECK(op.opcodes[0] == 0xc3);
+
 	free_asmctx(ctx);
 }
 

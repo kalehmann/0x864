@@ -23,11 +23,33 @@
 #include <stddef.h>
 #include <stdint.h>
 
+// Possible values for the `encoding` field of the AsmOp structure.
+#define ENCODING_ZO 0x00
+#define ENCODING_D 0x01
+#define ENCODING_I 0x02
+#define ENCODING_M 0x03
+#define ENCODING_MI 0x04
+#define ENCODING_MR 0x05
+#define ENCODING_OI 0x06
+#define ENCODING_RM 0x07
+
+// Possible values for the `flags` field of the SymTabNtr structure.
 #define FLAG_RELATIVE 0x01
+
+// Possible values for the `d_label` field of the AsmOp structure.
+#define D_LABEL_NONE 0x00
+#define D_LABEL_ABSOLUTE 0x01
+#define D_LABEL_RELATIVE 0x02
+
+// Possible values for the `modrm_mod` field of the AsmOp structure.
+#define MOD_INDIRECT 0b00
+#define MOD_INDIRECT_8 0b01
+#define MOD_INDIRECT_32 0b10
+#define MOD_DIRECT 0b11
 
 struct SymTabNtr {
 	char label[240];
-        uint32_t __reserved;
+	uint32_t __reserved;
 	uint32_t flags;
 	uint32_t rel_target;
 	uint32_t offset;
@@ -42,8 +64,75 @@ struct AsmCtx {
 	size_t max_symtab_entries;
 	struct SymTabNtr *reftab;
 	size_t max_reftab_entries;
-        char label[240];
-        char _label[240];
+	char label[240];
+	char _label[240];
+};
+
+union Disp{
+	int8_t disp8;
+	int32_t disp32;
+};
+
+union Immediate{
+	int8_t imm8;
+	int16_t imm16;
+	int32_t imm32;
+	int64_t imm64;
+};
+
+struct AsmOp {
+	uint8_t encoding;
+	/**
+	 * Size of the operation. 8, 16, 32 or 64 bit.
+	 */
+	uint8_t op_size;
+	/**
+	 * Source register of the operation encoded as 4 bit value.
+	 */
+	uint8_t src_reg;
+	/**
+	 * Destination register of the operation encoded as 4 bit value.
+	 */
+	uint8_t dst_reg;
+	/**
+	 * The two mod bits of the ModRM byte.
+	 */
+	uint8_t modrm_mod;
+	/**
+	 * The number of opcodes stored in the `opcodes` array.
+	 * - 00 -> register indirect
+	 * - 01 -> register indirect + `disp.disp8`
+	 * - 10 -> register indirect + `disp.disp32`
+	 * - 11 -> register direct
+	 */
+	uint8_t n_opcodes;
+	/**
+	 * The number of opcodes of the operation.
+	 */
+	uint8_t opcodes[3];
+	/**
+	 * The size of the immediate value in bits.
+	 * This value specifies whether `imm.imm8`, `imm.imm16`, `imm.imm32`
+	 * or `imm.imm64` shall be used.
+	 */
+	uint8_t imm_size;
+	/**
+	 * For encoding `ENCODING_D`, this specifies if the value from the `imm`
+	 * field should be used as targed or the address referenced by the label
+	 * currently stored in the context.
+	 */
+	uint8_t d_label;
+	uint8_t __reserved;
+	/**
+	 * The displacement of an register indirect access. The usage of
+	 * `disp.disp8` or `disp.disp32` is determined by the `modrm_mod`
+	 * field.
+	 */
+	union Disp disp;
+	/**
+	 * The intermediate value to encode. See the `imm_size` field.
+	 */
+	union Immediate imm;
 };
 
 /**
@@ -75,6 +164,14 @@ void free_asmctx(struct AsmCtx *ctx);
 extern void assemble(struct AsmCtx *);
 
 /**
+ * Encodes an instruction described by the AsmOp structure.
+ *
+ * @param ctx is the pointer to the AsmCtx structure.
+ * @param op is the pointer to the AsmOp structure.
+ */
+extern void assemble_op(struct AsmCtx *ctx, struct AsmOp *op);
+
+/**
  * Assembles a single instruction.
  *
  * @param ctx is the pointer to the AsmCtx structure.
@@ -85,22 +182,28 @@ extern void as_snglinst(struct AsmCtx *ctx);
  * Assembles the call instruction.
  *
  * @param ctx is the pointer to the AsmCtx structure.
+ * @param op is a pointer to an empty AsmOp structure, that should be filled
+ *	     with data about the encoded instruction.
  */
-extern void as_call(struct AsmCtx *ctx);
+extern void as_call(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the nop instruction.
  *
  * @param ctx is the pointer to the AsmCtx structure.
+ * @param op is a pointer to an empty AsmOp structure, that should be filled
+ *	     with data about the encoded instruction.
  */
-extern void as_nop(struct AsmCtx *ctx);
+extern void as_nop(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the retn instruction.
  *
  * @param ctx is the pointer to the AsmCtx structure.
+ * @param op is a pointer to an empty AsmOp structure, that should be filled
+ *	     with data about the encoded instruction.
  */
-extern void as_retn(struct AsmCtx *ctx);
+extern void as_retn(struct AsmCtx *ctx, struct AsmOp *op);
 
 extern int cklb(char const *assembly);
 
@@ -250,9 +353,9 @@ extern void strlbl(struct AsmCtx *ctx);
  * @param label is the label of the new entry to insert
  * @param offset is the offset to store for the label
  * @param flags is only relevant when the symbol table is used to resolve
- *              references and holds additional information how the references
- *              shall be resolved. Available flags:
- *              - 0x01 RESOLVE_RELATIVE
+ *		references and holds additional information how the references
+ *		shall be resolved. Available flags:
+ *		- 0x01 RESOLVE_RELATIVE
  * @param rel_target is used when the RESOLVE_RELATIVE bit is set in the flags
  *
  * @returns 0 on success or 1 in case there is no free entry in the symbol table

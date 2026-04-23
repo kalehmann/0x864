@@ -19,13 +19,16 @@
 
 #include <acutest.h>
 #include <stddef.h>
+#include "assembler.h"
 #include "parser.h"
 #include "utils.h"
 
 TEST_LIST = {
         { "struct_AsmCtx_is_packed", test_struct_AsmCtx_is_packed },
+        { "struct_AsmOp_is_packed", test_struct_AsmOp_is_packed },
         { "struct_SymTabNtr_is_packed", test_struct_SymTabNtr_is_packed },
         { "assemble", test_assemble },
+        { "assemble_op", test_assemble_op },
         { "as_call", test_as_call },
         { "as_nop", test_as_nop },
         { "as_retn", test_as_retn },
