@@ -208,6 +208,16 @@ extern void as_retn(struct AsmCtx *ctx, struct AsmOp *op);
 extern int cklb(char const *assembly);
 
 /**
+ * Get the size of an operation from it's operants.
+ *
+ * @param assembly is a pointer to the assembly string.
+ * @param n_ops is the number of operants
+ *
+ * @returns the size of the operation in bits (8, 16, 32 or 64)
+ */
+extern uint8_t ckopsize(char const *assembly, uint8_t n_ops);
+
+/**
  * Fills a buffer with zeros.
  *
  * @param buf is a pointer to the buffer

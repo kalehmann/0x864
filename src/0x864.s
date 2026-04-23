@@ -22,6 +22,7 @@
 	global	as_nop
 	global	as_retn
 	global	cklb
+	global	ckopsize
 	global	clr
 	global	cpy
 	global	isint
@@ -790,6 +791,103 @@ cklb:
 
 .end:
 	pop rdi
+	pop rbp
+	retn
+
+;;; rdi: `char *assembly`
+;;; rsi: `uint8_t n_ops`
+ckopsize:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+
+	xor eax, eax
+	mov [rbp - 8], rdi
+	mov rcx, rsi
+	mov [rbp - 9], cl
+	mov [rbp - 10], al	; uint8_t op_size = 0
+
+.check_op_loop:
+	lea rdi, [rbp - 8]
+	call skp2lbinst
+	mov rdi, [rbp - 8]
+	call isrgndrct
+	cmp al, 1
+	je .check_next_op
+	mov rdi, [rbp - 8]
+	call isint
+	cmp al, 1
+	je .check_next_op
+	mov rdi, [rbp - 8]
+	call isreg
+	cmp al, 1
+	jne .check_next_op
+
+	lea rdi, [rbp - 8]
+	call pr8
+	cmp al, 0xff
+	je .check_op_size_16
+	mov al, [rbp - 10]
+	cmp al, 8
+	ja .check_next_op
+	mov al, 8
+	mov [rbp - 10], al
+	jmp .check_next_op
+
+.check_op_size_16:
+	lea rdi, [rbp - 8]
+	call pr16
+	cmp al, 0xff
+	je .check_op_size_32
+	mov al, [rbp - 10]
+	cmp al, 16
+	ja .check_next_op
+	mov al, 16
+	mov [rbp - 10], al
+	jmp .check_next_op
+
+.check_op_size_32:
+	lea rdi, [rbp - 8]
+	call pr32
+	cmp al, 0xff
+	je .check_op_size_64
+	mov al, [rbp - 10]
+	cmp al, 32
+	ja .check_next_op
+	mov al, 32
+	mov [rbp - 10], al
+	jmp .check_next_op
+
+.check_op_size_64:
+	lea rdi, [rbp - 8]
+	call pr64
+	cmp al, 0xff
+	je .check_next_op
+	mov al, 64
+	mov [rbp - 10], al
+
+.check_next_op:
+	mov cl, [rbp - 9]
+	dec cl
+	jz .end
+	mov [rbp - 9], cl
+	mov rdi, [rbp - 8]
+	mov al, 0x2c		; Ascii comma
+.check_comma_loop:
+	cmp [rdi], al
+	je .check_comma_loop_end
+	inc rdi
+	jmp .check_comma_loop
+
+.check_comma_loop_end:
+	inc rdi
+	mov [rbp - 8], rdi
+	jmp .check_op_loop
+
+.end:
+	xor eax, eax
+	mov al, [rbp - 10]
+	mov rsp, rbp
 	pop rbp
 	retn
 

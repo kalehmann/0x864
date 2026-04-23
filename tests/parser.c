@@ -108,6 +108,19 @@ void test_cklb(void)
 	TEST_CHECK(cklb("test: \n") == 1);
 }
 
+void test_ckopsize(void)
+{
+	TEST_CHECK(ckopsize("al", 1) == 8);
+	TEST_CHECK(ckopsize("bx", 1) == 16);
+	TEST_CHECK(ckopsize("ecx", 1) == 32);
+	TEST_CHECK(ckopsize("rdx", 1) == 64);
+
+	TEST_CHECK(ckopsize("[rsi + 32], bx", 2) == 16);
+	TEST_CHECK(ckopsize("rsi, source_label", 2) == 64);
+	TEST_CHECK(ckopsize("al, 0xff", 2) == 8);
+}
+
+
 void test_isint(void)
 {
 	TEST_CHECK(isint("") == 0);

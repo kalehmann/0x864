@@ -33,6 +33,7 @@ TEST_LIST = {
 	{ "as_nop", test_as_nop },
 	{ "as_retn", test_as_retn },
 	{ "cklb", test_cklb },
+	{ "ckopsize", test_ckopsize },
 	{ "clr", test_clr },
 	{ "cpy", test_cpy },
 	{ "isint", test_isint },
