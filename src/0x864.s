@@ -26,12 +26,14 @@
 	global	cpy
 	global	isint
 	global	isopdlm
-	global	isr8
-	global	isr16
-	global	isr32
-	global	isr64
+	global	isrgndrct
 	global	isreg
 	global	len
+	global	pr8
+	global	pr16
+	global	pr32
+	global	pr64
+	global	preg
 	global	readnlbl
 	global	rslvref
 	global	scndpss
@@ -902,275 +904,11 @@ isopdlm:
 	retn
 
 ;;; rdi: `char *assembly`
-isr8:
-	mov al, 0x61		; Ascii lowercase letter a
-	mov ah, 0x62		; Ascii lowercase letter b
-	mov cl, 0x63		; Ascii lowercase letter c
-	mov ch, 0x64		; Ascii lowercase letter d
-
-	cmp [rdi], al
-	je .a_b_c_d
-	cmp [rdi], ah
-	je .a_b_c_d
-	cmp [rdi], cl
-	je .a_b_c_d
-	cmp [rdi], ch
-	je .a_b_c_d
-	jmp .ret_false
-
-.a_b_c_d:
-	mov al, 0x6c		; Ascii lowercase letter l
-	mov ah, 0x68		; Ascii lowercase letter h
-	inc rdi
-	cmp [rdi], al
-	je .check_token_delim
-	cmp [rdi], ah
-	je .check_token_delim
-	jmp .ret_false
-
-.check_token_delim:
-	inc rdi
-	call isopdlm
-	retn
-
-.ret_false:
-	mov eax, 0
-	retn
-
-isr16:
-	mov al, 0x61		; Ascii lowercase letter a
-	mov ah, 0x62		; Ascii lowercase letter b
-	mov cl, 0x63		; Ascii lowercase letter c
-	mov ch, 0x64		; Ascii lowercase letter d
-
-	cmp [rdi], al
-	je .a_b_c_d
-	cmp [rdi], ah
-	je .a_b_c_d
-	cmp [rdi], cl
-	je .a_b_c_d
-	cmp [rdi], ch
-	je .a_b_c_d
-	jmp .ret_false
-
-.a_b_c_d:
-	mov al, 0x78		; Ascii lowercase letter x
-	inc rdi
-	cmp [rdi], al
-	je .check_token_delim
-	jmp .ret_false
-
-.check_token_delim:
-	inc rdi
-	call isopdlm
-	retn
-
-.ret_false:
-	mov eax, 0
-	retn
-
-isr32:
-	mov al, 0x65		; Ascii lowercase letter e
-	mov ah, 0x72		; Ascii lowercase letter r
-
-	cmp [rdi], al
-	je .e
-	cmp [rdi], ah
-	je .r
-	jmp .ret_false
-
-.e:
-	inc rdi
-	mov al, 0x61		; Ascii lowercase letter a
-	cmp [rdi], al
-	je .ea_eb_ec
-	mov al, 0x62		; Ascii lowercase letter b
-	cmp [rdi], al
-	je .ea_eb_ec
-	mov al, 0x63		; Ascii lowercase letter c
-	cmp [rdi], al
-	je .ea_eb_ec
-	mov al, 0x64		; Ascii lowercase letter d
-	cmp [rdi], al
-	je .ed
-	mov al, 0x73		; Ascii lowercase letter s
-	cmp [rdi], al
-	je .es
-	jmp .ret_false
-
-.ea_eb_ec:
-	inc rdi
-	mov al, 0x78		; Ascii lowercase letter x
-	cmp [rdi], al
-	je .check_token_delim
-	jmp .ret_false
-
-.ed:
-	inc rdi
-	mov al, 0x69		; Ascii lowercase letter i
-	cmp [rdi], al
-	je .check_token_delim
-	mov al, 0x78		; Ascii lowercase letter x
-	cmp [rdi], al
-	je .check_token_delim
-	jmp .ret_false
-
-.es:
-	inc rdi
-	mov al, 0x69		; Ascii lowercase letter i
-	cmp [rdi], al
-	je .check_token_delim
-	jmp .ret_false
-
-.r:
-	inc rdi
-	mov al, 0x38		; Ascii number 8
-	mov ah, 0x39		; Ascii number 9
-	mov cl, 0x31		; Ascii number 1
-	cmp [rdi], al
-	je .r8_r9_r1x
-	cmp [rdi], ah
-	je .r8_r9_r1x
-	cmp [rdi], cl
-	je .r1
-	jmp .ret_false
-
-.r1:
-	inc rdi
-	mov al, 0x30		; Ascii number 0
-	cmp [rdi], al
-	je .r8_r9_r1x
-	mov al, 0x31		; Ascii number 1
-	cmp [rdi], al
-	je .r8_r9_r1x
-	mov al, 0x32		; Ascii number 2
-	cmp [rdi], al
-	je .r8_r9_r1x
-	mov al, 0x33		; Ascii number 3
-	cmp [rdi], al
-	je .r8_r9_r1x
-	mov al, 0x34		; Ascii number 4
-	cmp [rdi], al
-	je .r8_r9_r1x
-	mov al, 0x35		; Ascii number 5
-	cmp [rdi], al
-	je .r8_r9_r1x
-	jmp .ret_false
-
-.r8_r9_r1x:
-	inc rdi
-	mov al, 0x64		; Ascii lowercase letter d
-	cmp [rdi], al
-	je .check_token_delim
-	jmp .ret_false
-	jmp .ret_false
-
-.check_token_delim:
-	inc rdi
-	call isopdlm
-	retn
-
-.ret_false:
-	mov eax, 0
-	retn
-
-;;; rdi: `char *assembly`
-isr64:
-	mov al, 0x72		; Ascii lowercase letter r
-	cmp [rdi], al
-	je .r
-	jmp .ret_false
-
-.r:
-	inc rdi
-	mov al, 0x61		; Ascii lowercase letter a
-	cmp [rdi], al
-	je .ra_rc
-	mov al, 0x62		; Ascii lowercase letter b
-	cmp [rdi], al
-	je .rb
-	mov al, 0x63		; Ascii lowercase letter c
-	cmp [rdi], al
-	je .ra_rc
-	mov al, 0x64		; Ascii lowercase letter d
-	cmp [rdi], al
-	je .rd
-	mov al, 0x73		; Ascii lowercase letter s
-	cmp [rdi], al
-	je .rs
-	mov al, 0x38		; Ascii number 8
-	cmp [rdi], al
-	je .check_token_delim
-	mov al, 0x39		; Ascii number 9
-	cmp [rdi], al
-	je .check_token_delim
-	mov al, 0x31		; Ascii number 1
-	cmp [rdi], al
-	je .r1
-	jmp .ret_false
-
-.r1:
-	inc rdi
-	mov al, 0x30		; Ascii number 0
-	cmp [rdi], al
-	je .check_token_delim
-	mov al, 0x31		; Ascii number 1
-	cmp [rdi], al
-	je .check_token_delim
-	mov al, 0x32		; Ascii number 2
-	cmp [rdi], al
-	je .check_token_delim
-	mov al, 0x33		; Ascii number 3
-	cmp [rdi], al
-	je .check_token_delim
-	mov al, 0x34		; Ascii number 4
-	cmp [rdi], al
-	je .check_token_delim
-	mov al, 0x35		; Ascii number 5
-	cmp [rdi], al
-	je .check_token_delim
-	jmp .ret_false
-
-.ra_rc:
-	inc rdi
-	mov al, 0x78		; Ascii lowercase letter x
-	cmp [rdi], al
-	je .check_token_delim
-	jmp .ret_false
-
-.rb:
-	inc rdi
-	mov al, 0x70		; Ascii lowercase letter p
-	cmp [rdi], al
-	je .check_token_delim
-	mov al, 0x78		; Ascii lowercase letter x
-	cmp [rdi], al
-	je .check_token_delim
-	jmp .ret_false
-
-.rd:
-	inc rdi
-	mov al, 0x69		; Ascii lowercase letter i
-	cmp [rdi], al
-	je .check_token_delim
-	mov al, 0x78		; Ascii lowercase letter x
-	cmp [rdi], al
-	je .check_token_delim
-	jmp .ret_false
-
-.rs:
-	inc rdi
-	mov al, 0x69		; Ascii lowercase letter i
-	cmp [rdi], al
-	je .check_token_delim
-	mov al, 0x70		; Ascii lowercase letter p
-	cmp [rdi], al
-	je .check_token_delim
-	jmp .ret_false
-
-.check_token_delim:
-	inc rdi
-	call isopdlm
+isrgndrct:
+	mov al, 0x5b
+	cmp [rdi], al		; if (assembly[0] != '[')
+	jne .ret_false
+	mov eax, 1
 	retn
 
 .ret_false:
@@ -1179,31 +917,47 @@ isr64:
 
 ;;; rdi: `char *assembly`
 isreg:
-	mov rsi, rdi
-	call isr8
-	cmp rax, 1
-	je .ret_true
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	mov [rbp - 8], rdi
+	mov [rbp - 16], rdi
 
-	mov rdi, rsi
-	call isr16
-	cmp rax, 1
-	je .ret_true
+	lea rdi, [rbp - 8]
+	call pr8
+	cmp al, 0xff
+	jne .ret_true
 
-	mov rdi, rsi
-	call isr32
-	cmp rax, 1
-	je .ret_true
+	mov rdi, [rbp - 16]
+	mov [rbp - 8], rdi
+	lea rdi, [rbp - 8]
+	call pr16
+	cmp al, 0xff
+	jne .ret_true
 
-	mov rdi, rsi
-	call isr64
-	cmp rax, 1
-	je .ret_true
+	mov rdi, [rbp - 16]
+	mov [rbp - 8], rdi
+	lea rdi, [rbp - 8]
+	call pr32
+	cmp al, 0xff
+	jne .ret_true
+
+	mov rdi, [rbp - 16]
+	mov [rbp - 8], rdi
+	lea rdi, [rbp - 8]
+	call pr64
+	cmp al, 0xff
+	jne .ret_true
 
 	mov eax, 0
+	mov rsp, rbp
+	pop rbp
 	retn
 
 .ret_true:
 	mov eax, 1
+	mov rsp, rbp
+	pop rbp
 	retn
 
 ;;; rdi: `char *str`
@@ -1220,6 +974,481 @@ len:
 	inc rax
 	inc rdi
 
+	retn
+
+;;; rdi: `char **assembly`
+pr8:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 24
+
+	xor ecx, ecx
+	mov [rbp - 8], rdi
+	mov [rbp - 16], rcx
+	mov rdi, [rdi]
+
+	mov al, 0x61		; Ascii lowercase letter a
+	cmp [rdi], al
+	mov cl, 0b0000
+	je .a_b_c_d
+	mov al, 0x62		; Ascii lowercase letter b
+	mov cl, 0b0011
+	cmp [rdi], al
+	je .a_b_c_d
+	mov al, 0x63		; Ascii lowercase letter c
+	mov cl, 0b0001
+	cmp [rdi], al
+	je .a_b_c_d
+	mov al, 0x64		; Ascii lowercase letter d
+	mov cl, 0b0010
+	cmp [rdi], al
+	je .a_b_c_d
+	jmp .ret_false
+
+.a_b_c_d:
+	mov al, 0x6c		; Ascii lowercase letter l
+	inc rdi
+	cmp [rdi], al
+	je .check_token_delim
+	mov al, 0x68		; Ascii lowercase letter h
+	or cl, 0b0100
+	cmp [rdi], al
+	je .check_token_delim
+	jmp .ret_false
+
+.check_token_delim:
+	inc rdi
+	mov [rbp - 16], rcx
+	mov [rbp - 24], rdi
+	call isopdlm
+	cmp rax, 1
+	jne .ret_false
+
+	mov rdi, [rbp - 8]
+	mov rsi, [rbp - 24]
+	mov [rdi], rsi
+	mov rax, [rbp - 16]
+	mov rsp, rbp
+	pop rbp
+	retn
+
+.ret_false:
+	xor rax, rax
+	mov al, 0xff
+	mov rsp, rbp
+	pop rbp
+	retn
+
+;;; rdi: `char **assembly`
+pr16:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 24
+
+	xor ecx, ecx
+	mov [rbp - 8], rdi
+	mov [rbp - 16], rcx
+	mov rdi, [rdi]
+
+	mov al, 0x61		; Ascii lowercase letter a
+	cmp [rdi], al
+	je .a
+	mov al, 0x62		; Ascii lowercase letter b
+	cmp [rdi], al
+	je .b
+	mov al, 0x63		; Ascii lowercase letter c
+	cmp [rdi], al
+	je .c
+	mov al, 0x64		; Ascii lowercase letter d
+	cmp [rdi], al
+	je .d
+	jmp .ret_false
+
+.a:
+	mov al, 0x78		; Ascii lowercase letter x
+	mov cl, 0b0000
+	inc rdi
+	cmp [rdi], al
+	je .check_token_delim
+	jmp .ret_false
+
+.b:
+	mov al, 0x78		; Ascii lowercase letter x
+	mov cl, 0b0011
+	inc rdi
+	cmp [rdi], al
+	je .check_token_delim
+	jmp .ret_false
+
+.c:
+	mov al, 0x78		; Ascii lowercase letter x
+	mov cl, 0b0001
+	inc rdi
+	cmp [rdi], al
+	je .check_token_delim
+	jmp .ret_false
+
+.d:
+	mov al, 0x78		; Ascii lowercase letter x
+	mov cl, 0b0010
+	inc rdi
+	cmp [rdi], al
+	je .check_token_delim
+	jmp .ret_false
+
+.check_token_delim:
+	inc rdi
+	mov [rbp - 16], rcx
+	mov [rbp - 24], rdi
+	call isopdlm
+	cmp rax, 1
+	jne .ret_false
+
+	mov rdi, [rbp - 8]
+	mov rsi, [rbp - 24]
+	mov [rdi], rsi
+	mov rax, [rbp - 16]
+	mov rsp, rbp
+	pop rbp
+	retn
+
+.ret_false:
+	xor rax, rax
+	mov al, 0xff
+	mov rsp, rbp
+	pop rbp
+	retn
+
+;;; rdi: `char **assembly`
+pr32:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 24
+
+	xor ecx, ecx
+	mov [rbp - 8], rdi
+	mov [rbp - 16], rcx
+	mov rdi, [rdi]
+
+	mov al, 0x65		; Ascii lowercase letter e
+	cmp [rdi], al
+	je .e
+	mov al, 0x72		; Ascii lowercase letter r
+	cmp [rdi], al
+	je .r
+	jmp .ret_false
+
+.e:
+	inc rdi
+	mov al, 0x61		; Ascii lowercase letter a
+	cmp [rdi], al
+	je .ea
+	mov al, 0x62		; Ascii lowercase letter b
+	cmp [rdi], al
+	je .eb
+	mov al, 0x63		; Ascii lowercase letter c
+	cmp [rdi], al
+	je .ec
+	mov al, 0x64		; Ascii lowercase letter d
+	cmp [rdi], al
+	je .ed
+	mov al, 0x73		; Ascii lowercase letter s
+	cmp [rdi], al
+	je .es
+	jmp .ret_false
+
+.ea:
+	inc rdi
+	mov al, 0x78		; Ascii lowercase letter x
+	mov cl, 0b0000
+	cmp [rdi], al
+	je .check_token_delim
+	jmp .ret_false
+
+.eb:
+	inc rdi
+	mov al, 0x78		; Ascii lowercase letter x
+	mov cl, 0b0011
+	cmp [rdi], al
+	je .check_token_delim
+	jmp .ret_false
+
+.ec:
+	inc rdi
+	mov al, 0x78		; Ascii lowercase letter x
+	mov cl, 0b0001
+	cmp [rdi], al
+	je .check_token_delim
+	jmp .ret_false
+
+.ed:
+	inc rdi
+	mov al, 0x69		; Ascii lowercase letter i
+	mov cl, 0b0111
+	cmp [rdi], al
+	je .check_token_delim
+	mov al, 0x78		; Ascii lowercase letter x
+	mov cl, 0b0010
+	cmp [rdi], al
+	je .check_token_delim
+	jmp .ret_false
+
+.es:
+	inc rdi
+	mov al, 0x69		; Ascii lowercase letter i
+	mov cl, 0b0110
+	cmp [rdi], al
+	je .check_token_delim
+	jmp .ret_false
+
+.r:
+	inc rdi
+	mov al, 0x38		; Ascii number 8
+	mov cl, 0b1000
+	cmp [rdi], al
+	je .r8_r9_r1x
+	mov al, 0x39		; Ascii number 9
+	mov cl, 0b1001
+	cmp [rdi], al
+	je .r8_r9_r1x
+	mov al, 0x31		; Ascii number 1
+	cmp [rdi], al
+	je .r1
+	jmp .ret_false
+
+.r1:
+	inc rdi
+	mov al, 0x30		; Ascii number 0
+	cmp [rdi], al
+	mov cl, 0b1010
+	je .r8_r9_r1x
+	mov al, 0x31		; Ascii number 1
+	mov cl, 0b1011
+	cmp [rdi], al
+	je .r8_r9_r1x
+	mov al, 0x32		; Ascii number 2
+	mov cl, 0b1100
+	cmp [rdi], al
+	je .r8_r9_r1x
+	mov al, 0x33		; Ascii number 3
+	mov cl, 0b1101
+	cmp [rdi], al
+	je .r8_r9_r1x
+	mov al, 0x34		; Ascii number 4
+	mov cl, 0b1110
+	cmp [rdi], al
+	je .r8_r9_r1x
+	mov al, 0x35		; Ascii number 5
+	mov cl, 0b1111
+	cmp [rdi], al
+	je .r8_r9_r1x
+	jmp .ret_false
+
+.r8_r9_r1x:
+	inc rdi
+	mov al, 0x64		; Ascii lowercase letter d
+	cmp [rdi], al
+	je .check_token_delim
+	jmp .ret_false
+
+.check_token_delim:
+	inc rdi
+	mov [rbp - 16], rcx
+	mov [rbp - 24], rdi
+	call isopdlm
+	cmp rax, 1
+	jne .ret_false
+
+	mov rdi, [rbp - 8]
+	mov rsi, [rbp - 24]
+	mov [rdi], rsi
+	mov rax, [rbp - 16]
+	mov rsp, rbp
+	pop rbp
+	retn
+
+.ret_false:
+	xor rax, rax
+	mov al, 0xff
+	mov rsp, rbp
+	pop rbp
+	retn
+
+;;; rdi: `char **assembly`
+pr64:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 24
+
+	xor ecx, ecx
+	mov [rbp - 8], rdi
+	mov [rbp - 16], rcx
+	mov rdi, [rdi]
+	mov al, 0x72		; Ascii lowercase letter r
+	cmp [rdi], al
+	je .r
+	jmp .ret_false
+
+.r:
+	inc rdi
+	mov al, 0x61		; Ascii lowercase letter a
+	cmp [rdi], al
+	je .ra
+	mov al, 0x62		; Ascii lowercase letter b
+	cmp [rdi], al
+	je .rb
+	mov al, 0x63		; Ascii lowercase letter c
+	cmp [rdi], al
+	je .rc
+	mov al, 0x64		; Ascii lowercase letter d
+	cmp [rdi], al
+	je .rd
+	mov al, 0x73		; Ascii lowercase letter s
+	cmp [rdi], al
+	je .rs
+	mov al, 0x38		; Ascii number 8
+	mov cl, 0b1000
+	cmp [rdi], al
+	je .check_token_delim
+	mov al, 0x39		; Ascii number 9
+	mov cl, 0b1001
+	cmp [rdi], al
+	je .check_token_delim
+	mov al, 0x31		; Ascii number 1
+	cmp [rdi], al
+	je .r1
+	jmp .ret_false
+
+.r1:
+	inc rdi
+	mov al, 0x30		; Ascii number 0
+	mov cl, 0b1010
+	cmp [rdi], al
+	je .check_token_delim
+	mov al, 0x31		; Ascii number 1
+	mov cl, 0b1011
+	cmp [rdi], al
+	je .check_token_delim
+	mov al, 0x32		; Ascii number 2
+	mov cl, 0b1100
+	cmp [rdi], al
+	je .check_token_delim
+	mov al, 0x33		; Ascii number 3
+	mov cl, 0b1101
+	cmp [rdi], al
+	je .check_token_delim
+	mov al, 0x34		; Ascii number 4
+	mov cl, 0b1110
+	cmp [rdi], al
+	je .check_token_delim
+	mov al, 0x35		; Ascii number 5
+	mov cl, 0b1111
+	cmp [rdi], al
+	je .check_token_delim
+	jmp .ret_false
+
+.ra:
+	inc rdi
+	mov al, 0x78		; Ascii lowercase letter x
+	mov cl, 0
+	cmp [rdi], al
+	je .check_token_delim
+	jmp .ret_false
+
+.rb:
+	inc rdi
+	mov al, 0x70		; Ascii lowercase letter p
+	cmp [rdi], al
+	mov cl, 0b0101
+	je .check_token_delim
+	mov al, 0x78		; Ascii lowercase letter x
+	mov cl, 0b0011
+	cmp [rdi], al
+	je .check_token_delim
+	jmp .ret_false
+
+.rc:
+	inc rdi
+	mov al, 0x78		; Ascii lowercase letter x
+	mov cl, 0b0001
+	cmp [rdi], al
+	je .check_token_delim
+	jmp .ret_false
+
+.rd:
+	inc rdi
+	mov al, 0x69		; Ascii lowercase letter i
+	mov cl, 0b0111
+	cmp [rdi], al
+	je .check_token_delim
+	mov al, 0x78		; Ascii lowercase letter x
+	mov cl, 0b0010
+	cmp [rdi], al
+	je .check_token_delim
+	jmp .ret_false
+
+.rs:
+	inc rdi
+	mov al, 0x69		; Ascii lowercase letter i
+	mov cl, 0b0110
+	cmp [rdi], al
+	je .check_token_delim
+	mov al, 0x70		; Ascii lowercase letter p
+	mov cl, 0b0100
+	cmp [rdi], al
+	je .check_token_delim
+	jmp .ret_false
+
+.check_token_delim:
+	inc rdi
+	mov [rbp - 16], rcx
+	mov [rbp - 24], rdi
+	call isopdlm
+	cmp rax, 1
+	jne .ret_false
+
+	mov rdi, [rbp - 8]
+	mov rsi, [rbp - 24]
+	mov [rdi], rsi
+	mov rax, [rbp - 16]
+	mov rsp, rbp
+	pop rbp
+	retn
+
+.ret_false:
+	xor rax, rax
+	mov al, 0xff
+	mov rsp, rbp
+	pop rbp
+	retn
+
+;;; rdi: `char **assembly`
+preg:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 8
+	mov [rbp - 8], rdi
+
+	call pr8
+	cmp al, 0xff
+	jne .ret
+
+	mov rdi, [rbp - 8]
+	call pr16
+	cmp al, 0xff
+	jne .ret
+
+	mov rdi, [rbp - 8]
+	call pr32
+	cmp al, 0xff
+	jne .ret
+
+	mov rdi, [rbp - 8]
+	call pr64
+
+.ret:
+	mov rsp, rbp
+	pop rbp
 	retn
 
 ;;; rdi: `char const **assembly`

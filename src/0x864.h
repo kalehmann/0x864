@@ -244,40 +244,13 @@ extern int isint(char *assembly);
 extern int isopdlm(char *assembly);
 
 /**
- * Checks if the next token is a 8-bit register
+ * Checks if the next token is a register indirect addressing.
  *
  * @param assembly is a pointer to the assembly string.
  *
- * @returns whether the next token is a 8-bit register
+ * @returns whether the next token is a register indirect addressing.
  */
-extern int isr8(char *assembly);
-
-/**
- * Checks if the next token is a 16-bit register
- *
- * @param assembly is a pointer to the assembly string.
- *
- * @returns whether the next token is a 16-bit register
- */
-extern int isr16(char *assembly);
-
-/**
- * Checks if the next token is a 32-bit register
- *
- * @param assembly is a pointer to the assembly string.
- *
- * @returns whether the next token is a 32-bit register
- */
-extern int isr32(char *assembly);
-
-/**
- * Checks if the next token is a 64-bit register
- *
- * @param assembly is a pointer to the assembly string.
- *
- * @returns whether the next token is a 64-bit register
- */
-extern int isr64(char *assembly);
+extern int isrgndrct(char *assembly);
 
 /**
  * Checks if the next token is a register
@@ -295,6 +268,61 @@ extern int isreg(char *assembly);
  * @returns the length of the string
  */
 extern size_t len(char *str);
+
+/**
+ * Parses the next token as 8-bit register.
+ *
+ * @param assembly is a pointer to the string with the assembly code.
+ *		   This pointer gets advanced to the character following the
+ *		   register.
+ *
+ * @returns the 4-bit encoded register or `0xff` on failure.
+ */
+extern int pr8(char **assembly);
+
+/**
+ * Parses the next token as 16-bit register.
+ *
+ * @param assembly is a pointer to the string with the assembly code.
+ *		   This pointer gets advanced to the character following the
+ *		   register.
+ *
+ * @returns the 4-bit encoded register or `0xff` on failure.
+ */
+extern int pr16(char **assembly);
+
+/**
+ * Parses the next token as 32-bit register.
+ *
+ * @param assembly is a pointer to the string with the assembly code.
+ *		   This pointer gets advanced to the character following the
+ *		   register.
+ *
+ * @returns the 4-bit encoded register or `0xff` on failure.
+ */
+extern int pr32(char **assembly);
+
+/**
+ * Parses the next token as 64-bit register.
+ *
+ * @param assembly is a pointer to the string with the assembly code.
+ *		   This pointer gets advanced to the character following the
+ *		   register.
+ *
+ * @returns the 4-bit encoded register or `0xff` on failure.
+ */
+extern int pr64(char **assembly);
+
+/**
+ * Parses the next token as register.
+ *
+ * @param assembly is a pointer to the string with the assembly code.
+ *		   This pointer gets advanced to the character following the
+ *		   register.
+ *
+ * @returns the 4 bit encoded register or `0xff` on failure.
+ */
+extern uint8_t preg(char **assembly);
 
 /**
  * Parses next token as a label and writes it to the `label` parameter.

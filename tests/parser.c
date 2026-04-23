@@ -133,76 +133,6 @@ void test_isopdlm(void)
 	TEST_CHECK(isopdlm(" ,") == 1);
 }
 
-void test_isr8(void)
-{
-	TEST_CHECK(isr8("al") == 1);
-	TEST_CHECK(isr8("ah") == 1);
-	TEST_CHECK(isr8("bl") == 1);
-	TEST_CHECK(isr8("bh") == 1);
-	TEST_CHECK(isr8("cl; Comment here") == 1);
-	TEST_CHECK(isr8("ch  test") == 1);
-	TEST_CHECK(isr8("dl\n") == 1);
-	TEST_CHECK(isr8("dh\t") == 1);
-	TEST_CHECK(isr8("ax\t") == 0);
-	TEST_CHECK(isr8("rax") == 0);
-	TEST_CHECK(isr8("ecx") == 0);
-	TEST_CHECK(isr8("alt") == 0);
-}
-
-void test_isr16(void)
-{
-	TEST_CHECK(isr16("ax") == 1);
-	TEST_CHECK(isr16("bx") == 1);
-	TEST_CHECK(isr16("cx; Comment here") == 1);
-	TEST_CHECK(isr16("dx  test") == 1);
-	TEST_CHECK(isr16("rax") == 0);
-	TEST_CHECK(isr16("ecx") == 0);
-	TEST_CHECK(isr16("ex") == 0);
-}
-
-void test_isr32(void)
-{
-	TEST_CHECK(isr32("eax") == 1);
-	TEST_CHECK(isr32("ebx") == 1);
-	TEST_CHECK(isr32("ecx; Comment here") == 1);
-	TEST_CHECK(isr32("edx  test") == 1);
-	TEST_CHECK(isr32("edi") == 1);
-	TEST_CHECK(isr32("esi") == 1);
-	TEST_CHECK(isr32("r8d") == 1);
-	TEST_CHECK(isr32("r9d") == 1);
-	TEST_CHECK(isr32("r10d") == 1);
-	TEST_CHECK(isr32("r12d") == 1);
-	TEST_CHECK(isr32("r13d") == 1);
-	TEST_CHECK(isr32("r14d") == 1);
-	TEST_CHECK(isr32("r15d") == 1);
-	TEST_CHECK(isr32("r8") == 0);
-	TEST_CHECK(isr32("r9") == 0);
-	TEST_CHECK(isr32("r10") == 0);
-	TEST_CHECK(isr32("r12") == 0);
-	TEST_CHECK(isr32("r13") == 0);
-	TEST_CHECK(isr32("r14") == 0);
-	TEST_CHECK(isr32("r15") == 0);
-}
-
-void test_isr64(void)
-{
-	TEST_CHECK(isr64("rax") == 1);
-	TEST_CHECK(isr64("rbx") == 1);
-	TEST_CHECK(isr64("rcx; Comment here") == 1);
-	TEST_CHECK(isr64("rdx  test") == 1);
-	TEST_CHECK(isr64("rsp") == 1);
-	TEST_CHECK(isr64("rbp") == 1);
-	TEST_CHECK(isr64("rdi") == 1);
-	TEST_CHECK(isr64("rsi") == 1);
-	TEST_CHECK(isr64("r8") == 1);
-	TEST_CHECK(isr64("r9") == 1);
-	TEST_CHECK(isr64("r10") == 1);
-	TEST_CHECK(isr64("r12") == 1);
-	TEST_CHECK(isr64("r13") == 1);
-	TEST_CHECK(isr64("r14") == 1);
-	TEST_CHECK(isr64("r15\t") == 1);
-}
-
 void test_isreg(void)
 {
 	TEST_CHECK(isreg("al") == 1);
@@ -226,6 +156,364 @@ void test_isreg(void)
 	TEST_CHECK(isreg("r16 ") == 0);
 	TEST_CHECK(isreg("r") == 0);
 	TEST_CHECK(isreg("r7") == 0);
+}
+
+void test_isrgndrct(void)
+{
+	TEST_CHECK(isrgndrct("[rdi]") == 1);
+	TEST_CHECK(isrgndrct("[rsi + 10]") == 1);
+	TEST_CHECK(isrgndrct("rdi") == 0);
+	TEST_CHECK(isrgndrct("0xff") == 0);
+}
+
+void test_pr8(void)
+{
+	char *b = NULL;
+	char *buf = calloc(32, 1);
+	TEST_ASSERT(buf != NULL);
+	b = buf;
+
+	strncpy(buf, "al", 32);
+	TEST_CHECK(pr8(&buf) == 0b0000);
+	TEST_CHECK(buf == b + 2);
+	buf = b;
+
+	strncpy(buf, "ah", 32);
+	TEST_CHECK(pr8(&buf) == 0b0100);
+	TEST_CHECK(buf == b + 2);
+	buf = b;
+
+	strncpy(buf, "bl", 32);
+	TEST_CHECK(pr8(&buf) == 0b0011);
+	TEST_CHECK(buf == b + 2);
+	buf = b;
+
+	strncpy(buf, "bh", 32);
+	TEST_CHECK(pr8(&buf) == 0b0111);
+	TEST_CHECK(buf == b + 2);
+	buf = b;
+
+	strncpy(buf, "cl; Comment here", 32);
+	TEST_CHECK(pr8(&buf) == 0b0001);
+	TEST_CHECK(buf == b + 2);
+	buf = b;
+
+	strncpy(buf, "ch  test", 32);
+	TEST_CHECK(pr8(&buf) == 0b0101);
+	TEST_CHECK(buf == b + 2);
+	buf = b;
+
+	strncpy(buf, "dl\n", 32);
+	TEST_CHECK(pr8(&buf) == 0b0010);
+	TEST_CHECK(buf == b + 2);
+	buf = b;
+
+	strncpy(buf, "dh\t", 32);
+	TEST_CHECK(pr8(&buf) == 0b0110);
+	TEST_CHECK(buf == b + 2);
+	buf = b;
+
+	strncpy(buf, "ax\t", 32);
+	TEST_CHECK(pr8(&buf) == 0xff);
+	TEST_CHECK(buf == b);
+	buf = b;
+
+	strncpy(buf, "rax", 32);
+	TEST_CHECK(pr8(&buf) == 0xff);
+	TEST_CHECK(buf == b);
+	buf = b;
+
+	strncpy(buf, "ecx", 32);
+	TEST_CHECK(pr8(&buf) == 0xff);
+	TEST_CHECK(buf == b);
+	buf = b;
+
+	strncpy(buf, "alt", 32);
+	TEST_CHECK(pr8(&buf) == 0xff);
+	TEST_CHECK(buf == b);
+	buf = b;
+
+	free(buf);
+}
+
+void test_pr16(void)
+{
+	char *b = NULL;
+	char *buf = calloc(32, 1);
+	TEST_ASSERT(buf != NULL);
+	b = buf;
+
+	strncpy(buf, "ax", 32);
+	TEST_CHECK(pr16(&buf) == 0b0000);
+	TEST_CHECK(buf == b + 2);
+	buf = b;
+
+	strncpy(buf, "bx", 32);
+	TEST_CHECK(pr16(&buf) == 0b0011);
+	TEST_CHECK(buf == b + 2);
+	buf = b;
+
+	strncpy(buf, "cx; Comment here", 32);
+	TEST_CHECK(pr16(&buf) == 0b0001);
+	TEST_CHECK(buf == b + 2);
+	buf = b;
+
+	strncpy(buf, "dx  test", 32);
+	TEST_CHECK(pr16(&buf) == 0b0010);
+	TEST_CHECK(buf == b + 2);
+	buf = b;
+
+	strncpy(buf, "rax", 32);
+	TEST_CHECK(pr16(&buf) == 0xff);
+	TEST_CHECK(buf == b);
+	buf = b;
+
+	strncpy(buf, "ecx", 32);
+	TEST_CHECK(pr16(&buf) == 0xff);
+	TEST_CHECK(buf == b);
+	buf = b;
+
+	strncpy(buf, "ex", 32);
+	TEST_CHECK(pr16(&buf) == 0xff);
+	TEST_CHECK(buf == b);
+	buf = b;
+
+	free(buf);
+}
+
+void test_pr32(void)
+{
+	char *b = NULL;
+	char *buf = calloc(32, 1);
+	TEST_ASSERT(buf != NULL);
+	b = buf;
+
+	strncpy(buf, "eax", 32);
+	TEST_CHECK(pr32(&buf) == 0b0000);
+	TEST_CHECK(buf == b + 3);
+	buf = b;
+
+	strncpy(buf, "ebx", 32);
+	TEST_CHECK(pr32(&buf) == 0b0011);
+	TEST_CHECK(buf == b + 3);
+	buf = b;
+
+	strncpy(buf, "ecx; Comment here", 32);
+	TEST_CHECK(pr32(&buf) == 0b0001);
+	TEST_CHECK(buf == b + 3);
+	buf = b;
+
+	strncpy(buf, "edx  test", 32);
+	TEST_CHECK(pr32(&buf) == 0b0010);
+	TEST_CHECK(buf == b + 3);
+	buf = b;
+
+	strncpy(buf, "edi", 32);
+	TEST_CHECK(pr32(&buf) == 0b0111);
+	TEST_CHECK(buf == b + 3);
+	buf = b;
+
+	strncpy(buf, "esi", 32);
+	TEST_CHECK(pr32(&buf) == 0b0110);
+	TEST_CHECK(buf == b + 3);
+	buf = b;
+
+	strncpy(buf, "r8d", 32);
+	TEST_CHECK(pr32(&buf) == 0b1000);
+	TEST_CHECK(buf == b + 3);
+	buf = b;
+
+	strncpy(buf, "r9d", 32);
+	TEST_CHECK(pr32(&buf) == 0b1001);
+	TEST_CHECK(buf == b + 3);
+	buf = b;
+
+	strncpy(buf, "r10d", 32);
+	TEST_CHECK(pr32(&buf) == 0b1010);
+	TEST_CHECK(buf == b + 4);
+	buf = b;
+
+	strncpy(buf, "r11d", 32);
+	TEST_CHECK(pr32(&buf) == 0b1011);
+	TEST_CHECK(buf == b + 4);
+	buf = b;
+
+	strncpy(buf, "r12d", 32);
+	TEST_CHECK(pr32(&buf) == 0b1100);
+	TEST_CHECK(buf == b + 4);
+	buf = b;
+
+	strncpy(buf, "r13d", 32);
+	TEST_CHECK(pr32(&buf) == 0b1101);
+	TEST_CHECK(buf == b + 4);
+	buf = b;
+
+	strncpy(buf, "r14d", 32);
+	TEST_CHECK(pr32(&buf) == 0b1110);
+	TEST_CHECK(buf == b + 4);
+	buf = b;
+
+	strncpy(buf, "r15d", 32);
+	TEST_CHECK(pr32(&buf) == 0b1111);
+	TEST_CHECK(buf == b + 4);
+	buf = b;
+
+	strncpy(buf, "r8", 32);
+	TEST_CHECK(pr32(&buf) == 0xff);
+	TEST_CHECK(buf == b);
+	buf = b;
+
+	strncpy(buf, "r9", 32);
+	TEST_CHECK(pr32(&buf) == 0xff);
+	TEST_CHECK(buf == b);
+	buf = b;
+
+	strncpy(buf, "r10", 32);
+	TEST_CHECK(pr32(&buf) == 0xff);
+	TEST_CHECK(buf == b);
+	buf = b;
+
+	strncpy(buf, "r11", 32);
+	TEST_CHECK(pr32(&buf) == 0xff);
+	TEST_CHECK(buf == b);
+	buf = b;
+
+	strncpy(buf, "r12", 32);
+	TEST_CHECK(pr32(&buf) == 0xff);
+	TEST_CHECK(buf == b);
+	buf = b;
+
+	strncpy(buf, "r13", 32);
+	TEST_CHECK(pr32(&buf) == 0xff);
+	TEST_CHECK(buf == b);
+	buf = b;
+
+	strncpy(buf, "r14", 32);
+	TEST_CHECK(pr32(&buf) == 0xff);
+	TEST_CHECK(buf == b);
+	buf = b;
+
+	strncpy(buf, "r15", 32);
+	TEST_CHECK(pr32(&buf) == 0xff);
+	TEST_CHECK(buf == b);
+	buf = b;
+
+	free(buf);
+}
+
+void test_pr64(void)
+{
+	char *b = NULL;
+	char *buf = calloc(32, 1);
+	TEST_ASSERT(buf != NULL);
+	b = buf;
+
+	strncpy(buf, "rax", 32);
+	TEST_CHECK(pr64(&buf) == 0);
+	TEST_CHECK(buf == b + 3);
+	buf = b;
+
+	strncpy(buf, "rbx", 32);
+	TEST_CHECK(pr64(&buf) == 0b0011);
+	TEST_CHECK(buf == b + 3);
+	buf = b;
+
+	strncpy(buf, "rcx ; Comment", 32);
+	TEST_CHECK(pr64(&buf) == 0b0001);
+	TEST_CHECK(buf == b + 3);
+	buf = b;
+
+	strncpy(buf, "rdx, [rdi]", 32);
+	TEST_CHECK(pr64(&buf) == 0b0010);
+	TEST_CHECK(buf == b + 3);
+	buf = b;
+
+	strncpy(buf, "rsp", 32);
+	TEST_CHECK(pr64(&buf) == 0b0100);
+	TEST_CHECK(buf == b + 3);
+	buf = b;
+
+	strncpy(buf, "rbp", 32);
+	TEST_CHECK(pr64(&buf) == 0b0101);
+	TEST_CHECK(buf == b + 3);
+	buf = b;
+
+	strncpy(buf, "rdi", 32);
+	TEST_CHECK(pr64(&buf) == 0b0111);
+	TEST_CHECK(buf == b + 3);
+	buf = b;
+
+	strncpy(buf, "rsi", 32);
+	TEST_CHECK(pr64(&buf) == 0b0110);
+	TEST_CHECK(buf == b + 3);
+	buf = b;
+
+	strncpy(buf, "r8", 32);
+	TEST_CHECK(pr64(&buf) == 0b1000);
+	TEST_CHECK(buf == b + 2);
+	buf = b;
+
+	strncpy(buf, "r9", 32);
+	TEST_CHECK(pr64(&buf) == 0b1001);
+	TEST_CHECK(buf == b + 2);
+	buf = b;
+
+	strncpy(buf, "r10", 32);
+	TEST_CHECK(pr64(&buf) == 0b1010);
+	TEST_CHECK(buf == b + 3);
+	buf = b;
+
+	strncpy(buf, "r11", 32);
+	TEST_CHECK(pr64(&buf) == 0b1011);
+	TEST_CHECK(buf == b + 3);
+	buf = b;
+
+	strncpy(buf, "r12", 32);
+	TEST_CHECK(pr64(&buf) == 0b1100);
+	TEST_CHECK(buf == b + 3);
+	buf = b;
+
+	strncpy(buf, "r13", 32);
+	TEST_CHECK(pr64(&buf) == 0b1101);
+	TEST_CHECK(buf == b + 3);
+	buf = b;
+
+	strncpy(buf, "r14", 32);
+	TEST_CHECK(pr64(&buf) == 0b1110);
+	TEST_CHECK(buf == b + 3);
+	buf = b;
+
+	strncpy(buf, "r15\t", 32);
+	TEST_CHECK(pr64(&buf) == 0b1111);
+	TEST_CHECK(buf == b + 3);
+	buf = b;
+
+	free(buf);
+}
+
+void test_preg(void)
+{
+	char *b = NULL;
+	char *buf = calloc(32, 1);
+	TEST_ASSERT(buf != NULL);
+	b = buf;
+
+	strncpy(buf, "lol", 32);
+	TEST_CHECK(preg(&buf) == 0xff);
+	TEST_CHECK(buf == b);
+	buf = b;
+
+	strncpy(buf, "r15d ; Comment ", 32);
+	TEST_CHECK(preg(&buf) == 0b1111);
+	TEST_CHECK(buf == b + 4);
+	buf = b;
+
+	strncpy(buf, "ebx\n", 32);
+	TEST_CHECK(preg(&buf) == 0b0011);
+	TEST_CHECK(buf == b + 3);
+	buf = b;
+
+	free(buf);
 }
 
 void test_readnlbl(void)
