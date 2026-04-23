@@ -37,6 +37,7 @@ void test_pr16(void);
 void test_pr32(void);
 void test_pr64(void);
 void test_preg(void);
+void test_prgndrct(void);
 void test_readnlbl(void);
 void test_rslvref(void);
 void test_scndpss(void);

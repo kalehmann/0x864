@@ -183,6 +183,11 @@ void test_pint(void)
 	TEST_CHECK(buf == b + 2);
 	buf = b;
 
+	strncpy(buf, "1024", 32);
+	TEST_CHECK(pint(&buf) == 1024);
+	TEST_CHECK(buf == b + 4);
+	buf = b;
+
 	strncpy(buf, "4294967295", 32);
 	TEST_CHECK(pint(&buf) == 0xffffffff);
 	TEST_CHECK(buf == b + 10);
@@ -566,6 +571,39 @@ void test_preg(void)
 	free(buf);
 }
 
+void test_prgndrct(void)
+{
+	char *b = NULL;
+	char *buf = calloc(64, 1);
+	uint8_t reg = 0;
+	uint32_t disp = 0;
+	TEST_ASSERT(buf != NULL);
+	b = buf;
+
+	strncpy(buf, "[rbp - 8] ; <- This is a register indirect access", 64);
+	prgndrct(&buf, &reg, &disp);
+	TEST_CHECK(reg == 0b0101);
+	TEST_CHECK(disp == -8);
+	TEST_CHECK(buf == b + 9);
+	buf = b;
+
+	strncpy(buf, "[	 rsi + 1024 \t ]", 64);
+	prgndrct(&buf, &reg, &disp);
+	TEST_CHECK(reg == 0b0110);
+	TEST_CHECK(disp == 1024);
+	TEST_CHECK(buf == b + 17);
+	buf = b;
+
+	strncpy(buf, "[r8]", 64);
+	prgndrct(&buf, &reg, &disp);
+	TEST_CHECK(reg == 0b1000);
+	TEST_CHECK(disp == 0);
+	TEST_CHECK(buf == b + 4);
+	buf = b;
+
+	free(buf);
+}
+
 void test_readnlbl(void)
 {
 	int ret = 0;
@@ -685,6 +723,10 @@ void test_skp2lbinst(void)
 		"      ret";
 	const char * const label2 = assembly2;
 
+	skp2lbinst(&assembly1);
+	TEST_CHECK(assembly1 == label1);
+
+	// Test calling the function repeatedly does nothing
 	skp2lbinst(&assembly1);
 	TEST_CHECK(assembly1 == label1);
 

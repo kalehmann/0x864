@@ -46,6 +46,7 @@ TEST_LIST = {
 	{ "pr32", test_pr32 },
 	{ "pr64", test_pr64 },
 	{ "preg", test_preg },
+	{ "prgndrct", test_prgndrct },
 	{ "readnlbl", test_readnlbl },
 	{ "rslvref", test_rslvref },
 	{ "scndpss", test_scndpss },

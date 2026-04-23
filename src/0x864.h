@@ -325,6 +325,17 @@ extern int pr32(char **assembly);
 extern int pr64(char **assembly);
 
 /**
+ * Parses a register indirect addressing.
+ *
+ * @param assembly is a pointer to the string with the assembly code.
+ *		   This pointer gets advanced to the character following the
+ *		   closing square bracket.
+ * @param reg
+ * @param disp
+ */
+extern void prgndrct(char **assembly, uint8_t *reg, uint32_t *disp);
+
+/**
  * Parses the next token as register.
  *
  * @param assembly is a pointer to the string with the assembly code.

@@ -35,6 +35,7 @@
 	global	pr32
 	global	pr64
 	global	preg
+	global	prgndrct
 	global	readnlbl
 	global	rslvref
 	global	scndpss
@@ -877,22 +878,25 @@ isint:
 ;;; rdi: `char *assembly`
 isopdlm:
 	mov al, 0x9		; Ascii tabulator ('\t')
-	mov ah, 0xa		; Ascii newline ('\n')
-	mov cl, 0x20		; Ascii space
-	mov ch, 0x2c		; Ascii comma
-	mov dl, 0x3b		; Ascii semicolon
-	mov dh, 0		; Null terminator
 	cmp [rdi], al
 	je .ret_true
-	cmp [rdi], ah
+	mov al, 0xa		; Ascii newline ('\n')
+	cmp [rdi], al
 	je .ret_true
-	cmp [rdi], cl
+	mov al, 0x20		; Ascii space
+	cmp [rdi], al
 	je .ret_true
-	cmp [rdi], ch
+	mov al, 0x2c		; Ascii comma
+	cmp [rdi], al
 	je .ret_true
-	cmp [rdi], dl
+	mov al, 0x3b		; Ascii semicolon
+	cmp [rdi], al
 	je .ret_true
-	cmp [rdi], dh
+	mov al, 0x5d		; Ascii closing square bracket
+	cmp [rdi], al
+	je .ret_true
+	mov al, 0		; Null terminator
+	cmp [rdi], al
 	je .ret_true
 
 .ret_false:
@@ -1033,6 +1037,7 @@ pint:
 	mov cl, 0x30		; Ascii zero ('0')
 	mov ch, 0x39		; Ascii nine ('9')
 	mov r8d, 10
+	xor r9d, r9d
 .parse_decimal_loop:
 	cmp [rsi], cl
 	jb .ret
@@ -1041,7 +1046,7 @@ pint:
 	mul r8d			; eax = 10 * eax
 	mov r9b, [rsi]
 	sub r9b, 0x30
-	add al, r9b
+	add eax, r9d
 	inc rsi
 	jmp .parse_decimal_loop
 
@@ -1522,6 +1527,79 @@ preg:
 	call pr64
 
 .ret:
+	mov rsp, rbp
+	pop rbp
+	retn
+
+;;; rdi: `char const **assembly`
+;;; rsi: `uint8_t *reg`
+;;; rdx: `uint32_t *disp`
+prgndrct:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 24
+	mov [rbp - 8], rdi
+	mov [rbp - 16], rsi
+	mov [rbp - 24], rdx
+	mov rsi, [rdi]
+	xor eax, eax
+	mov [rdx], eax		; *disp = 0
+
+	inc rsi			; Skip initial '[' character
+	mov [rdi], rsi
+	call skp2lbinst
+
+	mov rdi, [rbp - 8]
+	call preg		; Fetch register
+	mov rsi, [rbp - 16]
+	mov [rsi], al		; *reg = al
+
+	mov rdi, [rbp - 8]
+	call skp2lbinst		; Skip to next token
+
+	mov rdi, [rbp - 8]
+	mov rsi, [rdi]
+	mov al, 0x5d		; Ascii closing square bracket (']')
+	cmp [rsi], al
+	je .end
+
+	mov al, 0x2b		; Ascii plus ('+')
+	cmp [rsi], al
+	je .store_plus
+
+.store_minus:
+	inc rsi
+	mov [rdi], rsi
+	call skp2lbinst		; Skip to next token
+
+	mov rdi, [rbp - 8]
+	call pint
+
+	xor ecx, ecx
+	sub ecx, eax		; ecx = -eax
+	mov rdx, [rbp - 24]
+	mov [rdx], ecx		; *disp = ecx
+	jmp .end
+
+.store_plus:
+	inc rsi
+	mov [rdi], rsi
+	call skp2lbinst		; Skip to next token
+
+	mov rdi, [rbp - 8]
+	call pint
+
+	mov rdx, [rbp - 24]
+	mov [rdx], eax		; *disp = acx
+	jmp .end
+
+.end:
+	mov rdi, [rbp - 8]
+	call skp2lbinst		; Skip to next token
+	mov rdi, [rbp - 8]
+	mov rsi, [rdi]
+	inc rsi
+	mov [rdi], rsi		; (*assembly)++ Skip the closing square bracket
 	mov rsp, rbp
 	pop rbp
 	retn
