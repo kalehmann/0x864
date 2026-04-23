@@ -188,6 +188,25 @@ extern void as_snglinst(struct AsmCtx *ctx);
 extern void as_call(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
+ * Assembles the dec instruction.
+ *
+ * @param ctx is the pointer to the AsmCtx structure.
+ * @param op is a pointer to an empty AsmOp structure, that should be filled
+ *	     with data about the encoded instruction.
+ */
+extern void as_dec(struct AsmCtx *ctx, struct AsmOp *op);
+
+/**
+ * Assembles the inc instruction.
+ *
+ * @param ctx is the pointer to the AsmCtx structure.
+ * @param op is a pointer to an empty AsmOp structure, that should be filled
+ *	     with data about the encoded instruction.
+ */
+extern void as_inc(struct AsmCtx *ctx, struct AsmOp *op);
+
+
+/**
  * Assembles the nop instruction.
  *
  * @param ctx is the pointer to the AsmCtx structure.

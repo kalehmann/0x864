@@ -19,6 +19,8 @@
 	global	assemble_op
 	global	as_snglinst
 	global	as_call
+	global	as_dec
+	global	as_inc
 	global	as_nop
 	global	as_retn
 	global	cklb
@@ -226,7 +228,7 @@ assemble_op:
 ;;; rdx: `uint8_t *modrm`
 ;;; rcx: `uint8_t register`
 .store_modrm_rm:
-	cmp cl, 7		; if (register < 7)
+	cmp cl, 8		; if (register < 8)
 	jb .store_modrm_rm_skip_rex_b
 	mov al, [rsi]
 	or al, 0x41		; Set the REX.B bit
@@ -259,7 +261,7 @@ assemble_op:
 ;;; rdx: `uint8_t *modrm`
 ;;; rcx: `uint8_t register`
 .store_modrm_reg:
-	cmp cl, 7		; if (register < 7)
+	cmp cl, 8		; if (register < 8)
 	jb .store_modrm_reg_skip_rex_r
 	mov al, [rsi]
 	or al, 0x44		; Set the REX.R bit
@@ -606,6 +608,12 @@ as_snginst:
 	mov al, 0x63		; Ascii c ('c')
 	cmp [rsi], al
 	je .c
+	mov al, 0x64		; Ascii c ('d')
+	cmp [rsi], al
+	je .d
+	mov al, 0x69		; Ascii c ('i')
+	cmp [rsi], al
+	je .i
 	mov al, 0x6e		; Ascii n ('n')
 	cmp [rsi], al
 	je .n
@@ -636,6 +644,44 @@ as_snginst:
 	mov [rdi], rsi		; ctx->assembly = rsi
 	lea rsi, [rbp - 32]
 	call as_call
+	jmp .end
+
+.d:
+	inc rsi
+	mov al, 0x65		; Ascii e ('e')
+	cmp [rsi], al
+	je .de
+
+.de:
+	inc rsi
+	mov al, 0x63		; Ascii c ('c')
+	cmp [rsi], al
+	je .dec
+
+.dec:
+	inc rsi
+	mov [rdi], rsi		; ctx->assembly = rsi
+	lea rsi, [rbp - 32]
+	call as_dec
+	jmp .end
+
+.i:
+	inc rsi
+	mov al, 0x6e		; Ascii n ('n')
+	cmp [rsi], al
+	je .in
+
+.in:
+	inc rsi
+	mov al, 0x63		; Ascii c ('c')
+	cmp [rsi], al
+	je .inc
+
+.inc:
+	inc rsi
+	mov [rdi], rsi		; ctx->assembly = rsi
+	lea rsi, [rbp - 32]
+	call as_inc
 	jmp .end
 
 .n:
@@ -737,6 +783,89 @@ as_call:
 .call_int:
 .call_reg:
 .end:
+	mov rsp, rbp
+	pop rbp
+	retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
+as_dec:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 8
+	mov [rbp - 8], rsi
+
+	call as_inc
+	mov rsi, [rbp - 8]
+	;; Encode a 1 as source register - this is the only difference between
+	;; dec and inc.
+	mov al, 1
+	mov [rsi + 2], al	; op->src_reg = 1
+
+	mov rsp, rbp
+	pop rbp
+	retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
+as_inc:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	mov [rbp - 8], rdi
+	mov [rbp - 16], rsi
+
+	mov al, 0x03
+	mov [rsi], al		; op->encoding = ENCODING_M
+	mov al, 0b11
+	mov [rsi + 4], al	; op->modrm_mod = MOD_DIRECT
+
+	call skp2lbinst
+
+	mov rdi, [rbp - 8]
+	mov rdi, [rdi]		; char *assembly = ctx->assembly
+	mov rsi, 1		; uint8_t n_ops = 1
+	call ckopsize
+	mov rsi, [rbp - 16]
+	mov [rsi + 1], al	; op->op_size = al
+	cmp al, 8
+	je .op_size_8
+	cmp al, 16
+	je .op_size_16
+	jmp .op_size_gt_16
+
+.op_size_8:
+	mov rsi, [rbp - 16]
+	mov al, 1
+	mov [rsi + 5], al	; op->n_opcodes = 1
+	mov al, 0xfe
+	mov [rsi + 6], al	; op->opcodes[0] = 0xfe
+	jmp .parse_dest_reg
+
+.op_size_16:
+	mov rsi, [rbp - 16]
+	mov al, 2
+	mov [rsi + 5], al	; op->n_opcodes = 2
+	;; Add operand-size override prefix
+	mov al, 0x66
+	mov [rsi + 6], al	; op->opcodes[0] = 0x66
+	mov al, 0xff
+	mov [rsi + 7], al	; op->opcodes[1] = 0xff
+	jmp .parse_dest_reg
+
+.op_size_gt_16:
+	mov rsi, [rbp - 16]
+	mov al, 1
+	mov [rsi + 5], al	; op->n_opcodes = 1
+	mov al, 0xff
+	mov [rsi + 6], al	; op->opcodes[0] = 0xff
+
+.parse_dest_reg:
+	mov rdi, [rbp - 8]
+	call preg
+	mov rsi, [rbp - 16]
+	mov [rsi + 3], al	; op->dst_reg = al
+
 	mov rsp, rbp
 	pop rbp
 	retn
