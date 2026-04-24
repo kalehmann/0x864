@@ -415,6 +415,13 @@ extern void scndpss(struct AsmCtx *ctx);
 extern void skp2lbinst(char const **assembly);
 
 /**
+ * Stores the ModRM.mod bits in the AsmOp structure based on the displacement.
+ *
+ * @param op is the pointer to the AsmOp structure.
+ */
+extern void strdspmodrmmod(struct AsmOp *op);
+
+/**
  * Stores next token of the assembly text as label in `ctx->label`.
  *
  * If the label starts with a dot, it will be prepended with the previous label

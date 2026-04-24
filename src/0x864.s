@@ -43,6 +43,7 @@
 	global	rslvref
 	global	scndpss
 	global	skp2lbinst
+	global	strdspmodrmmod
 	global	strlbl
 	global	strsymtabntr
 
@@ -2057,6 +2058,32 @@ scndpss:
 .end:
 	mov rsp, rbp
 	pop rbp
+	retn
+
+;;; rdi: `struct AsmOp *op`
+strdspmodrmmod:
+	mov eax, [rdi + 12]	; eax = op->disp.disp32
+	cmp eax, 0
+	je .direct		; if (op->disp.disp32 == 0)
+	cmp eax, 127
+	jg .disp32		; if (op->disp.disp32 > 127)
+	cmp eax, -128
+	jl .disp32		; if (op->disp.disp32 < -128)
+
+.disp8:
+	mov al, 0b01
+	mov [rdi + 4], al	; op->modrm_mod = MOD_INDIRECT_8
+	jmp .end
+
+.disp32:
+	mov al, 0b10
+	mov [rdi + 4], al	; op->modrm_mod = MOD_INDIRECT_32
+	jmp .end
+
+.direct:
+	mov al, 0b00
+	mov [rdi + 4], al	; op->modrm_mod = MOD_INDIRECT
+.end:
 	retn
 
 ;;; rdi: `struct AsmCtx *ctx`

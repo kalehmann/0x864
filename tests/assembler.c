@@ -205,3 +205,33 @@ void test_assemble_op(void)
 	memset(&op, 0, sizeof(struct AsmOp));
 }
 
+void test_strdspmodrmmod(void)
+{
+	struct AsmOp op = { 0 };
+
+	op.disp.disp32 = 0;
+	strdspmodrmmod(&op);
+	TEST_CHECK(op.modrm_mod == MOD_INDIRECT);
+	memset(&op, 0, sizeof(struct AsmOp));
+
+	op.disp.disp32 = 127;
+	strdspmodrmmod(&op);
+	TEST_CHECK(op.modrm_mod == MOD_INDIRECT_8);
+	memset(&op, 0, sizeof(struct AsmOp));
+
+	op.disp.disp32 = -128;
+	strdspmodrmmod(&op);
+	TEST_CHECK(op.modrm_mod == MOD_INDIRECT_8);
+	memset(&op, 0, sizeof(struct AsmOp));
+
+	op.disp.disp32 = -129;
+	strdspmodrmmod(&op);
+	TEST_CHECK(op.modrm_mod == MOD_INDIRECT_32);
+	memset(&op, 0, sizeof(struct AsmOp));
+
+	op.disp.disp32 = 128;
+	strdspmodrmmod(&op);
+	TEST_CHECK(op.modrm_mod == MOD_INDIRECT_32);
+	memset(&op, 0, sizeof(struct AsmOp));
+}
+

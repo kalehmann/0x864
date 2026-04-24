@@ -52,6 +52,7 @@ TEST_LIST = {
 	{ "rslvref", test_rslvref },
 	{ "scndpss", test_scndpss },
 	{ "skp2lbinst", test_skp2lbinst },
+	{ "strdspmodrmmod", test_strdspmodrmmod },
 	{ "strlbl", test_strlbl },
 	{ "strsymtabntr", test_strsymtabntr },
 	{ "symbol_table_generation", test_symbol_table_generation },
