@@ -47,6 +47,12 @@
 #define MOD_INDIRECT_32 0b10
 #define MOD_DIRECT 0b11
 
+// Possible values for the `prefix` field of the AsmOp structure.
+#define PREFIX_LOCK 0x01
+#define PREFIX_REPNE_REPNZ 0x02
+#define PREFIX_REPE_REPZ 0x04
+#define PREFIX_OP_SIZE_OVERRIDE 0x08
+
 struct SymTabNtr {
 	char label[240];
 	uint32_t __reserved;
@@ -122,7 +128,10 @@ struct AsmOp {
 	 * currently stored in the context.
 	 */
 	uint8_t d_label;
-	uint8_t __reserved;
+        /**
+         * Additional prefixes for the instruction
+         */
+	uint8_t prefix;
 	/**
 	 * The displacement of an register indirect access. The usage of
 	 * `disp.disp8` or `disp.disp32` is determined by the `modrm_mod`

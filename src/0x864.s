@@ -296,21 +296,63 @@ assemble_op:
 	jnz .store_opcodes_loop
 	retn
 
-;;; rdi: `uint8_t *rex`
-;;; rsi: `uint8_t *buffer`
-;;; rdx: `uint8_t *bytes_to_write`
-.store_rex:
-	mov al, [rdi]
-	cmp al, 0		; if (*rex == 0)
-	je .store_rex_end
+;;; rdi: `struct AsmOp *op`
+;;; rsi: `uint8_t *rex`
+;;; rdx: `uint8_t *buffer`
+;;; rcx: `uint8_t *bytes_to_write`
+.store_prefixes:
+	xor rax, rax
+	mov al, [rcx]
+	add rdx, rax		; buffer += *bytes_to_write
 
-	xor rcx, rcx
-	mov cl, [rdx]
-	add rsi, rcx		; buffer += *bytes_to_write
-	mov [rsi], al
-	inc cl
-	mov [rdx], cl
-.store_rex_end:
+	mov ah, [rdi + 11]
+	and ah, 0x01
+	cmp ah, 0		; if ((op->prefix & PREFIX_LOCK) == 0)
+	je .store_prefixes_repne
+	mov ah, 0xF0
+	mov [rdx], ah
+	inc al
+	inc rdx
+
+.store_prefixes_repne:
+	mov ah, [rdi + 11]
+	and ah, 0x02
+	cmp ah, 0		; if ((op->prefix & PREFIX_REPNE_REPNZ) == 0)
+	je .store_prefixes_repe
+	mov ah, 0xF2
+	mov [rdx], ah
+	inc al
+	inc rdx
+
+.store_prefixes_repe:
+	mov ah, [rdi + 11]
+	and ah, 0x04
+	cmp ah, 0		; if ((op->prefix & PREFIX_REPE_REPZ) == 0)
+	je .store_prefixes_op_size
+	mov ah, 0xF3
+	mov [rdx], ah
+	inc al
+	inc rdx
+
+.store_prefixes_op_size:
+	mov ah, [rdi + 11]
+	and ah, 0x08
+	cmp ah, 0		; if ((op->prefix & PREFIX_OP_SIZE_OVERRIDE) == 0)
+	je .store_prefixes_rex
+	mov ah, 0x66
+	mov [rdx], ah
+	inc al
+	inc rdx
+
+.store_prefixes_rex:
+	mov ah, [rsi]
+	cmp ah, 0		; if (*rex == 0)
+	je .store_prefixes_end
+	mov [rdx], ah
+	inc al
+
+.store_prefixes_end:
+	mov [rcx], al
 	retn
 
 ;;; rdi: `struct AsmOp *op`
@@ -410,10 +452,11 @@ assemble_op:
 	mov cl, [rdi + 3]
 	call .store_modrm_rm
 
-	lea rdi, [rbp - 34]
-	lea rsi, [rbp - 32]
-	lea rdx, [rbp - 33]
-	call .store_rex
+	mov rdi, [rbp - 16]	; struct AsmOp *op = op
+	lea rsi, [rbp - 34]
+	lea rdx, [rbp - 32]
+	lea rcx, [rbp - 33]
+	call .store_prefixes
 
 	mov rdi, [rbp - 16]	; struct AsmOp *op = op
 	lea rsi, [rbp - 32]	; uint8_t *buffer = &buffer
@@ -437,10 +480,11 @@ assemble_op:
 	mov cl, [rdi + 3]
 	call .store_modrm_rm
 
-	lea rdi, [rbp - 34]
-	lea rsi, [rbp - 32]
-	lea rdx, [rbp - 33]
-	call .store_rex
+	mov rdi, [rbp - 16]	; struct AsmOp *op = op
+	lea rsi, [rbp - 34]
+	lea rdx, [rbp - 32]
+	lea rcx, [rbp - 33]
+	call .store_prefixes
 
 	mov rdi, [rbp - 16]	; struct AsmOp *op = op
 	lea rsi, [rbp - 32]	; uint8_t *buffer = &buffer
@@ -474,10 +518,11 @@ assemble_op:
 	mov cl, [rdi + 3]
 	call .store_modrm_rm
 
-	lea rdi, [rbp - 34]
-	lea rsi, [rbp - 32]
-	lea rdx, [rbp - 33]
-	call .store_rex
+	mov rdi, [rbp - 16]	; struct AsmOp *op = op
+	lea rsi, [rbp - 34]
+	lea rdx, [rbp - 32]
+	lea rcx, [rbp - 33]
+	call .store_prefixes
 
 	mov rdi, [rbp - 16]	; struct AsmOp *op = op
 	lea rsi, [rbp - 32]	; uint8_t *buffer = &buffer
@@ -505,10 +550,11 @@ assemble_op:
 	mov cl, [rdi + 3]
 	call .store_modrm_rm
 
-	lea rdi, [rbp - 34]
-	lea rsi, [rbp - 32]
-	lea rdx, [rbp - 33]
-	call .store_rex
+	mov rdi, [rbp - 16]	; struct AsmOp *op = op
+	lea rsi, [rbp - 34]
+	lea rdx, [rbp - 32]
+	lea rcx, [rbp - 33]
+	call .store_prefixes
 
 	mov rdi, [rbp - 16]
 	mov dl, [rdi + 5]	; dl = op->n_opcodes
@@ -557,10 +603,11 @@ assemble_op:
 	mov cl, [rdi + 2]
 	call .store_modrm_rm
 
-	lea rdi, [rbp - 34]
-	lea rsi, [rbp - 32]
-	lea rdx, [rbp - 33]
-	call .store_rex
+	mov rdi, [rbp - 16]	; struct AsmOp *op = op
+	lea rsi, [rbp - 34]
+	lea rdx, [rbp - 32]
+	lea rcx, [rbp - 33]
+	call .store_prefixes
 
 	mov rdi, [rbp - 16]	; struct AsmOp *op = op
 	lea rsi, [rbp - 32]	; uint8_t *buffer = &buffer
@@ -830,6 +877,8 @@ as_inc:
 	mov [rsi], al		; op->encoding = ENCODING_M
 	mov al, 0b11
 	mov [rsi + 4], al	; op->modrm_mod = MOD_DIRECT
+	mov al, 1
+	mov [rsi + 5], al	; op->n_opcodes = 1
 
 	call skp2lbinst
 
@@ -847,27 +896,20 @@ as_inc:
 
 .op_size_8:
 	mov rsi, [rbp - 16]
-	mov al, 1
-	mov [rsi + 5], al	; op->n_opcodes = 1
 	mov al, 0xfe
 	mov [rsi + 6], al	; op->opcodes[0] = 0xfe
 	jmp .parse_dest_reg
 
 .op_size_16:
 	mov rsi, [rbp - 16]
-	mov al, 2
-	mov [rsi + 5], al	; op->n_opcodes = 2
-	;; Add operand-size override prefix
-	mov al, 0x66
-	mov [rsi + 6], al	; op->opcodes[0] = 0x66
+	mov al, 0x08
+	mov [rsi + 11], al	; op->prefix = PREFIX_OP_SIZE_OVERRIDE
 	mov al, 0xff
-	mov [rsi + 7], al	; op->opcodes[1] = 0xff
+	mov [rsi + 6], al	; op->opcodes[0] = 0xff
 	jmp .parse_dest_reg
 
 .op_size_gt_16:
 	mov rsi, [rbp - 16]
-	mov al, 1
-	mov [rsi + 5], al	; op->n_opcodes = 1
 	mov al, 0xff
 	mov [rsi + 6], al	; op->opcodes[0] = 0xff
 

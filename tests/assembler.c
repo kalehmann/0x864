@@ -203,6 +203,26 @@ void test_assemble_op(void)
 	TEST_CHECK(ctx->bintxt[2] == 0xab);
 	free_asmctx(ctx);
 	memset(&op, 0, sizeof(struct AsmOp));
+
+	// Test assembling `mov [r15], bx`
+	ctx = make_asmctx("", 16, 0, 0);
+	TEST_ASSERT(ctx != NULL);
+	op.encoding = ENCODING_MR;
+	op.op_size = 16;
+	op.src_reg = 0b0011;
+	op.dst_reg = 0b1111;
+	op.modrm_mod = MOD_INDIRECT;
+	op.n_opcodes = 1;
+	op.opcodes[0] = 0x89;
+	op.prefix = PREFIX_OP_SIZE_OVERRIDE;
+	assemble_op(ctx, &op);
+	TEST_CHECK(ctx->bintxt_size == 4);
+	TEST_CHECK(ctx->bintxt[0] == 0x66);
+	TEST_CHECK(ctx->bintxt[1] == 0x41);
+	TEST_CHECK(ctx->bintxt[2] == 0x89);
+	TEST_CHECK(ctx->bintxt[3] == 0x1F);
+	free_asmctx(ctx);
+	memset(&op, 0, sizeof(struct AsmOp));
 }
 
 void test_strdspmodrmmod(void)
