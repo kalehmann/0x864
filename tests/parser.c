@@ -206,6 +206,11 @@ void test_pint(void)
 	TEST_CHECK(buf == b + 10);
 	buf = b;
 
+	strncpy(buf, "18446744073709551615", 32);
+	TEST_CHECK(pint(&buf) == 0xffffffffffffffff);
+	TEST_CHECK(buf == b + 20);
+	buf = b;
+
 	strncpy(buf, "0x00", 32);
 	TEST_CHECK(pint(&buf) == 0);
 	TEST_CHECK(buf == b + 4);
@@ -229,6 +234,11 @@ void test_pint(void)
 	strncpy(buf, "0xffffffff", 32);
 	TEST_CHECK(pint(&buf) == 0xffffffff);
 	TEST_CHECK(buf == b + 10);
+	buf = b;
+
+	strncpy(buf, "0xffffffffeeddccbb", 32);
+	TEST_CHECK(pint(&buf) == 0xffffffffeeddccbb);
+	TEST_CHECK(buf == b + 18);
 	buf = b;
 
 	free(buf);

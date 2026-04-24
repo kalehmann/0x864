@@ -305,9 +305,9 @@ extern size_t len(char *str);
  *		   This pointer gets advanced to the character following the
  *		   integer.
  *
- * @returns the unsigned 32 bit integer
+ * @returns the unsigned 64 bit integer
  */
-extern uint32_t pint(char **assembly);
+extern uint64_t pint(char **assembly);
 
 /**
  * Parses the next token as 8-bit register.

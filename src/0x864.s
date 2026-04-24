@@ -1243,14 +1243,14 @@ pint:
 	jmp .ret
 
 .parse_hex_digit:
-	shl eax, 4
+	shl rax, 4
 	mov r8b, [rsi]
 	sub r8b, 0x30
 	or al, r8b
 	jmp .parse_hex_next
 
 .parse_hex_letter:
-	shl eax, 4
+	shl rax, 4
 	mov r8b, [rsi]
 	sub r8b, 0x57		; 0x61 - 10 or ten below ord('a')
 	or al, r8b
@@ -1270,10 +1270,10 @@ pint:
 	jb .ret
 	cmp [rsi], ch
 	ja .ret
-	mul r8d			; eax = 10 * eax
+	mul r8			; rax = 10 * eax
 	mov r9b, [rsi]
 	sub r9b, 0x30
-	add eax, r9d
+	add rax, r9
 	inc rsi
 	jmp .parse_decimal_loop
 
