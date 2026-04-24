@@ -510,19 +510,29 @@ assemble_op:
 	call .store_rex
 
 	mov rdi, [rbp - 16]
+	mov dl, [rdi + 5]	; dl = op->n_opcodes
 	lea rsi, [rdi + 6]	; rsi = op->opcodes
 	mov ah, [rdi + 3]	; ah = op->dest_reg
 	lea rdi, [rbp - 32]	; rdi = buffer
 	xor rcx, rcx
-	mov cl, [rbp - 33]
-	add rdi, rcx		; rdi += bytes_written
+	mov cl, [rbp - 33]	; cl = bytes_to_write
+	add rdi, rcx		; rdi += bytes_to_write
 
+.oi_copy_opcode_loop:
 	mov al, [rsi]		; uint8_t opcode = op->opcodes[0]
+	cmp dl, 1
+	;; Only add the register to the opcode if it is the last opcode
+	jne .oi_copy_opcode
 	and ah, 0x07
 	add al, ah		; opcode += (op->dest_reg & 0b111)
+.oi_copy_opcode:
 	mov [rdi], al
 	inc cl
+	inc rdi
+	inc rsi
 	mov [rbp - 33], cl	; bytes_to_write++
+	dec dl
+	jnz .oi_copy_opcode_loop
 
 	mov rdi, [rbp - 16]
 	lea rsi, [rbp - 32]
