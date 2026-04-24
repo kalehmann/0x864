@@ -214,6 +214,14 @@ extern void as_dec(struct AsmCtx *ctx, struct AsmOp *op);
  */
 extern void as_inc(struct AsmCtx *ctx, struct AsmOp *op);
 
+/**
+ * Assembles the mov instruction.
+ *
+ * @param ctx is the pointer to the AsmCtx structure.
+ * @param op is a pointer to an empty AsmOp structure, that should be filled
+ *	     with data about the encoded instruction.
+ */
+extern void as_mov(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the nop instruction.

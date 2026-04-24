@@ -21,6 +21,7 @@
 	global	as_call
 	global	as_dec
 	global	as_inc
+	global	as_mov
 	global	as_nop
 	global	as_retn
 	global	cklb
@@ -666,12 +667,15 @@ as_snginst:
 	mov al, 0x63		; Ascii c ('c')
 	cmp [rsi], al
 	je .c
-	mov al, 0x64		; Ascii c ('d')
+	mov al, 0x64		; Ascii d ('d')
 	cmp [rsi], al
 	je .d
-	mov al, 0x69		; Ascii c ('i')
+	mov al, 0x69		; Ascii i ('i')
 	cmp [rsi], al
 	je .i
+	mov al, 0x6d		; Ascii m ('m')
+	cmp [rsi], al
+	je .m
 	mov al, 0x6e		; Ascii n ('n')
 	cmp [rsi], al
 	je .n
@@ -740,6 +744,25 @@ as_snginst:
 	mov [rdi], rsi		; ctx->assembly = rsi
 	lea rsi, [rbp - 32]
 	call as_inc
+	jmp .end
+
+.m:
+	inc rsi
+	mov al, 0x6f		; Ascii o ('o')
+	cmp [rsi], al
+	je .mo
+
+.mo:
+	inc rsi
+	mov al, 0x76		; Ascii v ('v')
+	cmp [rsi], al
+	je .mov
+
+.mov:
+	inc rsi
+	mov [rdi], rsi		; ctx->assembly = rsi
+	lea rsi, [rbp - 32]
+	call as_mov
 	jmp .end
 
 .n:
@@ -919,6 +942,229 @@ as_inc:
 	mov rsi, [rbp - 16]
 	mov [rsi + 3], al	; op->dst_reg = al
 
+	mov rsp, rbp
+	pop rbp
+	retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
+as_mov:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	mov [rbp - 8], rdi
+	mov [rbp - 16], rsi
+
+	mov al, 0b11
+	mov [rsi + 4], al	; op->modrm_mod = MOD_DIRECT
+	mov al, 1
+	mov [rsi + 5], al	; op->n_opcodes = 1
+
+	call skp2lbinst
+
+	mov rdi, [rbp - 8]
+	mov rdi, [rdi]		; char *assembly = ctx->assembly
+	mov rsi, 2		; uint8_t n_ops = 2
+	call ckopsize
+	mov rsi, [rbp - 16]
+	mov [rsi + 1], al	; op->op_size = al
+
+	;; Check if first operand is a register indirect access
+	mov rdi, [rbp - 8]
+	mov rdi, [rdi]
+	call isrgndrct
+	cmp al, 0
+	je .first_op_is_reg
+
+.mov_rm:
+	mov rdi, [rbp - 8]
+	mov rsi, [rbp - 16]
+	lea rdx, [rsi + 12]	; uint32_t *disp = &(op->disp.disp32)
+	lea rsi, [rsi + 3]	; uint8_t *reg = &(op->dst_reg)
+	call prgndrct
+
+	mov rdi, [rbp - 16]	; struct AsmOp *op = op
+	call strdspmodrmmod
+
+	;; Skip to the next token - the comma
+	mov rdi, [rbp - 8]
+	call skp2lbinst
+
+	;; Skip the comma between the operands
+	mov rdi, [rbp - 8]
+	mov rsi, [rdi]
+	inc rsi
+	mov [rdi], rsi		; *(ctx->assembly)++
+	call skp2lbinst
+
+	mov rdi, [rbp - 8]
+	call preg
+	mov rsi, [rbp - 16]
+	mov [rsi + 2], al	; op->src_reg = al
+.mov_rm_r:
+	mov al, 0x05
+	mov [rsi], al		; op->encoding = ENCODING_MR
+	mov al, [rsi + 1]
+	cmp al, 8		; if (op->op_size == 8)
+	je .mov_rm8_r8
+	cmp al, 16		; if (op->op_size == 16)
+	je .mov_rm16_r16
+	cmp al, 32		; if (op->op_size == 32)
+	je .mov_rm32_r32
+.mov_rm64_r64:
+	mov al, 0x89
+	mov [rsi + 6], al	; op->opcodes[0] = 0x89
+	jmp .end
+
+.mov_rm32_r32:
+	mov al, 0x89
+	mov [rsi + 6], al	; op->opcodes[0] = 0x89
+	jmp .end
+
+.mov_rm16_r16:
+	mov al, 0x89
+	mov [rsi + 6], al	; op->opcodes[0] = 0x89
+	mov al, 0x08
+	mov [rsi + 11], al	; op->prefix = PREFIX_OP_SIZE_OVERRIDE
+	jmp .end
+
+.mov_rm8_r8:
+	mov al, 0x88
+	mov [rsi + 6], al	; op->opcodes[0] = 0x88
+	jmp .end
+
+.first_op_is_reg:
+	mov rdi, [rbp - 8]
+	call preg
+	mov rsi, [rbp - 16]
+	mov [rsi + 3], al	; op->dst_reg = al
+
+	;; Skip to the next token - the comma
+	mov rdi, [rbp - 8]
+	call skp2lbinst
+
+	;; Skip the comma between the operands
+	mov rdi, [rbp - 8]
+	mov rsi, [rdi]
+	inc rsi
+	mov [rdi], rsi		; *(ctx->assembly)++
+	call skp2lbinst
+
+	;; Check if second operand is register indirect access
+	mov rdi, [rbp - 8]
+	mov rdi, [rdi]
+	call isrgndrct
+	cmp al, 0
+	jne .mov_r_rm
+
+	;; Check if second operand is immediate
+	mov rdi, [rbp - 8]
+	mov rdi, [rdi]
+	call isint
+	cmp al, 0
+	jne .mov_r_imm
+
+	;; Handle second operand as register
+	mov rdi, [rbp - 8]
+	call preg
+	mov rsi, [rbp - 16]
+	mov [rsi + 2], al	; op->dst_reg = al
+	jmp .mov_rm_r
+
+.mov_r_imm:
+	mov rsi, [rbp - 16]
+	mov al, 0x06
+	mov [rsi], al		; op->encoding = ENCODING_OI
+	mov rdi, [rbp - 8]
+	call pint
+	mov rsi, [rbp - 16]
+	mov cl, [rsi + 1]
+	cmp cl, 8		; if (op->op_size == 8)
+	je .mov_r8_imm8
+	cmp cl, 16		; if (op->op_size == 16)
+	je .mov_r16_imm16
+	cmp cl, 32		; if (op->op_size == 32)
+	je .mov_r32_imm32
+
+.mov_r64_imm64:
+	mov [rsi + 16], rax	; op->imm.imm64 = rax
+	mov al, 64
+	mov [rsi + 9], al	; op->imm_size = 64
+	mov al, 0xb8
+	mov [rsi + 6], al	; op->opcodes[0] = 0xb8
+	jmp .end
+
+.mov_r32_imm32:
+	mov [rsi + 16], eax	; op->imm.imm32 = eax
+	mov al, 32
+	mov [rsi + 9], al	; op->imm_size = 32
+	mov al, 0xb8
+	mov [rsi + 6], al	; op->opcodes[0] = 0xb8
+	jmp .end
+
+.mov_r16_imm16:
+	mov [rsi + 16], ax	; op->imm.imm16 = ax
+	mov al, 16
+	mov [rsi + 9], al	; op->imm_size = 16
+	mov al, 0xb8
+	mov [rsi + 6], al	; op->opcodes[0] = 0xb8
+	mov al, 0x08
+	mov [rsi + 11], al	; op->prefix = PREFIX_OP_SIZE_OVERRIDE
+	jmp .end
+
+.mov_r8_imm8:
+	mov [rsi + 16], al	; op->imm.imm8 = al
+	mov al, 8
+	mov [rsi + 9], al	; op->imm_size = 8
+	mov al, 0xb0
+	mov [rsi + 6], al	; op->opcodes[0] = 0xb0
+	jmp .end
+
+.mov_r_rm:
+	mov rdi, [rbp - 8]
+	mov rsi, [rbp - 16]
+	lea rdx, [rsi + 12]	; uint32_t *disp = &(op->disp.disp32)
+	lea rsi, [rsi + 2]	; uint8_t *reg = &(op->sr_reg)
+	call prgndrct
+
+	mov rdi, [rbp - 16]	; struct AsmOp *op = op
+	call strdspmodrmmod
+
+	mov rsi, [rbp - 16]
+	mov al, 0x07
+	mov [rsi], al		; op->encoding = ENCODING_RM
+
+	mov al, [rsi + 1]
+	cmp al, 8		; if (op->op_size == 8)
+	je .mov_r8_rm8
+	cmp al, 16		; if (op->op_size == 16)
+	je .mov_r16_rm16
+	cmp al, 32		; if (op->op_size == 32)
+	je .mov_r32_rm32
+
+.mov_r64_rm64:
+	mov al, 0x8b
+	mov [rsi + 6], al	; op->opcodes[0] = 0x8b
+	jmp .end
+
+.mov_r32_rm32:
+	mov al, 0x8b
+	mov [rsi + 6], al	; op->opcodes[0] = 0x8b
+	jmp .end
+
+.mov_r16_rm16:
+	mov al, 0x8b
+	mov [rsi + 6], al	; op->opcodes[0] = 0x8b
+	mov al, 0x08
+	mov [rsi + 11], al	; op->prefix = PREFIX_OP_SIZE_OVERRIDE
+	jmp .end
+
+.mov_r8_rm8:
+	mov al, 0x8a
+	mov [rsi + 6], al	; op->opcodes[0] = 0x8a
+	jmp .end
+
+.end:
 	mov rsp, rbp
 	pop rbp
 	retn
