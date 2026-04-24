@@ -15,6 +15,7 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; long with 0x864. If not, see <http://www.gnu.org/licenses/>.
 
+	global	algn16
 	global	assemble
 	global	assemble_op
 	global	as_snglinst
@@ -49,6 +50,18 @@
 	global	strsymtabntr
 
 	section .text
+
+;;; rdi: `size_t off`
+algn16:
+	mov rax, rdi
+	and rdi, 0xf
+	cmp rdi, 0
+	je .ret
+	xor rdi, 0xf
+	inc rdi
+	add rax, rdi
+.ret:
+	retn
 
 ;;; rdi: `struct AsmCtx *ctx`
 assemble:

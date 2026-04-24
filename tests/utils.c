@@ -21,38 +21,47 @@
 #include "0x864.h"
 #include "utils.h"
 
+void test_algn16(void)
+{
+	TEST_CHECK(algn16(0) == 0);
+	TEST_CHECK(algn16(1) == 16);
+	TEST_CHECK(algn16(16) == 16);
+	TEST_CHECK(algn16(0x185) == 0x190);
+	TEST_CHECK(algn16(0xff) == 0x100);
+}
+
 void test_clr(void)
 {
-        uint8_t buffer[] = { 0x01, 0x02, 0x03, 0x04 };
-        clr(buffer, 0);
-        TEST_CHECK(buffer[0] == 0x01);
-        clr(buffer, 2);
-        TEST_CHECK(buffer[0] == 0x00);
-        TEST_CHECK(buffer[1] == 0x00);
-        TEST_CHECK(buffer[2] == 0x03);
-        TEST_CHECK(buffer[3] == 0x04);
+	uint8_t buffer[] = { 0x01, 0x02, 0x03, 0x04 };
+	clr(buffer, 0);
+	TEST_CHECK(buffer[0] == 0x01);
+	clr(buffer, 2);
+	TEST_CHECK(buffer[0] == 0x00);
+	TEST_CHECK(buffer[1] == 0x00);
+	TEST_CHECK(buffer[2] == 0x03);
+	TEST_CHECK(buffer[3] == 0x04);
 }
 
 void test_cpy(void)
 {
-        uint8_t src[] = { 0x01, 0x02, 0x03, 0x04 };
-        uint8_t dst[] = { 0x00, 0x00, 0x00, 0x00 };
+	uint8_t src[] = { 0x01, 0x02, 0x03, 0x04 };
+	uint8_t dst[] = { 0x00, 0x00, 0x00, 0x00 };
 
-        cpy(src, dst, 0);
-        TEST_CHECK(dst[0] == 0x00);
-        TEST_CHECK(dst[1] == 0x00);
-        TEST_CHECK(dst[2] == 0x00);
-        TEST_CHECK(dst[3] == 0x00);
+	cpy(src, dst, 0);
+	TEST_CHECK(dst[0] == 0x00);
+	TEST_CHECK(dst[1] == 0x00);
+	TEST_CHECK(dst[2] == 0x00);
+	TEST_CHECK(dst[3] == 0x00);
 
-        cpy(src, dst, 2);
-        TEST_CHECK(dst[0] == 0x01);
-        TEST_CHECK(dst[1] == 0x02);
-        TEST_CHECK(dst[2] == 0x00);
-        TEST_CHECK(dst[3] == 0x00);
+	cpy(src, dst, 2);
+	TEST_CHECK(dst[0] == 0x01);
+	TEST_CHECK(dst[1] == 0x02);
+	TEST_CHECK(dst[2] == 0x00);
+	TEST_CHECK(dst[3] == 0x00);
 }
 
 void test_len(void)
 {
-        TEST_CHECK(len("") == 1);
-        TEST_CHECK(len("test") == 5);
+	TEST_CHECK(len("") == 1);
+	TEST_CHECK(len("test") == 5);
 }

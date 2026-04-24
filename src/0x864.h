@@ -171,6 +171,15 @@ struct AsmCtx *make_asmctx(char const *assembly, size_t max_bintxt_size,
 void free_asmctx(struct AsmCtx *ctx);
 
 /**
+ * Aligns an offset to a multiple of 16.
+ *
+ * @param off is the offset to align
+ *
+ * @returns the aligned offset
+ */
+extern size_t algn16(size_t off);
+
+/**
  * Assembles the given assembly.
  *
  * Fills the `bintxt` field and sets the `bintxt_size` field of the AsmCtx

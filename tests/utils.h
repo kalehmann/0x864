@@ -20,6 +20,7 @@
 #ifndef UTILS_H
 #define UTILS_H
 
+void test_algn16(void);
 void test_clr(void);
 void test_cpy(void);
 void test_len(void);
