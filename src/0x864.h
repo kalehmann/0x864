@@ -128,9 +128,9 @@ struct AsmOp {
 	 * currently stored in the context.
 	 */
 	uint8_t d_label;
-        /**
-         * Additional prefixes for the instruction
-         */
+	/**
+	 * Additional prefixes for the instruction
+	 */
 	uint8_t prefix;
 	/**
 	 * The displacement of an register indirect access. The usage of
@@ -170,6 +170,15 @@ struct AsmCtx *make_asmctx(char const *assembly, size_t max_bintxt_size,
  */
 void free_asmctx(struct AsmCtx *ctx);
 
+/**
+ * Assembles the given assembly.
+ *
+ * Fills the `bintxt` field and sets the `bintxt_size` field of the AsmCtx
+ * structure. The `assembly` field of the AsmCtx structure is advanced to the
+ * end.
+ *
+ * @param ctx is the pointer to the AsmCtx structure.
+ */
 extern void assemble(struct AsmCtx *);
 
 /**
@@ -241,6 +250,13 @@ extern void as_nop(struct AsmCtx *ctx, struct AsmOp *op);
  */
 extern void as_retn(struct AsmCtx *ctx, struct AsmOp *op);
 
+/**
+ * Checks if the next token in the assembly text is a label.
+ *
+ * @param assembly is a pointer to the assembly string.
+ *
+ * @returns 1 if the next token is a label or 0 otherwise
+ */
 extern int cklb(char const *assembly);
 
 /**
@@ -376,8 +392,11 @@ extern int pr64(char **assembly);
  * @param assembly is a pointer to the string with the assembly code.
  *		   This pointer gets advanced to the character following the
  *		   closing square bracket.
- * @param reg
- * @param disp
+ * @param reg is a pointer to the variable where the parsed register will be
+ *	      stored.
+ * @param disp is a pointer to the variable where the parsed displacement will
+ *	       be stored. If the register indirect access does not specify a
+ *	       displacement, zero will be stored there.
  */
 extern void prgndrct(char **assembly, uint8_t *reg, uint32_t *disp);
 
@@ -429,6 +448,15 @@ extern int rslvref(char *label, struct SymTabNtr *symtab, size_t n,
  */
 extern void scndpss(struct AsmCtx *ctx);
 
+/**
+ * Advances the assembly text to the next token.
+ *
+ * Skips comments, whitespace characters, ...
+ *
+ * @param assembly is a pointer to the string with the assembly code.
+ *		   This pointer gets advanced to the first character of the next
+ *		   token.
+ */
 extern void skp2lbinst(char const **assembly);
 
 /**
