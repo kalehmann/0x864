@@ -11,6 +11,7 @@ OBJCOPY = objcopy
 	src/0x864.s.o
 
 DEMO_SOURCES = $(wildcard tests/demos/*.s)
+DEMO_0x864_OBJECTS = $(DEMO_SOURCES:.s=.0x864.o)
 DEMO_0x864_TEXT_BINARIES = $(DEMO_SOURCES:.s=.0x864.text.bin)
 DEMO_NASM_OBJECTS = $(DEMO_SOURCES:.s=.nasm.o)
 DEMO_NASM_TEXT_BINARIES = $(DEMO_SOURCES:.s=.nasm.text.bin)
@@ -42,7 +43,8 @@ clean:
 
 test: test-unit test-binary
 
-test-binary: $(DEMO_0x864_TEXT_BINARIES) \
+test-binary: $(DEMO_0x864_OBJECTS) \
+		$(DEMO_0x864_TEXT_BINARIES) \
 		$(DEMO_NASM_OBJECTS) \
 		$(DEMO_NASM_TEXT_BINARIES)
 	@printf '\e[1m>> Running Binary Test suite ...\e[0m\n'
@@ -60,6 +62,9 @@ src/%.c.o: src/%.c
 
 src/%.s.o: src/%.s
 	@$(NASM) -felf64 $< -o $@
+
+tests/demos/%.0x864.o: tests/demos/%.s src/0x864
+	@./src/0x864 $< -felf64 -o $@ > /dev/null
 
 tests/demos/%.0x864.text.bin: tests/demos/%.s src/0x864
 	@./src/0x864 $< -o $@ > /dev/null
