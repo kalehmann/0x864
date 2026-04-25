@@ -355,6 +355,17 @@ extern size_t elf64_clctextsz(struct AsmCtx *ctx);
 extern size_t elf64_dump(struct AsmCtx *ctx, void *buffer, size_t n,
                          char *filename);
 
+/**
+ * Stores the ELF-header of the assembled program into a buffer.
+ *
+ * @param ctx is a pointer to the AsmCtx structure
+ * @param buffer is a zero allocated buffer, where the ELF data will be written
+ *               to.
+ * @param n is the size of the buffer in bytes
+ *
+ * @returns the number of bytes written to the buffer or zero on failure
+ */
+extern size_t elf64_dump_header(struct AsmCtx *ctx, void *buffer, size_t n);
 
 /**
  * Checks if the next token is an decimal or hexadecimal integer

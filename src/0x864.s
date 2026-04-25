@@ -34,6 +34,7 @@
         global  elf64_clcsymtabsz
         global  elf64_clctextsz
         global  elf64_dump
+        global  elf64_dump_header
         global  isint
         global  isopdlm
         global  isrgndrct
