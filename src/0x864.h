@@ -54,96 +54,96 @@
 #define PREFIX_OP_SIZE_OVERRIDE 0x08
 
 struct SymTabNtr {
-	char label[240];
-	uint32_t __reserved;
-	uint32_t flags;
-	uint32_t rel_target;
-	uint32_t offset;
+        char label[240];
+        uint32_t __reserved;
+        uint32_t flags;
+        uint32_t rel_target;
+        uint32_t offset;
 };
 
 struct AsmCtx {
-	char const *assembly;
-	uint8_t *bintxt;
-	size_t max_bintxt_size;
-	size_t bintxt_size;
-	struct SymTabNtr *symtab;
-	size_t max_symtab_entries;
-	struct SymTabNtr *reftab;
-	size_t max_reftab_entries;
-	char (*globals)[64];
-	size_t max_globals;
-	char label[240];
-	char _label[240];
+        char const *assembly;
+        uint8_t *bintxt;
+        size_t max_bintxt_size;
+        size_t bintxt_size;
+        struct SymTabNtr *symtab;
+        size_t max_symtab_entries;
+        struct SymTabNtr *reftab;
+        size_t max_reftab_entries;
+        char (*globals)[64];
+        size_t max_globals;
+        char label[240];
+        char _label[240];
 };
 
 union Disp{
-	int8_t disp8;
-	int32_t disp32;
+        int8_t disp8;
+        int32_t disp32;
 };
 
 union Immediate{
-	int8_t imm8;
-	int16_t imm16;
-	int32_t imm32;
-	int64_t imm64;
+        int8_t imm8;
+        int16_t imm16;
+        int32_t imm32;
+        int64_t imm64;
 };
 
 struct AsmOp {
-	uint8_t encoding;
-	/**
-	 * Size of the operation. 8, 16, 32 or 64 bit.
-	 */
-	uint8_t op_size;
-	/**
-	 * Source register of the operation encoded as 4 bit value.
-	 */
-	uint8_t src_reg;
-	/**
-	 * Destination register of the operation encoded as 4 bit value.
-	 */
-	uint8_t dst_reg;
-	/**
-	 * The two mod bits of the ModRM byte.
-	 */
-	uint8_t modrm_mod;
-	/**
-	 * The number of opcodes stored in the `opcodes` array.
-	 * - 00 -> register indirect
-	 * - 01 -> register indirect + `disp.disp8`
-	 * - 10 -> register indirect + `disp.disp32`
-	 * - 11 -> register direct
-	 */
-	uint8_t n_opcodes;
-	/**
-	 * The number of opcodes of the operation.
-	 */
-	uint8_t opcodes[3];
-	/**
-	 * The size of the immediate value in bits.
-	 * This value specifies whether `imm.imm8`, `imm.imm16`, `imm.imm32`
-	 * or `imm.imm64` shall be used.
-	 */
-	uint8_t imm_size;
-	/**
-	 * For encoding `ENCODING_D`, this specifies if the value from the `imm`
-	 * field should be used as targed or the address referenced by the label
-	 * currently stored in the context.
-	 */
-	uint8_t d_label;
-	/**
-	 * Additional prefixes for the instruction
-	 */
-	uint8_t prefix;
-	/**
-	 * The displacement of an register indirect access. The usage of
-	 * `disp.disp8` or `disp.disp32` is determined by the `modrm_mod`
-	 * field.
-	 */
-	union Disp disp;
-	/**
-	 * The intermediate value to encode. See the `imm_size` field.
-	 */
-	union Immediate imm;
+        uint8_t encoding;
+        /**
+         * Size of the operation. 8, 16, 32 or 64 bit.
+         */
+        uint8_t op_size;
+        /**
+         * Source register of the operation encoded as 4 bit value.
+         */
+        uint8_t src_reg;
+        /**
+         * Destination register of the operation encoded as 4 bit value.
+         */
+        uint8_t dst_reg;
+        /**
+         * The two mod bits of the ModRM byte.
+         */
+        uint8_t modrm_mod;
+        /**
+         * The number of opcodes stored in the `opcodes` array.
+         * - 00 -> register indirect
+         * - 01 -> register indirect + `disp.disp8`
+         * - 10 -> register indirect + `disp.disp32`
+         * - 11 -> register direct
+         */
+        uint8_t n_opcodes;
+        /**
+         * The number of opcodes of the operation.
+         */
+        uint8_t opcodes[3];
+        /**
+         * The size of the immediate value in bits.
+         * This value specifies whether `imm.imm8`, `imm.imm16`, `imm.imm32`
+         * or `imm.imm64` shall be used.
+         */
+        uint8_t imm_size;
+        /**
+         * For encoding `ENCODING_D`, this specifies if the value from the `imm`
+         * field should be used as targed or the address referenced by the label
+         * currently stored in the context.
+         */
+        uint8_t d_label;
+        /**
+         * Additional prefixes for the instruction
+         */
+        uint8_t prefix;
+        /**
+         * The displacement of an register indirect access. The usage of
+         * `disp.disp8` or `disp.disp32` is determined by the `modrm_mod`
+         * field.
+         */
+        union Disp disp;
+        /**
+         * The intermediate value to encode. See the `imm_size` field.
+         */
+        union Immediate imm;
 };
 
 /**
@@ -152,21 +152,21 @@ struct AsmOp {
  * @param assembly is a pointer to the string containing the assembly code
  * @param max_bintxt_size is the size of the buffer allocated for binary output
  * @param max_symbtab_entries is the number of entries for the allocated symbol
- *			      table. This parameter should be larger than the
- *			      number of labels in the assembly could.
+ *                            table. This parameter should be larger than the
+ *                            number of labels in the assembly could.
  * @param max_reftab_entries is the number of entries for the allocated reference
- *			     table. This parameter should be largern than the
- *			     number of jump and call instructions in the assembly
- *			     code, that use labels as target.
+ *                           table. This parameter should be largern than the
+ *                           number of jump and call instructions in the assembly
+ *                           code, that use labels as target.
  * @param max_globals is the number of entries for the globals table. This
- *		      parameter should be largern than the number of global
- *		      statements in the assembly code.
+ *                    parameter should be largern than the number of global
+ *                    statements in the assembly code.
  *
  * @returns a pointer to the newly allocated AsmCtx structure or NULL on failure
  */
 struct AsmCtx *make_asmctx(char const *assembly, size_t max_bintxt_size,
-			   size_t max_symtab_entries, size_t max_reftab_entries,
-			   size_t max_globals);
+                           size_t max_symtab_entries, size_t max_reftab_entries,
+                           size_t max_globals);
 
 /**
  * Cleans up a AsmCtx structure including all it's members allocated by
@@ -216,7 +216,7 @@ extern void as_snglinst(struct AsmCtx *ctx);
  *
  * @param ctx is the pointer to the AsmCtx structure.
  * @param op is a pointer to an empty AsmOp structure, that should be filled
- *	     with data about the encoded instruction.
+ *           with data about the encoded instruction.
  */
 extern void as_call(struct AsmCtx *ctx, struct AsmOp *op);
 
@@ -225,7 +225,7 @@ extern void as_call(struct AsmCtx *ctx, struct AsmOp *op);
  *
  * @param ctx is the pointer to the AsmCtx structure.
  * @param op is a pointer to an empty AsmOp structure, that should be filled
- *	     with data about the encoded instruction.
+ *           with data about the encoded instruction.
  */
 extern void as_dec(struct AsmCtx *ctx, struct AsmOp *op);
 
@@ -234,7 +234,7 @@ extern void as_dec(struct AsmCtx *ctx, struct AsmOp *op);
  *
  * @param ctx is the pointer to the AsmCtx structure.
  * @param op is a pointer to an empty AsmOp structure, that should be filled
- *	     with data about the encoded instruction.
+ *           with data about the encoded instruction.
  */
 extern void as_inc(struct AsmCtx *ctx, struct AsmOp *op);
 
@@ -243,7 +243,7 @@ extern void as_inc(struct AsmCtx *ctx, struct AsmOp *op);
  *
  * @param ctx is the pointer to the AsmCtx structure.
  * @param op is a pointer to an empty AsmOp structure, that should be filled
- *	     with data about the encoded instruction.
+ *           with data about the encoded instruction.
  */
 extern void as_mov(struct AsmCtx *ctx, struct AsmOp *op);
 
@@ -252,7 +252,7 @@ extern void as_mov(struct AsmCtx *ctx, struct AsmOp *op);
  *
  * @param ctx is the pointer to the AsmCtx structure.
  * @param op is a pointer to an empty AsmOp structure, that should be filled
- *	     with data about the encoded instruction.
+ *           with data about the encoded instruction.
  */
 extern void as_nop(struct AsmCtx *ctx, struct AsmOp *op);
 
@@ -261,7 +261,7 @@ extern void as_nop(struct AsmCtx *ctx, struct AsmOp *op);
  *
  * @param ctx is the pointer to the AsmCtx structure.
  * @param op is a pointer to an empty AsmOp structure, that should be filled
- *	     with data about the encoded instruction.
+ *           with data about the encoded instruction.
  */
 extern void as_retn(struct AsmCtx *ctx, struct AsmOp *op);
 
@@ -371,7 +371,7 @@ extern int isint(char *assembly);
  * @param assembly is a pointer to the assembly string.
  *
  * @returns whether the next token is a null terminator, tabulator, newline,
- *	    space, comma or semicolon
+ *          space, comma or semicolon
  */
 extern int isopdlm(char *assembly);
 
@@ -405,8 +405,8 @@ extern size_t len(char *str);
  * Parses the next token as integer.
  *
  * @param assembly is a pointer to the string with the assembly code.
- *		   This pointer gets advanced to the character following the
- *		   integer.
+ *                 This pointer gets advanced to the character following the
+ *                 integer.
  *
  * @returns the unsigned 64 bit integer
  */
@@ -416,8 +416,8 @@ extern uint64_t pint(char **assembly);
  * Parses the next token as 8-bit register.
  *
  * @param assembly is a pointer to the string with the assembly code.
- *		   This pointer gets advanced to the character following the
- *		   register.
+ *                 This pointer gets advanced to the character following the
+ *                 register.
  *
  * @returns the 4-bit encoded register or `0xff` on failure.
  */
@@ -427,8 +427,8 @@ extern int pr8(char **assembly);
  * Parses the next token as 16-bit register.
  *
  * @param assembly is a pointer to the string with the assembly code.
- *		   This pointer gets advanced to the character following the
- *		   register.
+ *                 This pointer gets advanced to the character following the
+ *                 register.
  *
  * @returns the 4-bit encoded register or `0xff` on failure.
  */
@@ -438,8 +438,8 @@ extern int pr16(char **assembly);
  * Parses the next token as 32-bit register.
  *
  * @param assembly is a pointer to the string with the assembly code.
- *		   This pointer gets advanced to the character following the
- *		   register.
+ *                 This pointer gets advanced to the character following the
+ *                 register.
  *
  * @returns the 4-bit encoded register or `0xff` on failure.
  */
@@ -449,8 +449,8 @@ extern int pr32(char **assembly);
  * Parses the next token as 64-bit register.
  *
  * @param assembly is a pointer to the string with the assembly code.
- *		   This pointer gets advanced to the character following the
- *		   register.
+ *                 This pointer gets advanced to the character following the
+ *                 register.
  *
  * @returns the 4-bit encoded register or `0xff` on failure.
  */
@@ -460,13 +460,13 @@ extern int pr64(char **assembly);
  * Parses a register indirect addressing.
  *
  * @param assembly is a pointer to the string with the assembly code.
- *		   This pointer gets advanced to the character following the
- *		   closing square bracket.
+ *                 This pointer gets advanced to the character following the
+ *                 closing square bracket.
  * @param reg is a pointer to the variable where the parsed register will be
- *	      stored.
+ *            stored.
  * @param disp is a pointer to the variable where the parsed displacement will
- *	       be stored. If the register indirect access does not specify a
- *	       displacement, zero will be stored there.
+ *             be stored. If the register indirect access does not specify a
+ *             displacement, zero will be stored there.
  */
 extern void prgndrct(char **assembly, uint8_t *reg, uint32_t *disp);
 
@@ -474,8 +474,8 @@ extern void prgndrct(char **assembly, uint8_t *reg, uint32_t *disp);
  * Parses the next token as register.
  *
  * @param assembly is a pointer to the string with the assembly code.
- *		   This pointer gets advanced to the character following the
- *		   register.
+ *                 This pointer gets advanced to the character following the
+ *                 register.
  *
  * @returns the 4 bit encoded register or `0xff` on failure.
  */
@@ -486,14 +486,14 @@ extern uint8_t preg(char **assembly);
  * Writes at most `n` bytes (including the null-terminator after the label).
  *
  * @param assembly is a pointer to the string with the assembly code.
- *		   This pointer gets advanced to the character following the
- *		   colon after the label.
+ *                 This pointer gets advanced to the character following the
+ *                 colon after the label.
  * @param label is a pointer to the string where the label will be written into.
- *		Should be at least `n` bytes in size.
+ *              Should be at least `n` bytes in size.
  * @param n is the maximum number of bytes to write into `label`.
  *
  * @returns the number of bytes written or -1 if the label does not fit into `n`
- *	    bytes.
+ *          bytes.
  */
 extern int readnlbl(char const **assembly, char *label, size_t n);
 
@@ -504,12 +504,12 @@ extern int readnlbl(char const **assembly, char *label, size_t n);
  * @param symtab is a pointer to the symbol table
  * @param n is the number of entries in the symbol table
  * @param offset is a pointer to the location where the offset of the label will
- *		 be stored on success.
+ *               be stored on success.
  *
  * @returns 0 on success or 1 in case the label is not found in the symbol table
  */
 extern int rslvref(char *label, struct SymTabNtr *symtab, size_t n,
-		   uint32_t *offset, uint32_t *flags, uint32_t *rel_target);
+                   uint32_t *offset, uint32_t *flags, uint32_t *rel_target);
 
 /**
  * Performs the second pass of the output generation and resolves all references.
@@ -524,8 +524,8 @@ extern void scndpss(struct AsmCtx *ctx);
  * Skips comments, whitespace characters, ...
  *
  * @param assembly is a pointer to the string with the assembly code.
- *		   This pointer gets advanced to the first character of the next
- *		   token.
+ *                 This pointer gets advanced to the first character of the next
+ *                 token.
  */
 extern void skp2lbinst(char const **assembly);
 
@@ -563,15 +563,15 @@ extern void strlbl(struct AsmCtx *ctx);
  * @param label is the label of the new entry to insert
  * @param offset is the offset to store for the label
  * @param flags is only relevant when the symbol table is used to resolve
- *		references and holds additional information how the references
- *		shall be resolved. Available flags:
- *		- 0x01 RESOLVE_RELATIVE
+ *              references and holds additional information how the references
+ *              shall be resolved. Available flags:
+ *              - 0x01 RESOLVE_RELATIVE
  * @param rel_target is used when the RESOLVE_RELATIVE bit is set in the flags
  *
  * @returns 0 on success or 1 in case there is no free entry in the symbol table
  */
 extern int strsymtabntr(struct SymTabNtr *symtab, size_t n, char *label,
-			uint32_t offset, uint32_t flags, uint32_t rel_target);
+                        uint32_t offset, uint32_t flags, uint32_t rel_target);
 
 /**
  * @returns the number of entries in the symbol table

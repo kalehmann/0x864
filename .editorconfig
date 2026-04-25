@@ -4,6 +4,14 @@ root = true
 end_of_line = lf
 insert_final_newline = true
 
+[*.c]
+indent_style = space
+indent_size = 8
+
+[*.h]
+indent_style = space
+indent_size = 8
+
 [*.s]
-indent_style = tab
+indent_style = space
 indent_size = 8

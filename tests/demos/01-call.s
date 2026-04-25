@@ -1,11 +1,11 @@
 demo_01_call:
-	call bar
-	retn
+        call bar
+        retn
 
 foo:
-	nop
-	retn
+        nop
+        retn
 
 bar:
-	call foo
-	retn
+        call foo
+        retn
