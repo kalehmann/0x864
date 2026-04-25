@@ -29,6 +29,11 @@
 	global	ckopsize
 	global	clr
 	global	cpy
+	global	elf64_clcshstrtabsz
+	global	elf64_clcstrtabsz
+	global	elf64_clcsymtabsz
+	global	elf64_clctextsz
+	global	elf64_dump
 	global	isint
 	global	isopdlm
 	global	isrgndrct
@@ -49,6 +54,7 @@
 	global	strglbl
 	global	strlbl
 	global	strsymtabntr
+	global	symtablen
 
 	section .text
 
@@ -1309,6 +1315,696 @@ cpy:
 	rep movsb
 	retn
 
+elf64_clcshstrtabsz:
+	;; >>> len("\0.text\0.shstrtab\0.symtab\0.strtab\0")
+	;; 33
+	mov rax, 33
+	retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `char *filename`
+elf64_clcstrtabsz:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 24
+
+	mov [rbp - 8], rdi
+	xor eax, eax
+	mov [rbp - 24], rax	; size_t i = 0
+	inc rax			; Null byte at the start
+	mov [rbp - 16], rax	; size_t n = 1
+
+	mov rdi, rsi
+	call len
+	mov rdi, [rbp - 16]
+	add rax, rdi
+	mov [rbp - 16], rax	; n += len(filename)
+
+.symtab_loop:
+	mov rdi, [rbp - 8]
+	mov rsi, [rdi + 40]	; rsi = ctx->max_symtab_entries
+	mov rcx, [rbp - 24]	; rcx = i
+	cmp rcx, rsi		; if (ctx->max_symtab_entries == i)
+	je .ret
+	mov rax, 256
+	mul rcx
+	mov rsi, [rdi + 32]
+	add rsi, rax		; rsi = ctx->symtab[i].label
+	mov al, 0
+	cmp [rsi], al		; if (ctx->symtab[i].label[0] == 0)
+	je .ret
+	mov rdi, rsi
+	call len
+	mov rcx, [rbp - 16]
+	add rcx, rax
+	mov [rbp - 16], rcx
+	mov rcx, [rbp - 24]
+	inc rcx
+	mov [rbp - 24], rcx
+	jmp .symtab_loop
+
+.ret:
+	mov rax, [rbp - 16]
+	mov rsp, rbp
+	pop rbp
+	retn
+
+;;; rdi: `struct AsmCtx *ctx`
+elf64_clcsymtabsz:
+	mov rsi, [rdi + 40]	; size_t n = ctx->max_symtab_entries
+	mov rdi, [rdi + 32]	; struct SymTabNtr *symtab = ctx->symtab
+	call symtablen
+	add rax, 3		; Null entry, file entry, text section entry
+	mov rcx, 0x18		; sizeof(Elf64_Sym)
+	mul rcx			; multiply by 0x18 bytes per symtab entry in the
+				; ELF file.
+	retn
+
+;;; rdi: `struct AsmCtx *ctx`
+elf64_clctextsz:
+	mov rax, [rdi + 24]
+	retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `void *buffer`
+;;; rdx: `size_t n`
+;;; rcx: `char *filename`
+elf64_dump:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 40
+	mov [rbp - 8], rdi
+	mov [rbp - 16], rsi
+	mov [rbp - 24], rdx
+	mov [rbp - 32], rcx
+	xor eax, eax
+	mov [rbp - 40], rax	; size_t n_bytes
+
+	call elf64_dump_header	; size_t header_bytes = elf64_dump_header(...)
+	cmp rax, 0		; if (header_bytes == 0)
+	je .ret_err
+	mov rdx, [rbp - 24]
+	sub rdx, rax
+	mov [rbp - 24], rdx	; n -= header_bytes
+	mov rsi, [rbp - 16]
+	mov rdx, [rbp - 40]
+	add rsi, rax
+	add rdx, rax
+	mov [rbp - 16], rsi	; buffer += header_bytes
+	mov [rbp - 40], rdx	; n_bytes += header_bytes
+
+	mov rdi, [rbp - 8]
+	mov rsi, [rbp - 16]
+	mov rdx, [rbp - 24]
+	mov rcx, [rbp - 32]
+	call elf64_dump_shtab	; size_t shtab_bytes = elf64_dump_shtab(...)
+	cmp rax, 0		; if (shtab_bytes == 0)
+	je .ret_err
+	mov rdx, [rbp - 24]
+	sub rdx, rax
+	mov [rbp - 24], rdx	; n -= shtab_bytes
+	mov rsi, [rbp - 16]
+	mov rdx, [rbp - 40]
+	add rsi, rax
+	add rdx, rax
+	mov [rbp - 16], rsi	; buffer += shtab_bytes
+	mov [rbp - 40], rdx	; n_bytes += shtab_bytes
+
+
+	mov rdi, [rbp - 8]
+	mov rsi, [rbp - 16]
+	mov rdx, [rbp - 24]
+	call elf64_dump_text	; size_t bintxt_bytes = elf64_dump_text(...)
+	cmp rax, 0		; if (bintxt_bytes == 0)
+	je .ret_err
+	mov rdx, [rbp - 24]
+	sub rdx, rax
+	mov [rbp - 24], rdx	; n -= bintxt_bytes
+	mov rsi, [rbp - 16]
+	mov rdx, [rbp - 40]
+	add rsi, rax
+	add rdx, rax
+	mov [rbp - 16], rsi	; buffer += bintxt_bytes
+	mov [rbp - 40], rdx	; n_bytes += bintxt_bytes
+
+	mov rdi, [rbp - 8]
+	mov rsi, [rbp - 16]
+	mov rdx, [rbp - 24]
+	call elf64_dump_shstrtab; size_t shstrtab_bytes = elf64_dump_text(...)
+	cmp rax, 0		; if (shstrtab_bytes == 0)
+	je .ret_err
+	mov rdx, [rbp - 24]
+	sub rdx, rax
+	mov [rbp - 24], rdx	; n -= shstrtab_bytes
+	mov rsi, [rbp - 16]
+	mov rdx, [rbp - 40]
+	add rsi, rax
+	add rdx, rax
+	mov [rbp - 16], rsi	; buffer += shstrtab_bytes
+	mov [rbp - 40], rdx	; n_bytes += shstrtab_bytes
+
+	mov rdi, [rbp - 8]
+	mov rsi, [rbp - 16]
+	mov rdx, [rbp - 24]
+	mov rcx, [rbp - 32]
+	call elf64_dump_symtab	; size_t symtab_bytes = elf64_dump_symtab(...)
+	cmp rax, 0		; if (symtab_bytes == 0)
+	je .ret_err
+	mov rdx, [rbp - 24]
+	sub rdx, rax
+	mov [rbp - 24], rdx	; n -= symtab_bytes
+	mov rsi, [rbp - 16]
+	mov rdx, [rbp - 40]
+	add rsi, rax
+	add rdx, rax
+	mov [rbp - 16], rsi	; buffer += symtab_bytes
+	mov [rbp - 40], rdx	; n_bytes += symtab_bytes
+
+	mov rdi, [rbp - 8]
+	mov rsi, [rbp - 16]
+	mov rdx, [rbp - 24]
+	mov rcx, [rbp - 32]
+	call elf64_dump_strtab	; size_t strtab_bytes = elf64_dump_strtab(...)
+	cmp rax, 0		; if (strtab_bytes == 0)
+	je .ret_err
+	mov rdx, [rbp - 24]
+	sub rdx, rax
+	mov [rbp - 24], rdx	; n -= strtab_bytes
+	mov rsi, [rbp - 16]
+	mov rdx, [rbp - 40]
+	add rsi, rax
+	add rdx, rax
+	mov [rbp - 16], rsi	; buffer += strtab_bytes
+	mov [rbp - 40], rdx	; n_bytes += strtab_bytes
+
+	mov rax, [rbp - 40]
+	mov rsp, rbp
+	pop rbp
+	retn
+
+.ret_err:
+	xor eax, eax
+	mov rsp, rbp
+	pop rbp
+	retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `void *buffer`
+;;; rdx: `size_t n`
+elf64_dump_header:
+	xor eax, eax
+	sub rdx, 0x40
+	jl .ret_err
+	add eax, 0x40
+
+	;; Store 4 byte magic number
+	mov ecx, 0x464c457f
+	mov [rsi], ecx
+
+	;; 64 bit
+	mov cl, 2
+	mov [rsi + 4], cl
+	;; Little endian
+	mov cl, 1
+	mov [rsi + 5], cl
+	;; ELF version 1
+	mov cl, 1
+	mov [rsi + 6], cl
+	;; Type relocatable file
+	mov cx, 1
+	mov [rsi + 0x10], cx
+	;; AMD x86-64 ISA
+	mov cx, 0x3e
+	mov [rsi + 0x12], cx
+	;; Version 1
+	mov ecx, 1
+	mov [rsi + 0x14], ecx
+	;; Section header table right after the ELF header
+	mov rcx, 0x40
+	mov [rsi + 0x28], rcx
+	;; Size of the ELF header
+	mov rcx, 0x40
+	mov [rsi + 0x34], rcx
+	;; Size of a section header table entry
+	mov rcx, 0x40
+	mov [rsi + 0x3a], rcx
+	;; Number of sections
+	mov cx, 5
+	mov [rsi + 0x3c], cx
+	;; Shstrtab index in section header table
+	mov cx, 2
+	mov [rsi + 0x3e], cx
+
+	retn
+
+.ret_err:
+	xor eax, eax
+	retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `void *buffer`
+;;; rdx: `size_t n`
+elf64_dump_shstrtab:
+	push rbp
+	mov rbp, rsp
+
+	sub rdx, 0x20
+	jl .ret_err
+
+	;; Write "\0.text\0.shstrtab\0.symtab\0.strtab\0" to buffer
+	mov rax, 0x2e00747865742e00
+	mov [rsi], rax
+	mov rax, 0x6261747274736873
+	mov [rsi + 8], rax
+	mov rax, 0x6261746d79732e00
+	mov [rsi + 16], rax
+	mov rax, 0x6261747274732e00
+	mov [rsi + 24], rax
+	mov al, 0
+	mov [rsi + 33], al
+
+	mov rax, 0x30
+	jmp .ret
+
+.ret_err:
+	xor eax, eax
+.ret:
+	mov rsp, rbp
+	pop rbp
+	retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `void *buffer`
+;;; rdx: `size_t n`
+;;; rcx: `char *filename`
+elf64_dump_shtab:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 32
+	mov [rbp - 8], rdi
+	mov [rbp - 16], rsi
+	mov [rbp - 24], rdx
+	mov [rbp - 32], rcx
+
+	sub rdx, 0x140		; 5 section headers, 0x40 * 5
+	jl .ret_err
+
+	;; Add 64 byte empty section header as first entry in the section header
+	;; table.
+	add rsi, 0x40
+	mov [rbp - 16], rsi
+
+	;;
+	;; Add section header for .text section
+	;;
+
+	;; Name offset in .shstrtab
+	mov eax, 1		; One for first named section
+	mov [rsi], eax
+
+	;; Section type PROGBITS
+	mov eax, 1
+	mov [rsi + 0x4], eax
+
+	;; Flags SHF_ALLOC and SHF_EXECINSTR
+	mov rax, 0x6
+	mov [rsi + 0x8], rax
+
+	;; Offset of the section
+	mov rax, 0x180		; 0x40 bytes header + 5 * 0x40 bytes per section
+				; header table entry
+	mov [rsi + 0x18], rax
+
+	;; Size of the section in bytes
+	mov rax, [rdi + 24]	; rax = ctx->bintxt_size
+	mov [rsi + 0x20], rax
+
+	;; 16 byte alignment
+	mov rax, 16
+	mov [rsi + 0x30], rax
+
+	add rsi, 0x40
+	mov [rbp - 16], rsi
+
+	;;
+	;; Add section header for .shstrtab section
+	;;
+
+	;; Name offset in .shstrtab
+	mov eax, 7		; len("\0.text\0")
+	mov [rsi], eax
+
+	;; Section type STRTAB
+	mov eax, 3
+	mov [rsi + 0x4], eax
+
+	;; Offset of the section
+	mov rsi, [rbp - 16]
+	mov rdi, [rsi - 0x20]	; Store size of previous section in rax
+	call algn16		; Align to 16
+	mov rsi, [rbp - 16]
+	mov rcx, [rsi - 0x28]	; Store offset of previous section in rcx
+	add rax, rcx
+	mov [rsi + 0x18], rax
+
+	;; Size of the section in bytes
+	call elf64_clcshstrtabsz
+	mov rsi, [rbp - 16]
+	mov [rsi + 0x20], rax
+
+	;; 1 byte alignment
+	mov rax, 1
+	mov [rsi + 0x30], rax
+
+	add rsi, 0x40
+	mov [rbp - 16], rsi
+
+	;;
+	;; Add section header for .symtab section
+	;;
+
+	;; Name offset in .shstrtab
+	mov eax, 17		; len("\0.text\0.shstrtab\0")
+	mov [rsi], eax
+
+	;; Section type SYMTAB
+	mov eax, 2
+	mov [rsi + 0x4], eax
+
+	;; Offset of the section
+	mov rsi, [rbp - 16]
+	mov rdi, [rsi - 0x20]	; Store size of previos section in rax
+	call algn16		; Align to 16
+	mov rsi, [rbp - 16]
+	mov rcx, [rsi - 0x28]	; Store offset of previos section in rcx
+	add rax, rcx
+	mov [rsi + 0x18], rax
+
+	;; Size of the section in bytes
+	mov rdi, [rbp - 8]
+	call elf64_clcsymtabsz
+	mov rsi, [rbp - 16]
+	mov [rsi + 0x20], rax
+
+	;; Link index of strtab section header entry
+	mov rax, 4
+	mov [rsi + 0x28], rax
+
+	;; Number of symbol table entries plus one
+	mov rdi, [rbp - 8]
+	mov rsi, [rdi + 40]	; size_t n = ctx->max_symtab_entries
+	mov rdi, [rdi + 32]	; struct SymTabNtr *symtab = ctx->symtab
+	call symtablen
+	add rax, 3		; Null entry, file entry, text section entry
+
+	mov rsi, [rbp - 16]
+	mov [rsi + 0x2c], rax
+
+	;; 8 byte alignment
+	mov rax, 8
+	mov [rsi + 0x30], rax
+
+	;; Entrysize
+	mov rax, 0x18		; sizeof(Elf64_Sym)
+	mov [rsi + 0x38], rax
+
+	add rsi, 0x40
+	mov [rbp - 16], rsi
+
+	;;
+	;; Add section header for .strtab section
+	;;
+
+	;; Name offset in .shstrtab
+	mov eax, 25		; len("\0.text\0.shstrtab\0.symtab\0")
+	mov [rsi], eax
+
+	;; Section type STRTAB
+	mov eax, 3
+	mov [rsi + 0x4], eax
+
+	;; Offset of the section
+	mov rsi, [rbp - 16]
+	mov rdi, [rsi - 0x20]	; Store size of previos section in rax
+	call algn16		; Align to 16
+	mov rsi, [rbp - 16]
+	mov rcx, [rsi - 0x28]	; Store offset of previos section in rcx
+	add rax, rcx
+	mov [rsi + 0x18], rax
+
+	;; Size of the section in bytes
+	mov rdi, [rbp - 8]
+	mov rsi, [rbp - 32]
+	call elf64_clcstrtabsz
+	mov rsi, [rbp - 16]
+	mov [rsi + 0x20], rax
+
+	;; 1 byte alignment
+	mov rax, 1
+	mov [rsi + 0x30], rax
+
+	mov rax, 0x140
+	jmp .ret
+
+.ret_err:
+	xor eax, eax
+.ret:
+	mov rsp, rbp
+	pop rbp
+	retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `void *buffer`
+;;; rdx: `size_t n`
+;;; rcx: `char *filename`
+elf64_dump_strtab:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 64
+
+	mov [rbp - 8], rdi
+	mov [rbp - 16], rsi
+	mov [rbp - 24], rdx
+	mov [rbp - 32], rcx
+
+	mov rsi, rcx
+	call elf64_clcstrtabsz
+
+	mov rdi, rax
+	call algn16
+	mov [rbp - 40], rax
+
+	mov rdx, [rbp - 24]
+	sub rdx, rax
+	jl .ret_err
+
+	;; Copy the filename
+	mov rdi, [rbp - 32]	; void *str = filename
+	call len
+	mov rdi, [rbp - 32]	; void *src = filename
+	mov rsi, [rbp - 16]
+	inc rsi			; void *dst = buffer + 1
+	mov rdx, rax		; size_t n = len(filename)
+
+	mov r8, rsi
+	add r8, rax
+	mov [rbp - 16], r8	; buffer = buffer + len(filename) + 1
+
+	call cpy
+
+	mov rdi, [rbp - 8]
+	mov rsi, [rdi + 40]	; rsi = ctx->max_symtab_entries
+	mov rdi, [rdi + 32]
+	mov [rbp - 48], rdi	; struct SymTabNtr *symtab = ctx->symtab
+	call symtablen
+	mov [rbp - 56], rax	; size_t symtab_len
+
+.loop:
+	mov rcx, [rbp - 56]
+	cmp rcx, 0
+	je .loop_end
+
+	mov rdi, [rbp - 48]	; void *str = symtab[0].label
+	call len
+
+	mov rdi, [rbp - 48]	; void *src = symtab[0].label
+	mov rsi, [rbp - 16]	; void *dst = buffer
+
+	mov r8, rsi
+	add r8, rax
+	mov [rbp - 16], r8	; buffer = buffer + len(filename)
+
+	call cpy
+
+	mov rcx, [rbp - 56]
+	dec rcx
+	mov [rbp - 56], rcx	; symtab_len--
+	mov rdi, [rbp - 48]
+	add rdi, 256
+	mov [rbp - 48], rdi	; symtab += sizeof(struct SymTabNtr)
+
+	jmp .loop
+
+.loop_end:
+	mov rax, [rbp - 40]
+	jmp .ret
+
+.ret_err:
+	xor eax, eax
+.ret:
+	mov rsp, rbp
+	pop rbp
+	retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `void *buffer`
+;;; rdx: `size_t n`
+;;; rcx: `char *filename`
+elf64_dump_symtab:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 64
+
+	mov [rbp - 8], rdi
+	mov [rbp - 16], rsi
+	mov [rbp - 24], rdx
+	mov [rbp - 32], rcx
+
+	call elf64_clcsymtabsz
+	mov rdi, rax
+	call algn16
+	mov [rbp - 40], rax	; size_t symtab_size = rax
+	mov rdx, [rbp - 24]
+
+	sub rdx, rax
+	jl .ret_err
+
+	mov rdi, [rbp - 32]
+	call len
+	inc rax
+	mov [rbp - 48], rax	; size_t strtab_offset = rax
+
+	mov rsi, [rbp - 16]
+	add rsi, 0x18		; Create first, empty symtab entry
+
+	;;
+	;; File entry
+	;;
+
+	;; .strtab index of file name
+	mov eax, 1
+	mov [rsi], eax
+
+	;; Symbol type
+	mov al, 4		; STT_FILE
+	mov [rsi + 4], al
+
+	;; Associated section index
+	mov ax, 0xfff1		; SHN_ABS
+	mov [rsi + 6], ax
+
+	add rsi, 0x18
+	mov [rbp - 16], rsi
+
+	;;
+	;; .text section entry
+	;;
+
+	;; Symbol type
+	mov al, 3		; STT_SECTION
+	mov [rsi + 4], al
+
+	;; Associated section index
+	mov ax, 1		; .text section
+	mov [rsi + 6], ax
+
+	add rsi, 0x18
+	mov [rbp - 16], rsi
+
+	mov rdi, [rbp - 8]
+	mov rsi, [rdi + 40]	; rsi = ctx->max_symtab_entries
+	mov rdi, [rdi + 32]	; rdi = ctx->symtab
+	mov [rbp - 56], rdi	; struct SymTabNtr *symtab = ctx->symtab
+	call symtablen
+	mov [rbp - 64], rax	; size_t symtab_len
+
+.loop:
+	mov rcx, [rbp - 64]
+	cmp rcx, 0
+	je .loop_end
+	mov rdi, [rbp - 56]
+	call len
+
+	;; .strtab index of symbol name
+	mov rsi, [rbp - 16]
+	mov rcx, [rbp - 48]
+	mov [rsi], ecx
+
+	add rcx, rax
+	mov [rbp - 48], rcx	; size_t strtab_offset += len(label)
+
+	;; Associated section index
+	mov ax, 1		; .text section
+	mov [rsi + 6], ax
+
+	;; Address
+	mov rdi, [rbp - 56]
+	mov eax, [rdi + 252]
+	mov [rsi + 8], rax
+
+	add rsi, 0x18
+	mov [rbp - 16], rsi	; buffer += sizeof(Elf64_Sym)
+	add rdi, 256
+	mov [rbp - 56], rdi	; symtab += sizeof(struct SymTabNtr)
+	mov rcx, [rbp - 64]
+	dec rcx
+	mov [rbp - 64], rcx	; symtab_len--
+
+	jmp .loop
+
+.loop_end:
+	mov rax, [rbp - 40]
+	jmp .ret
+
+.ret_err:
+	xor eax, eax
+.ret:
+	mov rsp, rbp
+	pop rbp
+	retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `void *buffer`
+;;; rdx: `size_t n`
+elf64_dump_text:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 32
+	mov [rbp - 8], rdi
+	mov [rbp - 16], rsi
+	mov [rbp - 24], rdx
+
+	mov rdi, [rdi + 24]	; rdi = ctx->bintxt_size
+	call algn16
+	mov [rbp - 32], rax
+	sub rdx, rax
+	jl .ret_err
+
+	mov rdi, [rbp - 8]
+	mov rdx, [rdi + 24]
+	mov rdi, [rdi + 8]	; rdi = ctx->bintxt
+	call cpy
+
+	mov rax, [rbp - 32]
+	jmp .ret
+
+.ret_err:
+	xor eax, eax
+.ret:
+	mov rsp, rbp
+	pop rbp
+	retn
+
 ;;; rdi: `char *assembly`
 isint:
 	push rdi
@@ -2522,4 +3218,22 @@ skp2lbinst:
 .end:
 	mov [rdi], rsi
 	pop rbp
+	retn
+
+;;; rdi: `struct SymTabNtr *symtab`
+;;; rsi: `size_t n`
+symtablen:
+	xor rax, rax
+	xor rcx, rcx
+	mov rdx, 256
+
+.loop:
+	cmp rsi, rax
+	je .end
+	cmp [rdi], cl
+	je .end
+	inc rax
+	add rdi, rdx
+	jmp .loop
+.end:
 	retn

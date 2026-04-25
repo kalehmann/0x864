@@ -65,3 +65,22 @@ void test_len(void)
 	TEST_CHECK(len("") == 1);
 	TEST_CHECK(len("test") == 5);
 }
+
+void test_symtablen(void)
+{
+	struct AsmCtx *ctx = make_asmctx(NULL, 0, 2, 0, 0);
+        TEST_ASSERT(ctx != NULL);
+
+        TEST_CHECK(symtablen(ctx->symtab, 2) == 0);
+
+	TEST_CHECK(strsymtabntr(ctx->symtab, 2, "test", 0, 0, 0) == 0);
+
+        TEST_CHECK(symtablen(ctx->symtab, 2) == 1);
+
+	TEST_CHECK(strsymtabntr(ctx->symtab, 2, "foobar", 0, 0, 0) == 0);
+
+        TEST_CHECK(symtablen(ctx->symtab, 2) == 2);
+
+        free_asmctx(ctx);
+}
+

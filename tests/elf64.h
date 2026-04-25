@@ -17,13 +17,14 @@
  *  long with 0x864. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef UTILS_H
-#define UTILS_H
+#ifndef _0x864_ELF64_H
+#define _0x864_ELF64_H
 
-void test_algn16(void);
-void test_clr(void);
-void test_cpy(void);
-void test_len(void);
-void test_symtablen(void);
+void test_elf64_clcshstrtabsz(void);
+void test_elf64_clcstrtabsz(void);
+void test_elf64_clcsymtabsz(void);
+void test_elf64_clctextsz(void);
+void test_elf64_dump_header(void);
+void test_elf64_dump_symtab(void);
 
-#endif /* UTILS_H */
+#endif /* _0x864_ELF64_H */

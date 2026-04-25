@@ -20,6 +20,7 @@
 #include <acutest.h>
 #include <stddef.h>
 #include "assembler.h"
+#include "elf64.h"
 #include "parser.h"
 #include "utils.h"
 
@@ -37,6 +38,11 @@ TEST_LIST = {
 	{ "ckopsize", test_ckopsize },
 	{ "clr", test_clr },
 	{ "cpy", test_cpy },
+	{ "elf64_clcshstrtabsz", test_elf64_clcshstrtabsz },
+	{ "elf64_clcstrtabsz", test_elf64_clcstrtabsz },
+	{ "elf64_clcsymtabsz", test_elf64_clcsymtabsz },
+	{ "elf64_clctextsz", test_elf64_clctextsz },
+	{ "elf64_dump_header", test_elf64_dump_header },
 	{ "isint", test_isint },
 	{ "isopdlm", test_isopdlm },
 	{ "isreg", test_isreg },
@@ -59,5 +65,6 @@ TEST_LIST = {
 	{ "strlbl", test_strlbl },
 	{ "strsymtabntr", test_strsymtabntr },
 	{ "symbol_table_generation", test_symbol_table_generation },
+	{ "symtablen", test_symtablen },
 	{ NULL, NULL }
 };

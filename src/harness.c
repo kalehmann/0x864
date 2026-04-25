@@ -25,11 +25,17 @@
 #include <unistd.h>
 #include "0x864.h"
 
+enum Format {
+	BIN = 0,
+	ELF64,
+};
+
 struct args {
-        char inpath[256];
-        char outpath[256];
-        FILE *fin;
-        FILE *fout;
+	char inpath[256];
+	char outpath[256];
+	enum Format format;
+	FILE *fin;
+	FILE *fout;
 };
 
 void banner(void);
@@ -38,168 +44,193 @@ void usage(const char * const);
 
 void banner(void)
 {
-        printf("\033[1m0x864\033[0m - "
-               "\033[38;5;52ms"
-               "\033[38;5;88me"
-               "\033[38;5;124ml"
-               "\033[38;5;160mf"
-               "\033[38;5;166m."
-               "\033[38;5;172mc"
-               "\033[1;38;5;208m0"
-               "\033[0;38;5;202mn"
-               "\033[38;5;214mt"
-               "\033[38;5;220ma"
-               "\033[38;5;226mi"
-               "\033[38;5;11mn"
-               "\033[38;5;154me"
-               "\033[38;5;119md"
-               "\033[38;5;118m."
-               "\033[1;38;5;106mx"
-               "\033[38;5;45m8"
-               "\033[38;5;39m6"
-               "\033[0;38;5;33m."
-               "\033[1;38;5;32m4"
-               "\033[0;38;5;21ms"
-               "\033[38;5;20ms"
-               "\033[38;5;19me"
-               "\033[38;5;18mm"
-               "\033[38;5;135mb"
-               "\033[38;5;92ml"
-               "\033[38;5;127me"
-               "\033[38;5;90mr"
-               "\033[0m\n");
+	printf("\033[1m0x864\033[0m - "
+	       "\033[38;5;52ms"
+	       "\033[38;5;88me"
+	       "\033[38;5;124ml"
+	       "\033[38;5;160mf"
+	       "\033[38;5;166m."
+	       "\033[38;5;172mc"
+	       "\033[1;38;5;208m0"
+	       "\033[0;38;5;202mn"
+	       "\033[38;5;214mt"
+	       "\033[38;5;220ma"
+	       "\033[38;5;226mi"
+	       "\033[38;5;11mn"
+	       "\033[38;5;154me"
+	       "\033[38;5;119md"
+	       "\033[38;5;118m."
+	       "\033[1;38;5;106mx"
+	       "\033[38;5;45m8"
+	       "\033[38;5;39m6"
+	       "\033[0;38;5;33m."
+	       "\033[1;38;5;32m4"
+	       "\033[0;38;5;21ms"
+	       "\033[38;5;20ms"
+	       "\033[38;5;19me"
+	       "\033[38;5;18mm"
+	       "\033[38;5;135mb"
+	       "\033[38;5;92ml"
+	       "\033[38;5;127me"
+	       "\033[38;5;90mr"
+	       "\033[0m\n");
 }
 
 int parse_args(int argc, char * const argv[], struct args * const args)
 {
-        char opt;
-        const char * const argv0 = argv[0];
+	char opt;
+	const char * const argv0 = argv[0];
 
-        while ((opt = getopt(argc, argv, "ho:")) != -1) {
-                switch (opt) {
-                case 'h':
-                        usage(argv0);
+	while ((opt = getopt(argc, argv, "f:ho:")) != -1) {
+		switch (opt) {
+		case 'f':
+			if (strlen(optarg) > 255) {
+				fprintf(stderr, "Format is too long!\n");
+				usage(argv0);
 
-                        return 0;
-                case 'o':
-                        if (strlen(optarg) > 255) {
-                                fprintf(stderr, "Outfile is too long!\n");
-                                usage(argv0);
+				return 1;
+			}
+			if (strncmp(optarg, "elf64", 6) == 0) {
+				args->format = ELF64;
+			}
+			break;
+		case 'h':
+			usage(argv0);
 
-                                return 1;
-                        }
-                        strncpy(args->outpath, optarg, 255);
-                        break;
-                case ':':
-                case '?':
-                default:
-                        usage(argv0);
+			return 0;
+		case 'o':
+			if (strlen(optarg) > 255) {
+				fprintf(stderr, "Outfile is too long!\n");
+				usage(argv0);
 
-                        return 1;
-                }
-        }
+				return 1;
+			}
+			strncpy(args->outpath, optarg, 255);
+			break;
+		case ':':
+		case '?':
+		default:
+			usage(argv0);
 
-        if (optind >= argc) {
-                fprintf(stderr, "Missing input file\n");
-                usage(argv0);
+			return 1;
+		}
+	}
 
-                return 1;
-        } else if (argc - optind > 1) {
-                fprintf(stderr, "Too many input files\n");
-                usage(argv0);
+	if (optind >= argc) {
+		fprintf(stderr, "Missing input file\n");
+		usage(argv0);
 
-                return 1;
-        } else if (strlen(argv[optind]) > 255) {
-                fprintf(stderr, "Infile is too long!\n");
-                usage(argv0);
+		return 1;
+	} else if (argc - optind > 1) {
+		fprintf(stderr, "Too many input files\n");
+		usage(argv0);
 
-                return 1;
-        }
+		return 1;
+	} else if (strlen(argv[optind]) > 255) {
+		fprintf(stderr, "Infile is too long!\n");
+		usage(argv0);
 
-        strncpy(args->inpath, argv[optind], 255);
-        if (0 == args->outpath[0]) {
-                char *pos = strrchr(args->inpath, '.');
-                if (NULL == pos) {
-                        strncpy(args->outpath, args->inpath, 250);
-                        strncat(args->outpath, ".out", 5);
-                } else {
-                        size_t n = pos - args->inpath;
-                        strncpy(args->outpath, args->inpath, n);
-                }
-        }
+		return 1;
+	}
 
-        args->fin = fopen(args->inpath, "r");
-        if (args->fin == NULL) {
-                fprintf(stderr, "Unable to open input file %s: %s\n",
-                        args->inpath, strerror(errno));
+	strncpy(args->inpath, argv[optind], 255);
+	if (0 == args->outpath[0]) {
+		char *pos = strrchr(args->inpath, '.');
+		if (NULL == pos) {
+			strncpy(args->outpath, args->inpath, 250);
+			strncat(args->outpath, ".out", 5);
+		} else {
+			size_t n = pos - args->inpath;
+			strncpy(args->outpath, args->inpath, n);
+		}
+	}
 
-                return -1;
-        }
+	args->fin = fopen(args->inpath, "r");
+	if (args->fin == NULL) {
+		fprintf(stderr, "Unable to open input file %s: %s\n",
+			args->inpath, strerror(errno));
 
-        args->fout = fopen(args->outpath, "w");
-        if (args->fout == NULL) {
-                fclose(args->fin);
-                fprintf(stderr, "Unable to open output file %s: %s\n",
-                        args->outpath, strerror(errno));
+		return -1;
+	}
 
-                return -1;
-        }
+	args->fout = fopen(args->outpath, "w");
+	if (args->fout == NULL) {
+		fclose(args->fin);
+		fprintf(stderr, "Unable to open output file %s: %s\n",
+			args->outpath, strerror(errno));
 
-        return 0;
+		return -1;
+	}
+
+	return 0;
 }
 
 void usage(const char * const argv0)
 {
-        printf("Usage: %s [...options] filename\n", argv0);
-        printf("    Options:\n");
-        printf("        -h          Show help\n");
-        printf("        -o outfile  Write output to outfile\n");
+	printf("Usage: %s [...options] filename\n", argv0);
+	printf("    Options:\n");
+	printf("	-f [bin|elf64] Output format\n");
+	printf("	-h	       Show help\n");
+	printf("	-o outfile     Write output to outfile\n");
 }
 
 
 int main(int argc, char * const argv[])
 {
-        struct args args = { 0 };
-        struct AsmCtx *ctx = NULL;
-        char *assembly_buffer = NULL;
-        int exit_code = 0;
-        size_t assembly_buffer_size = 0;
-        banner();
+	struct args args = { 0 };
+	struct AsmCtx *ctx = NULL;
+	char *assembly_buffer = NULL;
+	int exit_code = 0;
+	size_t assembly_buffer_size = 0;
+	banner();
 
-        if (parse_args(argc, argv, &args) != 0)
-                return 1;
-        if (args.inpath[0] == '\0')
-                return 0;
+	if (parse_args(argc, argv, &args) != 0)
+		return 1;
+	if (args.inpath[0] == '\0')
+		return 0;
 
-        printf("Assembling %s to %s ... ", args.inpath, args.outpath);
-        fseek(args.fin, 0L, SEEK_END);
-        assembly_buffer_size = ftell(args.fin) + 1;
-        rewind(args.fin);
+	printf("Assembling %s to %s ... ", args.inpath, args.outpath);
+	fseek(args.fin, 0L, SEEK_END);
+	assembly_buffer_size = ftell(args.fin) + 1;
+	rewind(args.fin);
 
-        assembly_buffer = calloc(1, assembly_buffer_size);
-        if (assembly_buffer == NULL) {
-                fprintf(stderr, "Unable to allocate %zu bytes: %s\n",
-                        assembly_buffer_size, strerror(errno));
-                exit_code = 1;
-                goto cleanup;
-        }
-        fread(assembly_buffer, assembly_buffer_size, 1, args.fin);
+	assembly_buffer = calloc(1, assembly_buffer_size);
+	if (assembly_buffer == NULL) {
+		fprintf(stderr, "Unable to allocate %zu bytes: %s\n",
+			assembly_buffer_size, strerror(errno));
+		exit_code = 1;
+		goto cleanup;
+	}
+	fread(assembly_buffer, assembly_buffer_size, 1, args.fin);
 
-        ctx = make_asmctx(assembly_buffer, 512, 256, 1024, 128);
-        assert(ctx != NULL);
+	ctx = make_asmctx(assembly_buffer, 512, 256, 1024, 128);
+	assert(ctx != NULL);
 
-        assemble(ctx);
+	assemble(ctx);
 
-        fwrite(ctx->bintxt, ctx->bintxt_size, 1, args.fout);
-        printf("Written %zu bytes of binary output\n", ctx->bintxt_size);
+	if (args.format == BIN) {
+		fwrite(ctx->bintxt, ctx->bintxt_size, 1, args.fout);
+		printf("Written %zu bytes of binary output\n", ctx->bintxt_size);
+	} else if (args.format == ELF64) {
+		void *buffer = calloc(1024 * 64, 1);
+		if (buffer == NULL) {
+			fprintf(stderr, "Unable to allocate %d bytes: %s\n",
+				1024 * 64, strerror(errno));
+			exit_code = 1;
+			goto cleanup;
+		}
+		size_t size = elf64_dump(ctx, buffer, 1024 * 64, args.inpath);
+		fwrite(buffer, size, 1, args.fout);
+		printf("Written %zu bytes of binary output\n", size);
+	}
 
 cleanup:
-        if (args.fin != NULL)
-                fclose(args.fin);
-        if (args.fout != NULL)
-                fclose(args.fout);
-        if (ctx != NULL)
-                free_asmctx(ctx);
+	if (args.fin != NULL)
+		fclose(args.fin);
+	if (args.fout != NULL)
+		fclose(args.fout);
+	if (ctx != NULL)
+		free_asmctx(ctx);
 
-        return exit_code;
+	return exit_code;
 }

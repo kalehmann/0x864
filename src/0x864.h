@@ -302,6 +302,61 @@ extern void clr(void *buf, size_t n);
 extern void cpy(void *src, void *dest, size_t n);
 
 /**
+ * Calculates the size of a `.shstrtab` section in an ELF file.
+ *
+ * This function considers only the sections `.text`, `.shstrtab`, `.symtab` and
+ * `.strtab`
+ *
+ * @returns the size of the `.shstrtab` section in bytes
+ */
+extern size_t elf64_clcshstrtabsz(void);
+
+/**
+ * Calculates the size of a `.strtab` section in an ELF file.
+ *
+ * @param ctx is a pointer to the AsmCtx structure
+ * @param filename is the name of the source file, that will be embedded in the
+ *                 strtab
+ *
+ * @returns the size of the `.shstrtab` section in bytes
+ */
+extern size_t elf64_clcstrtabsz(struct AsmCtx *ctx, char *filename);
+
+/**
+ * Calculates the size of a `.symtab` section in an ELF file.
+ *
+ * @param ctx is a pointer to the AsmCtx structure
+ *
+ * @returns the size of the `.symtab` section in bytes
+ */
+extern size_t elf64_clcsymtabsz(struct AsmCtx *ctx);
+
+/**
+ * Calculates the size of a `.text` section in an ELF file.
+ *
+ * @param ctx is a pointer to the AsmCtx structure
+ *
+ * @returns the size of the `.text` section in bytes
+ */
+extern size_t elf64_clctextsz(struct AsmCtx *ctx);
+
+/**
+ * Stores the assembled program as ELF data into a buffer.
+ *
+ * @param ctx is a pointer to the AsmCtx structure
+ * @param buffer is a zero allocated buffer, where the ELF data will be written
+ *               to.
+ * @param n is the size of the buffer in bytes
+ * @param filename is the name of the source file, that will be embedded for
+ *                 debugging inside the ELF file.
+ *
+ * @returns the number of bytes written to the buffer or zero on failure
+ */
+extern size_t elf64_dump(struct AsmCtx *ctx, void *buffer, size_t n,
+                         char *filename);
+
+
+/**
  * Checks if the next token is an decimal or hexadecimal integer
  *
  * @param assembly is a pointer to the assembly string.
@@ -517,5 +572,10 @@ extern void strlbl(struct AsmCtx *ctx);
  */
 extern int strsymtabntr(struct SymTabNtr *symtab, size_t n, char *label,
 			uint32_t offset, uint32_t flags, uint32_t rel_target);
+
+/**
+ * @returns the number of entries in the symbol table
+ */
+extern size_t symtablen(struct SymTabNtr *symtab, size_t n);
 
 #endif /* _0x864_H */
