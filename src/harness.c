@@ -185,7 +185,7 @@ int main(int argc, char * const argv[])
         }
         fread(assembly_buffer, assembly_buffer_size, 1, args.fin);
 
-        ctx = make_asmctx(assembly_buffer, 512, 256, 1024);
+        ctx = make_asmctx(assembly_buffer, 512, 256, 1024, 128);
         assert(ctx != NULL);
 
         assemble(ctx);

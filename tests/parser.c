@@ -26,7 +26,7 @@ void test_struct_AsmCtx_is_packed(void)
 {
 	// The assembly code makes assumptions about the offsets in the
 	// structure. Verify, that the struct is packed.
-	TEST_CHECK(sizeof(struct AsmCtx) == 544);
+	TEST_CHECK(sizeof(struct AsmCtx) == 560);
 }
 
 void test_struct_SymTabNtr_is_packed(void)
@@ -40,14 +40,14 @@ void test_assemble(void)
 {
 	// Test that calling `assemble` with an output size of 0 writes nothing
 	// to the output buffer.
-	struct AsmCtx *ctx = make_asmctx("\tnop\n", 0, 0, 0);
+	struct AsmCtx *ctx = make_asmctx("\tnop\n", 0, 0, 0, 0);
 	TEST_ASSERT(ctx != NULL);
 	assemble(ctx);
 	TEST_CHECK(ctx->bintxt_size == 0);
 	free_asmctx(ctx);
 
 	// Test that the `assemble` function accepts an empty input.
-	ctx = make_asmctx("", 0, 0, 0);
+	ctx = make_asmctx("", 0, 0, 0, 0);
 	TEST_ASSERT(ctx != NULL);
 	assemble(ctx);
 	TEST_CHECK(ctx->bintxt_size == 0);
@@ -56,7 +56,7 @@ void test_assemble(void)
 void test_as_call(void)
 {
 	struct AsmOp op = { 0 };
-	struct AsmCtx *ctx = make_asmctx(" .label ; Comment", 16, 8, 8);
+	struct AsmCtx *ctx = make_asmctx(" .label ; Comment", 16, 8, 8, 0);
 	TEST_ASSERT(ctx != NULL);
 	as_call(ctx, &op);
 
@@ -72,7 +72,7 @@ void test_as_call(void)
 void test_as_nop(void)
 {
 	struct AsmOp op = { 0 };
-	struct AsmCtx *ctx = make_asmctx("", 0, 0, 0);
+	struct AsmCtx *ctx = make_asmctx("", 0, 0, 0, 0);
 	TEST_ASSERT(ctx != NULL);
 	as_nop(ctx, &op);
 
@@ -86,7 +86,7 @@ void test_as_nop(void)
 void test_as_retn(void)
 {
 	struct AsmOp op = { 0 };
-	struct AsmCtx *ctx = make_asmctx("", 0, 0, 0);
+	struct AsmCtx *ctx = make_asmctx("", 0, 0, 0, 0);
 	TEST_ASSERT(ctx != NULL);
 	as_retn(ctx, &op);
 
@@ -701,7 +701,7 @@ void test_rslvref(void)
 void test_scndpss(void)
 {
 	int *target = NULL;
-	struct AsmCtx *ctx = make_asmctx(NULL, 32, 8, 8);
+	struct AsmCtx *ctx = make_asmctx(NULL, 32, 8, 8, 0);
 	TEST_ASSERT(ctx != NULL);
 
 	ctx->bintxt_size = 32;
@@ -757,6 +757,43 @@ void test_skp2lbinst(void)
 	TEST_CHECK(assembly2 == label2);
 }
 
+void test_storing_globals(void)
+{
+	struct AsmCtx *ctx = make_asmctx(
+		"\tglobal foo\n"
+		"\tglobal bar\n"
+		"\foo:\n"
+		"\tnop\n"
+		"\bar:\n"
+		"\tnop\n",
+		8, 4, 0, 8);
+	TEST_ASSERT(ctx != NULL);
+	assemble(ctx);
+	TEST_CHECK(ctx->bintxt_size == 2);
+
+	TEST_CHECK(strncmp(ctx->globals[0], "foo", 4) == 0);
+	TEST_CHECK(strncmp(ctx->globals[1], "bar", 4) == 0);
+	TEST_CHECK(ctx->globals[2][0] == 0);
+
+	free_asmctx(ctx);
+}
+
+void test_strglbl(void)
+{
+	struct AsmCtx *ctx = NULL;
+
+	ctx = make_asmctx(" foobar ; test", 0, 0, 0, 0);
+	TEST_ASSERT(ctx != NULL);
+	TEST_CHECK(strglbl(ctx) == -1);
+	free_asmctx(ctx);
+
+	ctx = make_asmctx(" foobar ; test", 0, 0, 0, 8);
+	TEST_ASSERT(ctx != NULL);
+	TEST_CHECK(strglbl(ctx) == 7);
+	TEST_CHECK(strncmp(ctx->globals[0], "foobar", 7) == 0);
+	free_asmctx(ctx);
+}
+
 void test_strlbl(void)
 {
 	const char *assembly = "label1:\n"
@@ -766,7 +803,7 @@ void test_strlbl(void)
 		"label2:\n"
 		"end:\n";
 
-	struct AsmCtx *ctx = make_asmctx(assembly, 0, 0, 0);
+	struct AsmCtx *ctx = make_asmctx(assembly, 0, 0, 0, 0);
 	TEST_ASSERT(ctx != NULL);
 
 	strlbl(ctx);
@@ -849,7 +886,7 @@ void test_symbol_table_generation(void)
 		"\tnop\n"
 		"label3:\n"
 		"\tnop\n",
-		8, 4, 0);
+		8, 4, 0, 0);
 	TEST_ASSERT(ctx != NULL);
 	assemble(ctx);
 	TEST_CHECK(ctx->bintxt_size == 4);

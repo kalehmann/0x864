@@ -21,57 +21,70 @@
 #include "0x864.h"
 
 struct AsmCtx *make_asmctx(char const *assembly, size_t max_bintxt_size,
-                           size_t max_symtab_entries, size_t max_reftab_entries)
+			   size_t max_symtab_entries, size_t max_reftab_entries,
+			   size_t max_globals)
 {
-        struct AsmCtx *ctx = calloc(1, sizeof(struct AsmCtx));
-        if (ctx == NULL) {
-                return NULL;
-        }
-        ctx->assembly = assembly;
-        if (max_bintxt_size > 0) {
-                ctx->bintxt = calloc(max_bintxt_size, 1);
-                if (ctx->bintxt == NULL) {
-                        free(ctx);
+	struct AsmCtx *ctx = calloc(1, sizeof(struct AsmCtx));
+	if (ctx == NULL) {
+		return NULL;
+	}
+	ctx->assembly = assembly;
+	if (max_bintxt_size > 0) {
+		ctx->bintxt = calloc(max_bintxt_size, 1);
+		if (ctx->bintxt == NULL) {
+			free(ctx);
 
-                        return NULL;
-                }
-        }
-        ctx->max_bintxt_size = max_bintxt_size;
-        if (max_symtab_entries > 0) {
-                ctx->symtab = calloc(max_symtab_entries,
-                                     (sizeof(struct SymTabNtr)));
-                if (ctx->symtab == NULL) {
-                        free(ctx->bintxt);
-                        free(ctx);
+			return NULL;
+		}
+	}
+	ctx->max_bintxt_size = max_bintxt_size;
+	if (max_symtab_entries > 0) {
+		ctx->symtab = calloc(max_symtab_entries,
+				     (sizeof(struct SymTabNtr)));
+		if (ctx->symtab == NULL) {
+			free(ctx->bintxt);
+			free(ctx);
 
-                        return NULL;
-                }
-        }
-        ctx->max_symtab_entries = max_symtab_entries;
-        if (max_reftab_entries > 0) {
-                ctx->reftab = calloc(max_reftab_entries,
-                                     sizeof(struct SymTabNtr));
-                if (ctx->reftab == NULL) {
-                        free(ctx->bintxt);
-                        free(ctx->symtab);
-                        free(ctx);
+			return NULL;
+		}
+	}
+	ctx->max_symtab_entries = max_symtab_entries;
+	if (max_reftab_entries > 0) {
+		ctx->reftab = calloc(max_reftab_entries,
+				     sizeof(struct SymTabNtr));
+		if (ctx->reftab == NULL) {
+			free(ctx->bintxt);
+			free(ctx->symtab);
+			free(ctx);
 
-                        return NULL;
-                }
-        }
-        ctx->max_reftab_entries = max_reftab_entries;
+			return NULL;
+		}
+	}
+	ctx->max_reftab_entries = max_reftab_entries;
+	if (max_globals > 0) {
+		ctx->globals = calloc(1, 64);
+		if (ctx->globals == NULL) {
+			free(ctx->bintxt);
+			free(ctx->symtab);
+			free(ctx->reftab);
+			free(ctx);
 
-        return ctx;
+			return NULL;
+		}
+	}
+	ctx->max_globals = max_globals;
+
+	return ctx;
 }
 
 void free_asmctx(struct AsmCtx *ctx)
 {
-        if (ctx == NULL)
-                return;
+	if (ctx == NULL)
+		return;
 
-        free(ctx->bintxt);
-        free(ctx->symtab);
-        free(ctx->reftab);
-        free(ctx);
+	free(ctx->bintxt);
+	free(ctx->symtab);
+	free(ctx->reftab);
+	free(ctx);
 }
 

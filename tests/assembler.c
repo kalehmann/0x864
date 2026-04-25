@@ -35,7 +35,7 @@ void test_assemble_op(void)
 	struct AsmCtx *ctx = NULL;
 
 	// Test assembling the nop instruction
-	ctx = make_asmctx("", 16, 0, 0);
+	ctx = make_asmctx("", 16, 0, 0, 0);
 	TEST_ASSERT(ctx != NULL);
 	op.encoding = ENCODING_ZO;
 	op.n_opcodes = 1;
@@ -47,7 +47,7 @@ void test_assemble_op(void)
 	memset(&op, 0, sizeof(struct AsmOp));
 
 	// Test assembling the call near relative instruction
-	ctx = make_asmctx("", 16, 8, 8);
+	ctx = make_asmctx("", 16, 8, 8, 0);
 	strncpy(ctx->label, "label1", 7);
 	TEST_ASSERT(ctx != NULL);
 	op.encoding = ENCODING_D;
@@ -71,7 +71,7 @@ void test_assemble_op(void)
 	memset(&op, 0, sizeof(struct AsmOp));
 
 	// Test assembling `lea rsi, [rbp - 1234]`
-	ctx = make_asmctx("", 16, 0, 0);
+	ctx = make_asmctx("", 16, 0, 0, 0);
 	TEST_ASSERT(ctx != NULL);
 	op.encoding = ENCODING_RM;
 	op.op_size = 64;
@@ -94,7 +94,7 @@ void test_assemble_op(void)
 	memset(&op, 0, sizeof(struct AsmOp));
 
 	// Test assembling `mov [rbp - 8], r15`
-	ctx = make_asmctx("", 16, 0, 0);
+	ctx = make_asmctx("", 16, 0, 0, 0);
 	TEST_ASSERT(ctx != NULL);
 	op.encoding = ENCODING_MR;
 	op.op_size = 64;
@@ -114,7 +114,7 @@ void test_assemble_op(void)
 	memset(&op, 0, sizeof(struct AsmOp));
 
 	// Test assembling `add r10, 0x11223344`
-	ctx = make_asmctx("", 16, 0, 0);
+	ctx = make_asmctx("", 16, 0, 0, 0);
 	TEST_ASSERT(ctx != NULL);
 	op.encoding = ENCODING_MI;
 	op.op_size = 64;
@@ -137,7 +137,7 @@ void test_assemble_op(void)
 	memset(&op, 0, sizeof(struct AsmOp));
 
 	// Test assembling `int 0x80`
-	ctx = make_asmctx("", 16, 0, 0);
+	ctx = make_asmctx("", 16, 0, 0, 0);
 	TEST_ASSERT(ctx != NULL);
 	op.encoding = ENCODING_I;
 	op.n_opcodes = 1;
@@ -152,7 +152,7 @@ void test_assemble_op(void)
 	memset(&op, 0, sizeof(struct AsmOp));
 
 	// Test assembling `dec r11`
-	ctx = make_asmctx("", 16, 0, 0);
+	ctx = make_asmctx("", 16, 0, 0, 0);
 	TEST_ASSERT(ctx != NULL);
 	op.encoding = ENCODING_M;
 	op.op_size = 64;
@@ -170,7 +170,7 @@ void test_assemble_op(void)
 	memset(&op, 0, sizeof(struct AsmOp));
 
 	// Test assembling `mov bl, 0xab`
-	ctx = make_asmctx("", 16, 0, 0);
+	ctx = make_asmctx("", 16, 0, 0, 0);
 	TEST_ASSERT(ctx != NULL);
 	op.encoding = ENCODING_OI;
 	op.op_size = 8;
@@ -187,7 +187,7 @@ void test_assemble_op(void)
 	memset(&op, 0, sizeof(struct AsmOp));
 
 	// Test assembling `mov r11b, 0xab`
-	ctx = make_asmctx("", 16, 0, 0);
+	ctx = make_asmctx("", 16, 0, 0, 0);
 	TEST_ASSERT(ctx != NULL);
 	op.encoding = ENCODING_OI;
 	op.op_size = 8;
@@ -205,7 +205,7 @@ void test_assemble_op(void)
 	memset(&op, 0, sizeof(struct AsmOp));
 
 	// Test assembling `mov [r15], bx`
-	ctx = make_asmctx("", 16, 0, 0);
+	ctx = make_asmctx("", 16, 0, 0, 0);
 	TEST_ASSERT(ctx != NULL);
 	op.encoding = ENCODING_MR;
 	op.op_size = 16;

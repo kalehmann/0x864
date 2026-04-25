@@ -70,6 +70,8 @@ struct AsmCtx {
 	size_t max_symtab_entries;
 	struct SymTabNtr *reftab;
 	size_t max_reftab_entries;
+	char (*globals)[64];
+	size_t max_globals;
 	char label[240];
 	char _label[240];
 };
@@ -156,11 +158,15 @@ struct AsmOp {
  *			     table. This parameter should be largern than the
  *			     number of jump and call instructions in the assembly
  *			     code, that use labels as target.
+ * @param max_globals is the number of entries for the globals table. This
+ *		      parameter should be largern than the number of global
+ *		      statements in the assembly code.
  *
  * @returns a pointer to the newly allocated AsmCtx structure or NULL on failure
  */
 struct AsmCtx *make_asmctx(char const *assembly, size_t max_bintxt_size,
-			   size_t max_symtab_entries, size_t max_reftab_entries);
+			   size_t max_symtab_entries, size_t max_reftab_entries,
+			   size_t max_globals);
 
 /**
  * Cleans up a AsmCtx structure including all it's members allocated by
@@ -474,6 +480,15 @@ extern void skp2lbinst(char const **assembly);
  * @param op is the pointer to the AsmOp structure.
  */
 extern void strdspmodrmmod(struct AsmOp *op);
+
+/**
+ * Stores the next token as global.
+ *
+ * @param ctx is the pointer to the AsmCtx structure.
+ *
+ * @returns the number of bytes stored or -1 on failure.
+ */
+extern int strglbl(struct AsmCtx *ctx);
 
 /**
  * Stores next token of the assembly text as label in `ctx->label`.

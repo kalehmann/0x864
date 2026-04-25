@@ -46,6 +46,7 @@
 	global	scndpss
 	global	skp2lbinst
 	global	strdspmodrmmod
+	global	strglbl
 	global	strlbl
 	global	strsymtabntr
 
@@ -86,7 +87,7 @@ assemble:
 
 	mov rdi, [rbp - 8]	; Stores ctx in rdi
 	mov rsi, [rdi + 40]	; size_t n = ctx->max_symtab_entries
-	lea rdx, [rdi + 64]	; char *label = ctx->label
+	lea rdx, [rdi + 80]	; char *label = ctx->label
 	mov rcx, [rdi + 24]	; uint32_t offset = ctx->bintxt_size
 	mov rdi, [rdi + 32]	; struct SymTabNtr *symtab = ctx->symtab
 	mov r8, 0		; uint32_t flags = 0
@@ -406,7 +407,7 @@ assemble_op:
 .d_absolute_label:
 	mov rdi, [rbp - 8]
 	mov rsi, [rdi + 56]	; size_t n = ctx->max_reftab_entries
-	lea rdx, [rdi + 64]	; char *label = ctx->label
+	lea rdx, [rdi + 80]	; char *label = ctx->label
 	mov rcx, [rdi + 24]
 	xor rax, rax
 	mov al, [rbp - 33]
@@ -420,7 +421,7 @@ assemble_op:
 .d_relative_label:
 	mov rdi, [rbp - 8]
 	mov rsi, [rdi + 56]	; size_t n = ctx->max_reftab_entries
-	lea rdx, [rdi + 64]	; char *label = ctx->label
+	lea rdx, [rdi + 80]	; char *label = ctx->label
 	mov rcx, [rdi + 24]
 	xor rax, rax
 	mov al, [rbp - 33]
@@ -676,157 +677,110 @@ as_snginst:
 	call clr
 
 	mov rdi, [rbp - 8]
-	mov rsi, [rdi]		; Stores ctx->assembly in rsi
-	mov al, 0x63		; Ascii c ('c')
-	cmp [rsi], al
-	je .c
-	mov al, 0x64		; Ascii d ('d')
-	cmp [rsi], al
-	je .d
-	mov al, 0x69		; Ascii i ('i')
-	cmp [rsi], al
-	je .i
-	mov al, 0x6d		; Ascii m ('m')
-	cmp [rsi], al
-	je .m
-	mov al, 0x6e		; Ascii n ('n')
-	cmp [rsi], al
-	je .n
-	mov al, 0x72		; Ascii r ('r')
-	cmp [rsi], al
-	je .r
-
-.c:
-	inc rsi
-	mov al, 0x61		; Ascii a ('a')
-	cmp [rsi], al
-	je .ca
-
-.ca:
-	inc rsi
-	mov al, 0x6c		; Ascii l ('l')
-	cmp [rsi], al
-	je .cal
-
-.cal:
-	inc rsi
-	mov al, 0x6c		; Ascii l ('l')
-	cmp [rsi], al
-	je .call
-
-.call:
-	inc rsi
-	mov [rdi], rsi		; ctx->assembly = rsi
+.check_call:
+	mov rsi, 0x006c6c6163	; call
+	call .testinst
+	cmp rax, 1
+	jne .check_dec
 	lea rsi, [rbp - 32]
 	call as_call
-	jmp .end
-
-.d:
-	inc rsi
-	mov al, 0x65		; Ascii e ('e')
-	cmp [rsi], al
-	je .de
-
-.de:
-	inc rsi
-	mov al, 0x63		; Ascii c ('c')
-	cmp [rsi], al
-	je .dec
-
-.dec:
-	inc rsi
-	mov [rdi], rsi		; ctx->assembly = rsi
+	jmp .assemble
+.check_dec:
+	mov rsi, 0x00636564	; dec
+	call .testinst
+	cmp rax, 1
+	jne .check_global
 	lea rsi, [rbp - 32]
 	call as_dec
+	jmp .assemble
+.check_global:
+	mov rsi, 0x6c61626f6c67	; global
+	call .testinst
+	cmp rax, 1
+	jne .check_inc
+	call strglbl
 	jmp .end
-
-.i:
-	inc rsi
-	mov al, 0x6e		; Ascii n ('n')
-	cmp [rsi], al
-	je .in
-
-.in:
-	inc rsi
-	mov al, 0x63		; Ascii c ('c')
-	cmp [rsi], al
-	je .inc
-
-.inc:
-	inc rsi
-	mov [rdi], rsi		; ctx->assembly = rsi
+.check_inc:
+	mov rsi, 0x00636e69	; inc
+	call .testinst
+	cmp rax, 1
+	jne .check_mov
 	lea rsi, [rbp - 32]
 	call as_inc
-	jmp .end
-
-.m:
-	inc rsi
-	mov al, 0x6f		; Ascii o ('o')
-	cmp [rsi], al
-	je .mo
-
-.mo:
-	inc rsi
-	mov al, 0x76		; Ascii v ('v')
-	cmp [rsi], al
-	je .mov
-
-.mov:
-	inc rsi
-	mov [rdi], rsi		; ctx->assembly = rsi
+	jmp .assemble
+.check_mov:
+	mov rsi, 0x00766f6d	; mov
+	call .testinst
+	cmp rax, 1
+	jne .check_nop
 	lea rsi, [rbp - 32]
 	call as_mov
-	jmp .end
-
-.n:
-	inc rsi
-	mov al, 0x6f		; Ascii o ('o')
-	cmp [rsi], al
-	je .no
-
-.no:
-	inc rsi
-	mov al, 0x70		; Ascii p ('p')
-	cmp [rsi], al
-	je .nop
-
-.nop:
-	inc rsi
-	mov [rdi], rsi		; ctx->assembly = rsi
+	jmp .assemble
+.check_nop:
+	mov rsi, 0x00706f6e	; nop
+	call .testinst
+	cmp rax, 1
+	jne .check_retn
 	lea rsi, [rbp - 32]
 	call as_nop
-	jmp .end
-
-.r:
-	inc rsi
-	mov al, 0x65		; Ascii e ('e')
-	cmp [rsi], al
-	je .re
-
-.re:
-	inc rsi
-	mov al, 0x74		; Ascii t ('t')
-	cmp [rsi], al
-	je .ret
-
-.ret:
-	inc rsi
-	mov al, 0x6e		; Ascii n ('n')
-	cmp [rsi], al
-	je .retn
-
-.retn:
-	inc rsi
-	mov [rdi], rsi		; ctx->assembly = rsi
+	jmp .assemble
+.check_retn:
+	mov rsi, 0x006e746572	; retn
+	call .testinst
+	cmp rax, 1
+	jne .end
 	lea rsi, [rbp - 32]
 	call as_retn
-	jmp .end
+	jmp .assemble
 
-.end:
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `uint64_t encoded_instruction`
+.testinst:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 16
+	mov [rbp - 8], rdi
+
+	mov rcx, rsi
+	mov rsi, [rdi]		; rsi = (char *)*(ctx->assembly)
+	mov [rbp - 16], rsi
+
+.testinst_loop:
+	cmp cl, 0
+	je .testinst_end_of_token
+	cmp [rsi], cl
+	jne .testinst_false
+	inc rsi
+	shr rcx, 8
+	jmp .testinst_loop
+
+.testinst_end_of_token:
+	mov [rbp - 16], rsi
+	mov rdi, rsi
+	call isopdlm
+	cmp eax, 0
+	je .testinst_false
+	mov rdi, [rbp - 8]
+	mov rsi, [rbp - 16]
+	mov [rdi], rsi
+	jmp .testinst_ret
+
+.testinst_false:
+	mov rdi, [rbp - 8]
+	xor rax, rax
+
+.testinst_ret:
+	mov rsp, rbp
+	pop rbp
+	retn
+
+.assemble:
 	mov rdi, [rbp - 8]
 	lea rsi, [rbp - 32]
 	call assemble_op
 
+.end:
 	mov rsp, rbp
 	pop rbp
 	retn
@@ -2388,6 +2342,45 @@ strdspmodrmmod:
 	retn
 
 ;;; rdi: `struct AsmCtx *ctx`
+strglbl:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 8
+	mov [rbp - 8], rdi
+	call skp2lbinst		; Skip to next token
+
+	mov rsi, [rdi + 64]	; rsi = ctx->globals
+	mov rcx, [rdi + 72]	; rcx = ctx->max_globals
+	mov rax, 0
+	mov rdx, 64
+	cmp rcx, rax
+	je .ret_err
+
+.find_free_entry_loop:
+	cmp [rsi], al
+	je .store_label
+	add rsi, rdx
+	dec rcx
+	jz .ret_err
+	jmp .find_free_entry_loop
+
+.store_label:
+	;; Variables are already set
+	;; rdi: `char const **assembly`
+	;; rsi: `char *label`
+	;; rdx: `size_t n = 64`
+	call readnlbl
+	jmp .ret
+
+.ret_err:
+	mov rax, -1
+
+.ret:
+	mov rsp, rbp
+	pop rbp
+	retn
+
+;;; rdi: `struct AsmCtx *ctx`
 strlbl:
 	push rbp
 	mov rbp, rsp
@@ -2401,17 +2394,17 @@ strlbl:
 
 .store_sub_label:
 	mov rdi, [rbp - 8]	; Stores ctx in rdi
-	lea rsi, [rdi + 64]	; void *dst = ctx->label
-	lea rdi, [rdi + 304]	; void *src = ctx->_label
+	lea rsi, [rdi + 80]	; void *dst = ctx->label
+	lea rdi, [rdi + 320]	; void *src = ctx->_label
 	mov rdx, 240		; size_t n = 240
 	call cpy
 
 	mov rdi, [rbp - 8]
-	lea rdi, [rdi + 304]	; void *str = ctx->_label
+	lea rdi, [rdi + 320]	; void *str = ctx->_label
 	call len
 
 	mov rdi, [rbp - 8]	; char **assembly = &ctx->assembly
-	lea rsi, [rdi + 64]	; char *label = ctx->label
+	lea rsi, [rdi + 80]	; char *label = ctx->label
 	add rsi, rax		; sublabel += len(ctx->_label)
 	dec rsi
 	mov rdx, 240		; size_t n = 240
@@ -2421,18 +2414,18 @@ strlbl:
 	jmp .end
 
 .store_top_label:
-	lea rdi, [rdi + 64]
+	lea rdi, [rdi + 80]
 	mov rsi, 480
 	call clr
 
 	mov rdi, [rbp - 8]	; char **assembly = &ctx->assembly
-	lea rsi, [rdi + 64]	; char *label = ctx->label
+	lea rsi, [rdi + 80]	; char *label = ctx->label
 	mov rdx, 240		; size_t n = 240
 	call readnlbl
 
 	mov rdi, [rbp - 8]	; Stores ctx in rdi
-	lea rsi, [rdi + 304]	; void *dst = ctx->_label
-	lea rdi, [rdi + 64]	; void *src = ctx->label
+	lea rsi, [rdi + 320]	; void *dst = ctx->_label
+	lea rdi, [rdi + 80]	; void *src = ctx->label
 	mov rdx, 240		; size_t n = 240
 	call cpy
 .end:
