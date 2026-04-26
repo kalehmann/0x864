@@ -43,6 +43,7 @@ TEST_LIST = {
         { "elf64_clcsymtabsz", test_elf64_clcsymtabsz },
         { "elf64_clctextsz", test_elf64_clctextsz },
         { "elf64_dump_header", test_elf64_dump_header },
+        { "isglbl", test_isglbl },
         { "isint", test_isint },
         { "isopdlm", test_isopdlm },
         { "isreg", test_isreg },
@@ -66,5 +67,6 @@ TEST_LIST = {
         { "strsymtabntr", test_strsymtabntr },
         { "symbol_table_generation", test_symbol_table_generation },
         { "symtablen", test_symtablen },
+        { "symtabnglbls", test_symtabnglbls },
         { NULL, NULL }
 };

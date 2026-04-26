@@ -23,7 +23,9 @@
 void test_algn16(void);
 void test_clr(void);
 void test_cpy(void);
+void test_isglbl(void);
 void test_len(void);
 void test_symtablen(void);
+void test_symtabnglbls(void);
 
 #endif /* UTILS_H */

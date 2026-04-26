@@ -368,6 +368,16 @@ extern size_t elf64_dump(struct AsmCtx *ctx, void *buffer, size_t n,
 extern size_t elf64_dump_header(struct AsmCtx *ctx, void *buffer, size_t n);
 
 /**
+ * Checks whether the given label is declared as global.
+ *
+ * @param ctx is a pointer to the AsmCtx structure
+ * @param label is the label to check
+ *
+ * @returns one if the label is declared global or zero otherwise
+ */
+extern int isglbl(struct AsmCtx *ctx, char *label);
+
+/**
  * Checks if the next token is an decimal or hexadecimal integer
  *
  * @param assembly is a pointer to the assembly string.
@@ -588,5 +598,10 @@ extern int strsymtabntr(struct SymTabNtr *symtab, size_t n, char *label,
  * @returns the number of entries in the symbol table
  */
 extern size_t symtablen(struct SymTabNtr *symtab, size_t n);
+
+/**
+ * @returns the number of global entries in the symbol table
+ */
+extern size_t symtabnglbls(struct AsmCtx *ctx);
 
 #endif /* _0x864_H */

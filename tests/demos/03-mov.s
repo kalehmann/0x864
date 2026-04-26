@@ -1,3 +1,5 @@
+        global demo_03_mov
+
 ;;; Test the `mov` instruction
 demo_03_mov:
         ;; Move register to r/m

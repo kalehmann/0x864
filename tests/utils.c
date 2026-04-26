@@ -18,6 +18,7 @@
  */
 
 #include <acutest.h>
+#include <string.h>
 #include "0x864.h"
 #include "utils.h"
 
@@ -60,6 +61,28 @@ void test_cpy(void)
         TEST_CHECK(dst[3] == 0x00);
 }
 
+void test_isglbl(void)
+{
+        struct AsmCtx *ctx = make_asmctx(NULL, 0, 0, 0, 0);
+        TEST_ASSERT(ctx != NULL);
+
+        TEST_CHECK(isglbl(ctx, "foobar") == 0);
+
+        free_asmctx(ctx);
+
+        ctx = make_asmctx(NULL, 0, 0, 0, 8);
+        TEST_ASSERT(ctx != NULL);
+
+        strncpy(ctx->globals[0], "test", 5);
+        strncpy(ctx->globals[1], "label", 6);
+
+        TEST_CHECK(isglbl(ctx, "foobar") == 0);
+        TEST_CHECK(isglbl(ctx, "test") == 1);
+        TEST_CHECK(isglbl(ctx, "label") == 1);
+
+        free_asmctx(ctx);
+}
+
 void test_len(void)
 {
         TEST_CHECK(len("") == 1);
@@ -84,3 +107,27 @@ void test_symtablen(void)
         free_asmctx(ctx);
 }
 
+void test_symtabnglbls(void)
+{
+        struct AsmCtx *ctx = make_asmctx("global\n"
+                                         "another_global\n"
+                                         "non_sym_global", 0, 8, 0, 8);
+        TEST_ASSERT(ctx != NULL);
+
+        TEST_CHECK(strsymtabntr(ctx->symtab, 8, "test", 0, 0, 0) == 0);
+        TEST_CHECK(strsymtabntr(ctx->symtab, 8, "global", 0, 0, 0) == 0);
+        TEST_CHECK(strsymtabntr(ctx->symtab, 8, "foobar", 0, 0, 0) == 0);
+        TEST_CHECK(strsymtabntr(ctx->symtab, 8, "another_global", 0, 0, 0) == 0);
+        TEST_CHECK(strsymtabntr(ctx->symtab, 8, "label", 0, 0, 0) == 0);
+        TEST_CHECK(strsymtabntr(ctx->symtab, 8, "local_symb", 0, 0, 0) == 0);
+
+        TEST_CHECK(strglbl(ctx) == 7);
+        skp2lbinst(&ctx->assembly);
+        TEST_CHECK(strglbl(ctx) == 15);
+        skp2lbinst(&ctx->assembly);
+        TEST_CHECK(strglbl(ctx) == 15);
+
+        TEST_CHECK(symtabnglbls(ctx) == 2);
+
+        free_asmctx(ctx);
+}

@@ -1,3 +1,5 @@
+        global demo_02_dec_inc
+
 ;;; Test the `dec` and `inc` instructions
 demo_02_dec_inc:
         inc al

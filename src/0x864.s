@@ -35,6 +35,7 @@
         global  elf64_clctextsz
         global  elf64_dump
         global  elf64_dump_header
+        global  isglbl
         global  isint
         global  isopdlm
         global  isrgndrct
@@ -56,6 +57,7 @@
         global  strlbl
         global  strsymtabntr
         global  symtablen
+        global  symtabnglbls
 
         section .text
 
@@ -1711,15 +1713,21 @@ elf64_dump_shtab:
         mov rax, 4
         mov [rsi + 0x28], rax
 
-        ;; Number of symbol table entries plus one
+        ;; Number of non global symbol table entries
         mov rdi, [rbp - 8]
         mov rsi, [rdi + 40]     ; size_t n = ctx->max_symtab_entries
         mov rdi, [rdi + 32]     ; struct SymTabNtr *symtab = ctx->symtab
         call symtablen
-        add rax, 3              ; Null entry, file entry, text section entry
+        push rax
+
+        mov rdi, [rbp - 8]
+        call symtabnglbls
+        pop rcx
+        sub rcx, rax            ; rcx = symtablen(...) - symtabnglbls(...)
+        add rcx, 3              ; Null entry, file entry, text section entry
 
         mov rsi, [rbp - 16]
-        mov [rsi + 0x2c], rax
+        mov [rsi + 0x2c], rcx
 
         ;; 8 byte alignment
         mov rax, 8
@@ -1929,41 +1937,132 @@ elf64_dump_symtab:
         call symtablen
         mov [rbp - 64], rax     ; size_t symtab_len
 
-.loop:
+.loop_locals:
         mov rcx, [rbp - 64]
         cmp rcx, 0
-        je .loop_end
-        mov rdi, [rbp - 56]
+        je .loop_locals_end
+        ;; Is global?
+        mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
+        mov rsi, [rbp - 56]     ; char *label = symtab[i].label
+        call isglbl
+        cmp rax, 1              ; if (isglbl(ctx, symtab[i].label) != 1)
+        jne .loop_locals_store
+
+        mov rdi, [rbp - 56]     ; rdi = symtab[i].label
+        call len
+
+        mov rcx, [rbp - 48]     ; rcx = strtab_offset
+        add rcx, rax
+        mov [rbp - 48], rcx     ; size_t strtab_offset += len(label)
+
+        jmp .loop_locals_skip
+
+.loop_locals_store:
+        mov rdi, [rbp - 56]     ; rdi = symtab[i].label
         call len
 
         ;; .strtab index of symbol name
-        mov rsi, [rbp - 16]
-        mov rcx, [rbp - 48]
-        mov [rsi], ecx
+        mov rsi, [rbp - 16]     ; rsi = buffer
+        mov rcx, [rbp - 48]     ; rcx = strtab_offset
+        mov [rsi], ecx          ; ((Elf64_Sym)buffer).st_name = strtab_offset
 
         add rcx, rax
         mov [rbp - 48], rcx     ; size_t strtab_offset += len(label)
 
         ;; Associated section index
         mov ax, 1               ; .text section
-        mov [rsi + 6], ax
+        mov [rsi + 6], ax       ; ((Elf64_Sym)buffer).st_shndx = 9
 
         ;; Address
         mov rdi, [rbp - 56]
         mov eax, [rdi + 252]
-        mov [rsi + 8], rax
+        mov [rsi + 8], rax      ; ((Elf64_Sym)buffer).st_value = symtab[i].offset
 
+        mov rsi, [rbp - 16]     ; rsi = buffer
         add rsi, 0x18
         mov [rbp - 16], rsi     ; buffer += sizeof(Elf64_Sym)
+.loop_locals_skip:
+        mov rdi, [rbp - 56]     ; rdi = symtab
         add rdi, 256
         mov [rbp - 56], rdi     ; symtab += sizeof(struct SymTabNtr)
         mov rcx, [rbp - 64]
         dec rcx
         mov [rbp - 64], rcx     ; symtab_len--
 
-        jmp .loop
+        jmp .loop_locals
 
-.loop_end:
+.loop_locals_end:
+        mov rdi, [rbp - 32]
+        call len
+        inc rax
+        mov [rbp - 48], rax     ; size_t strtab_offset = rax
+
+        mov rdi, [rbp - 8]
+        mov rsi, [rdi + 40]     ; rsi = ctx->max_symtab_entries
+        mov rdi, [rdi + 32]     ; rdi = ctx->symtab
+        mov [rbp - 56], rdi     ; struct SymTabNtr *symtab = ctx->symtab
+        call symtablen
+        mov [rbp - 64], rax     ; size_t symtab_len
+
+.loop_globals:
+        mov rcx, [rbp - 64]
+        cmp rcx, 0
+        je .loop_globals_end
+        ;; Is global?
+        mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
+        mov rsi, [rbp - 56]     ; char *label = symtab[i].label
+        call isglbl
+        cmp rax, 1              ; if (isglbl(ctx, symtab[i].label) == 1)
+        je .loop_globals_store
+
+        mov rdi, [rbp - 56]     ; rdi = symtab[i].label
+        call len
+
+        mov rcx, [rbp - 48]     ; rcx = strtab_offset
+        add rcx, rax
+        mov [rbp - 48], rcx     ; size_t strtab_offset += len(label)
+
+        jmp .loop_globals_skip
+
+.loop_globals_store:
+        mov rdi, [rbp - 56]     ; rdi = symtab[i].label
+        call len
+
+        ;; .strtab index of symbol name
+        mov rsi, [rbp - 16]     ; rsi = buffer
+        mov rcx, [rbp - 48]     ; rcx = strtab_offset
+        mov [rsi], ecx          ; ((Elf64_Sym)buffer).st_name = strtab_offset
+
+        add rcx, rax
+        mov [rbp - 48], rcx     ; size_t strtab_offset += len(label)
+
+        ;; Binding
+        mov al, 0x10
+        mov [rsi + 4], al       ; ((Elf64_Sym)buffer).st_info = STB_GLOBAL << 4
+
+        ;; Associated section index
+        mov ax, 1               ; .text section
+        mov [rsi + 6], ax       ; ((Elf64_Sym)buffer).st_shndx = 9
+
+        ;; Address
+        mov rdi, [rbp - 56]
+        mov eax, [rdi + 252]
+        mov [rsi + 8], rax      ; ((Elf64_Sym)buffer).st_value = symtab[i].offset
+
+        mov rsi, [rbp - 16]     ; rsi = buffer
+        add rsi, 0x18
+        mov [rbp - 16], rsi     ; buffer += sizeof(Elf64_Sym)
+.loop_globals_skip:
+        mov rdi, [rbp - 56]     ; rdi = symtab
+        add rdi, 256
+        mov [rbp - 56], rdi     ; symtab += sizeof(struct SymTabNtr)
+        mov rcx, [rbp - 64]
+        dec rcx
+        mov [rbp - 64], rcx     ; symtab_len--
+
+        jmp .loop_globals
+
+.loop_globals_end:
         mov rax, [rbp - 40]
         jmp .ret
 
@@ -2004,6 +2103,43 @@ elf64_dump_text:
 .ret:
         mov rsp, rbp
         pop rbp
+        retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `char *label`
+isglbl:
+        mov rcx, [rdi + 72]     ; rcx = ctx->max_globals
+        mov rdi, [rdi + 64]     ; rdi = ctx->globals
+        mov r8, rdi
+        mov r9, rsi
+
+.loop:
+        cmp rcx, 0
+        je .ret_false
+        mov al, 0
+        cmp [rsi], al
+        je .ret_true
+
+        mov al, [rsi]
+        cmp [rdi], al
+        jne .next_entry
+        inc rdi
+        inc rsi
+        jmp .loop
+
+.next_entry:
+        add r8, 64
+        mov rdi, r8
+        mov rsi, r9
+        dec rcx
+        jmp .loop
+
+.ret_false:
+        xor eax, eax
+        retn
+
+.ret_true:
+        mov rax, 1
         retn
 
 ;;; rdi: `char *assembly`
@@ -3237,4 +3373,47 @@ symtablen:
         add rdi, rdx
         jmp .loop
 .end:
+        retn
+
+;;; rdi: `struct AsmCtx *ctx`
+symtabnglbls:
+        push rbp
+        mov rbp, rsp
+        sub rsp, 32
+        mov [rbp - 8], rdi      ; struct AsmCtx *ctx = ctx
+        mov rsi, [rdi + 32]
+        mov [rbp - 16], rsi     ; struct SymTabNtr *symtab = ctx->symtab
+        xor eax, eax
+        mov [rbp - 24], rax     ; size_t i = 0
+        mov [rbp - 32], rax     ; size_t n = 0
+
+.loop:
+        mov rcx, [rdi + 40]     ; rcx = ctx->max_symtab_entries
+        mov rax, [rbp - 24]     ; rax = i
+        cmp rcx, rax            ; if (ctx->max_symtab_entries == i)
+        je .end
+        xor eax, eax
+        mov rsi, [rbp - 16]
+        cmp [rsi], al
+        je .end
+        call isglbl             ; if (isglbl(ctx, symtab[i].label))
+        cmp rax,  1
+        jne .loop_next
+        mov rax, [rbp - 32]
+        inc rax
+        mov [rbp - 32], rax     ; n += 1
+.loop_next:
+        mov rdi, [rbp - 8]
+        mov rsi, [rbp - 16]
+        add rsi, 256
+        mov [rbp - 16], rsi     ; symtab += sizeof(struct SymTabNtr)
+        mov rax, [rbp - 24]
+        inc rax
+        mov [rbp - 24], rax     ; i += 1
+        jmp .loop
+
+.end:
+        mov rax, [rbp - 32]     ; return n
+        mov rsp, rbp
+        pop rbp
         retn

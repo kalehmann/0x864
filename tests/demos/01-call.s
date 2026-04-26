@@ -1,3 +1,5 @@
+        global demo_01_call
+
 demo_01_call:
         call bar
         retn
