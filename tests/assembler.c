@@ -223,6 +223,19 @@ void test_assemble_op(void)
         TEST_CHECK(ctx->bintxt[3] == 0x1F);
         free_asmctx(ctx);
         memset(&op, 0, sizeof(struct AsmOp));
+
+        // Test assembling `pop rbp`
+        ctx = make_asmctx("", 16, 0, 0, 0);
+        TEST_ASSERT(ctx != NULL);
+        op.encoding = ENCODING_O;
+        op.dst_reg = 0b0101;
+        op.n_opcodes = 1;
+        op.opcodes[0] = 0x58;
+        assemble_op(ctx, &op);
+        TEST_CHECK(ctx->bintxt_size == 1);
+        TEST_CHECK(ctx->bintxt[0] == 0x5d);
+        free_asmctx(ctx);
+        memset(&op, 0, sizeof(struct AsmOp));
 }
 
 void test_strdspmodrmmod(void)

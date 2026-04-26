@@ -24,6 +24,8 @@
         global  as_inc
         global  as_mov
         global  as_nop
+        global  as_pop
+        global  as_push
         global  as_retn
         global  cklb
         global  ckopsize
@@ -158,9 +160,11 @@ assemble_op:
         je .mi
         cmp al, 5               ; if (op->encoding == ENCODING_MR)
         je .mr
-        cmp al, 6               ; if (op->encoding == ENCODING_OI)
+        cmp al, 6               ; if (op->encoding == ENCODING_O)
+        je .o
+        cmp al, 7               ; if (op->encoding == ENCODING_OI)
         je .oi
-        cmp al, 7               ; if (op->encoding == ENCODING_RM)
+        cmp al, 8               ; if (op->encoding == ENCODING_RM)
         je .rm
 
 ;;; rdi: `struct AsmOp *op`
@@ -203,7 +207,7 @@ assemble_op:
 ;;; rsi: `uint8_t *buffer`
 ;;; rdx: `uint8_t *bytes_to_write`
 .store_immediate:
-        xor cl, cl
+        xor ecx, ecx
         mov cl, [rdx]           ; rcx = *bytes_to_write
         add rsi, rcx            ; buffer += bytes_to_write
 
@@ -315,9 +319,36 @@ assemble_op:
         inc rsi
         mov al, [rdx]
         inc al
-        mov [rdx], al   ; bytes_to_write++
+        mov [rdx], al           ; bytes_to_write++
         dec cl
         jnz .store_opcodes_loop
+        retn
+
+;;; rdi: `struct AsmOp *op`
+;;; rsi: `uint8_t *buffer`
+;;; rdx: `uint8_t *bytes_to_write`
+;;; rcx: `uint8_t register`
+.store_opcodes_rd:
+        mov r8b, [rdi + 5]      ; op->n_opcodes
+        lea rdi, [rdi + 6]      ; op->opcodes
+        xor rax, rax
+        mov al, [rdx]
+        add rsi, rax            ; buffer += bytes_to_write
+.store_opcodes_rd_loop:
+        mov al, [rdi]
+        mov [rsi], al
+        inc rdi
+        inc rsi
+        mov al, [rdx]
+        inc al
+        mov [rdx], al           ; bytes_to_write++
+        dec r8b
+        jz .store_opcodes_rd_encode_reg
+        jmp .store_opcodes_rd_loop
+
+.store_opcodes_rd_encode_reg:
+        and cl, 0x07
+        add [rsi - 1], cl
         retn
 
 ;;; rdi: `struct AsmOp *op`
@@ -564,6 +595,30 @@ assemble_op:
         call .store_disp
         jmp .write_buffer
 
+.o:
+        lea rsi, [rbp - 34]
+        call .store_rex_w
+
+        lea rsi, [rbp - 34]
+        lea rdx, [rbp - 35]
+        xor rcx, rcx
+        mov cl, [rdi + 3]
+        call .store_modrm_rm
+
+        mov rdi, [rbp - 16]     ; struct AsmOp *op = op
+        lea rsi, [rbp - 34]
+        lea rdx, [rbp - 32]
+        lea rcx, [rbp - 33]
+        call .store_prefixes
+
+        mov rdi, [rbp - 16]     ; struct AsmOp *op = op
+        lea rsi, [rbp - 32]     ; rsi = buffer
+        lea rdx, [rbp - 33]     ; rdx = &bytes_to_write
+        mov rcx, [rdi + 3]      ; rcx = op->dest_reg
+        call .store_opcodes_rd
+
+        jmp .write_buffer
+
 .oi:
         lea rsi, [rbp - 34]
         call .store_rex_w
@@ -580,30 +635,11 @@ assemble_op:
         lea rcx, [rbp - 33]
         call .store_prefixes
 
-        mov rdi, [rbp - 16]
-        mov dl, [rdi + 5]       ; dl = op->n_opcodes
-        lea rsi, [rdi + 6]      ; rsi = op->opcodes
-        mov ah, [rdi + 3]       ; ah = op->dest_reg
-        lea rdi, [rbp - 32]     ; rdi = buffer
-        xor rcx, rcx
-        mov cl, [rbp - 33]      ; cl = bytes_to_write
-        add rdi, rcx            ; rdi += bytes_to_write
-
-.oi_copy_opcode_loop:
-        mov al, [rsi]           ; uint8_t opcode = op->opcodes[0]
-        cmp dl, 1
-        ;; Only add the register to the opcode if it is the last opcode
-        jne .oi_copy_opcode
-        and ah, 0x07
-        add al, ah              ; opcode += (op->dest_reg & 0b111)
-.oi_copy_opcode:
-        mov [rdi], al
-        inc cl
-        inc rdi
-        inc rsi
-        mov [rbp - 33], cl      ; bytes_to_write++
-        dec dl
-        jnz .oi_copy_opcode_loop
+        mov rdi, [rbp - 16]     ; struct AsmOp *op = op
+        lea rsi, [rbp - 32]     ; rsi = buffer
+        lea rdx, [rbp - 33]     ; rdx = &bytes_to_write
+        mov rcx, [rdi + 3]      ; rcx = op->dest_reg
+        call .store_opcodes_rd
 
         mov rdi, [rbp - 16]
         lea rsi, [rbp - 32]
@@ -654,7 +690,7 @@ assemble_op:
         mov r10, [rdi + 8]      ; rsi = ctx->bintxt
         mov r8, [rdi + 16]      ; r8 = ctx->max_bintxt_size
         mov r9, [rdi + 24]      ; r9 = ctx->bintxt_size
-        xor cx, cx
+        xor ecx, ecx
         mov cl, [rbp - 33]      ; cl = bytes_to_write
         add r10, r9
         add r9, rcx             ; r9 += bytes_to_write
@@ -729,9 +765,25 @@ as_snginst:
         mov rsi, 0x00706f6e     ; nop
         call .testinst
         cmp rax, 1
-        jne .check_retn
+        jne .check_pop
         lea rsi, [rbp - 32]
         call as_nop
+        jmp .assemble
+.check_pop:
+        mov rsi, 0x00706f70     ; pop
+        call .testinst
+        cmp rax, 1
+        jne .check_push
+        lea rsi, [rbp - 32]
+        call as_pop
+        jmp .assemble
+.check_push:
+        mov rsi, 0x0068737570   ; push
+        call .testinst
+        cmp rax, 1
+        jne .check_retn
+        lea rsi, [rbp - 32]
+        call as_push
         jmp .assemble
 .check_retn:
         mov rsi, 0x006e746572   ; retn
@@ -1044,12 +1096,12 @@ as_mov:
         mov rdi, [rbp - 8]
         call preg
         mov rsi, [rbp - 16]
-        mov [rsi + 2], al       ; op->dst_reg = al
+        mov [rsi + 2], al       ; op->src_reg = al
         jmp .mov_rm_r
 
 .mov_r_imm:
         mov rsi, [rbp - 16]
-        mov al, 0x06
+        mov al, 0x07
         mov [rsi], al           ; op->encoding = ENCODING_OI
         mov rdi, [rbp - 8]
         call pint
@@ -1107,7 +1159,7 @@ as_mov:
         call strdspmodrmmod
 
         mov rsi, [rbp - 16]
-        mov al, 0x07
+        mov al, 0x08
         mov [rsi], al           ; op->encoding = ENCODING_RM
 
         mov al, [rsi + 1]
@@ -1154,6 +1206,62 @@ as_nop:
         mov [rsi + 5], al       ; op->n_opcodes = 1
         mov al, 0x90
         mov [rsi + 6], al       ; op->opcodes[0] = 0x90
+        retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
+as_pop:
+        push rbp
+        mov rbp, rsp
+        sub rsp, 16
+        mov [rbp - 8], rdi
+        mov [rbp - 16], rsi
+
+        mov al, 0x06
+        mov [rsi], al           ; op->encoding = ENCODING_O
+        mov al, 1
+        mov [rsi + 5], al       ; op->n_opcodes = 1
+        mov al, 0x58
+        mov [rsi + 6], al       ; op->opcodes[0] = 0x58
+
+        ;; Skip to next token - the register
+        call skp2lbinst
+
+        mov rdi, [rbp - 8]
+        call preg
+        mov rsi, [rbp - 16]
+        mov [rsi + 3], al       ; op->dst_reg = al
+
+        mov rsp, rbp
+        pop rbp
+        retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
+as_push:
+        push rbp
+        mov rbp, rsp
+        sub rsp, 16
+        mov [rbp - 8], rdi
+        mov [rbp - 16], rsi
+
+        mov al, 0x06
+        mov [rsi], al           ; op->encoding = ENCODING_O
+        mov al, 1
+        mov [rsi + 5], al       ; op->n_opcodes = 1
+        mov al, 0x50
+        mov [rsi + 6], al       ; op->opcodes[0] = 0x50
+
+        ;; Skip to next token - the register
+        call skp2lbinst
+
+        mov rdi, [rbp - 8]
+        call preg
+        mov rsi, [rbp - 16]
+        mov [rsi + 3], al       ; op->dst_reg = al
+
+        mov rsp, rbp
+        pop rbp
         retn
 
 ;;; rdi: `struct AsmCtx *ctx`

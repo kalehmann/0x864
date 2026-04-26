@@ -30,8 +30,9 @@
 #define ENCODING_M 0x03
 #define ENCODING_MI 0x04
 #define ENCODING_MR 0x05
-#define ENCODING_OI 0x06
-#define ENCODING_RM 0x07
+#define ENCODING_O 0x06
+#define ENCODING_OI 0x07
+#define ENCODING_RM 0x08
 
 // Possible values for the `flags` field of the SymTabNtr structure.
 #define FLAG_RELATIVE 0x01
@@ -255,6 +256,25 @@ extern void as_mov(struct AsmCtx *ctx, struct AsmOp *op);
  *           with data about the encoded instruction.
  */
 extern void as_nop(struct AsmCtx *ctx, struct AsmOp *op);
+
+/**
+ * Assembles the pop instruction.
+ *
+ * @param ctx is the pointer to the AsmCtx structure.
+ * @param op is a pointer to an empty AsmOp structure, that should be filled
+ *           with data about the encoded instruction.
+ */
+extern void as_pop(struct AsmCtx *ctx, struct AsmOp *op);
+
+/**
+ * Assembles the pop instruction.
+ *
+ * @param ctx is the pointer to the AsmCtx structure.
+ * @param op is a pointer to an empty AsmOp structure, that should be filled
+ *           with data about the encoded instruction.
+ */
+extern void as_push(struct AsmCtx *ctx, struct AsmOp *op);
+
 
 /**
  * Assembles the retn instruction.
