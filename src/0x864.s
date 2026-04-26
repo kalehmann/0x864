@@ -22,6 +22,7 @@
         global  as_call
         global  as_dec
         global  as_inc
+        global  as_int
         global  as_lea
         global  as_mov
         global  as_nop
@@ -750,9 +751,17 @@ as_snginst:
         mov rsi, 0x00636e69     ; inc
         call .testinst
         cmp rax, 1
-        jne .check_lea
+        jne .check_int
         lea rsi, [rbp - 32]
         call as_inc
+        jmp .assemble
+.check_int:
+        mov rsi, 0x746e69       ; add
+        call .testinst
+        cmp rax, 1
+        jne .check_lea
+        lea rsi, [rbp - 32]
+        call as_int
         jmp .assemble
 .check_lea:
         mov rsi, 0x0061656c     ; lea
@@ -978,6 +987,35 @@ as_inc:
         call preg
         mov rsi, [rbp - 16]
         mov [rsi + 3], al       ; op->dst_reg = al
+
+        mov rsp, rbp
+        pop rbp
+        retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
+as_int:
+        push rbp
+        mov rbp, rsp
+        sub rsp, 16
+        mov [rbp - 8], rdi
+        mov [rbp - 16], rsi
+
+        mov al, 0x02
+        mov [rsi], al           ; op->encoding = ENCODING_I
+        mov al, 1
+        mov [rsi + 5], al       ; op->n_opcodes = 1
+        mov al, 0xcd
+        mov [rsi + 6], al       ; op->opcodes[0] = 0xcd
+        mov al, 8
+        mov [rsi + 9], al       ; op->imm_size = 8
+
+        call skp2lbinst
+
+        mov rdi, [rbp - 8]
+        call pint
+        mov rsi, [rbp - 16]
+        mov [rsi + 16], al      ; op->imm.imm8 = pint(ctx->assembly)
 
         mov rsp, rbp
         pop rbp
