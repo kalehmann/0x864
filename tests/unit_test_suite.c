@@ -60,6 +60,7 @@ TEST_LIST = {
         { "rslvref", test_rslvref },
         { "scndpss", test_scndpss },
         { "skp2lbinst", test_skp2lbinst },
+        { "skp2nxtop", test_skp2nxtop },
         { "storing_globals", test_storing_globals },
         { "strdspmodrmmod", test_strdspmodrmmod },
         { "strglbl", test_strglbl },

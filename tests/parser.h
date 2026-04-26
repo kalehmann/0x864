@@ -43,6 +43,7 @@ void test_readnlbl(void);
 void test_rslvref(void);
 void test_scndpss(void);
 void test_skp2lbinst(void);
+void test_skp2nxtop(void);
 void test_storing_globals(void);
 void test_strglbl(void);
 void test_strlbl(void);

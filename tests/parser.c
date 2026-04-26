@@ -757,6 +757,20 @@ void test_skp2lbinst(void)
         TEST_CHECK(assembly2 == label2);
 }
 
+void test_skp2nxtop(void)
+{
+        char const *assembly1 = " , rax";
+        const char * const op1 = strstr(assembly1, "rax");
+        char const *assembly2 = "\t, \t 0x864";
+        const char * const op2 = strstr(assembly2, "0x864");
+
+        skp2nxtop(&assembly1);
+        TEST_CHECK(assembly1 == op1);
+
+        skp2nxtop(&assembly2);
+        TEST_CHECK(assembly2 == op2);
+}
+
 void test_storing_globals(void)
 {
         struct AsmCtx *ctx = make_asmctx(

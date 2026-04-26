@@ -597,6 +597,15 @@ extern void scndpss(struct AsmCtx *ctx);
 extern void skp2lbinst(char const **assembly);
 
 /**
+ * Advances the assembly text to the next operand of a instruction
+ *
+ * @param assembly is a pointer to the string with the assembly code.
+ *                 This pointer gets advanced to the first character of the next
+ *                 operand.
+ */
+extern void skp2nxtop(char const **assembly);
+
+/**
  * Stores the ModRM.mod bits in the AsmOp structure based on the displacement.
  *
  * @param op is the pointer to the AsmOp structure.

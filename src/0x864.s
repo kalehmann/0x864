@@ -57,6 +57,7 @@
         global  rslvref
         global  scndpss
         global  skp2lbinst
+        global  skp2nxtop
         global  strdspmodrmmod
         global  strglbl
         global  strlbl
@@ -1067,13 +1068,7 @@ as_lea:
         mov [rsi + 3], al
 
         mov rdi, [rbp - 8]
-        call skp2lbinst         ; Skip to comma
-        mov rdi, [rbp - 8]
-        ;; Skip one character - the comma
-        mov rsi, [rdi]
-        inc rsi
-        mov [rdi], rsi          ; (*ctx->assembly*++
-        call skp2lbinst         ; Skip to next token
+        call skp2nxtop
 
         mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
         mov rsi, [rbp - 16]     ; struct AsmOp *op = op
@@ -1130,14 +1125,7 @@ as_mov:
 
         ;; Skip to the next token - the comma
         mov rdi, [rbp - 8]
-        call skp2lbinst
-
-        ;; Skip the comma between the operands
-        mov rdi, [rbp - 8]
-        mov rsi, [rdi]
-        inc rsi
-        mov [rdi], rsi          ; *(ctx->assembly)++
-        call skp2lbinst
+        call skp2nxtop
 
         mov rdi, [rbp - 8]
         call preg
@@ -3379,6 +3367,25 @@ scndpss:
         jmp .loop_reftab
 
 .end:
+        mov rsp, rbp
+        pop rbp
+        retn
+
+;;; rdi: `char const **assembly`
+skp2nxtop:
+        push rbp
+        mov rbp, rsp
+        sub rsp, 8
+        mov [rbp - 8], rdi
+
+        call skp2lbinst         ; Skip to the comma between the operands
+        mov rdi, [rbp - 8]
+        mov rsi, [rdi]
+        inc rsi
+        mov [rdi], rsi          ; (*assembly)++
+
+        call skp2lbinst         ; Skip to the next operand
+
         mov rsp, rbp
         pop rbp
         retn
