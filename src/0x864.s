@@ -22,6 +22,7 @@
         global  as_call
         global  as_dec
         global  as_inc
+        global  as_lea
         global  as_mov
         global  as_nop
         global  as_pop
@@ -749,9 +750,17 @@ as_snginst:
         mov rsi, 0x00636e69     ; inc
         call .testinst
         cmp rax, 1
-        jne .check_mov
+        jne .check_lea
         lea rsi, [rbp - 32]
         call as_inc
+        jmp .assemble
+.check_lea:
+        mov rsi, 0x0061656c     ; lea
+        call .testinst
+        cmp rax, 1
+        jne .check_mov
+        lea rsi, [rbp - 32]
+        call as_lea
         jmp .assemble
 .check_mov:
         mov rsi, 0x00766f6d     ; mov
@@ -976,6 +985,64 @@ as_inc:
 
 ;;; rdi: `struct AsmCtx *ctx`
 ;;; rsi: `struct AsmOp *op`
+as_lea:
+        push rbp
+        mov rbp, rsp
+        sub rsp, 16
+        mov [rbp - 8], rdi
+        mov [rbp - 16], rsi
+
+        mov al, 0x08
+        mov [rsi], al           ; op->encoding = ENCODING_RM
+        mov al, 1
+        mov [rsi + 5], al       ; op->n_opcodes = 1
+        mov al, 0x8d
+        mov [rsi + 6], al       ; op->opcodes[0] = 0x8d
+
+        call skp2lbinst
+
+        mov rdi, [rbp - 8]
+        mov rdi, [rdi]          ; char *assembly = ctx->assembly
+        mov rsi, 2              ; uint8_t n_ops = 2
+        call ckopsize
+        mov rsi, [rbp - 16]
+        mov [rsi + 1], al       ; op->op_size = al
+        cmp al, 16
+        jne .skip_op_size_override
+
+        mov al, 0x08
+        mov [rsi + 11], al       ; op->prefix = PREFIX_OP_SIZE_OVERRIDE
+
+.skip_op_size_override:
+        mov rdi, [rbp - 8]
+        call preg
+        mov rsi, [rbp - 16]
+        mov [rsi + 3], al
+
+        mov rdi, [rbp - 8]
+        call skp2lbinst         ; Skip to comma
+        mov rdi, [rbp - 8]
+        ;; Skip one character - the comma
+        mov rsi, [rdi]
+        inc rsi
+        mov [rdi], rsi          ; (*ctx->assembly*++
+        call skp2lbinst         ; Skip to next token
+
+        mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
+        mov rsi, [rbp - 16]     ; struct AsmOp *op = op
+        lea rdx, [rsi + 12]     ; uint32_t *disp = &(op->disp.disp32)
+        lea rsi, [rsi + 2]      ; uint8_t *reg = &(op->src_reg)
+        call prgndrct
+
+        mov rdi, [rbp - 16]     ; struct AsmOp *op = op
+        call strdspmodrmmod
+
+        mov rsp, rbp
+        pop rbp
+        retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
 as_mov:
         push rbp
         mov rbp, rsp
@@ -1152,7 +1219,7 @@ as_mov:
         mov rdi, [rbp - 8]
         mov rsi, [rbp - 16]
         lea rdx, [rsi + 12]     ; uint32_t *disp = &(op->disp.disp32)
-        lea rsi, [rsi + 2]      ; uint8_t *reg = &(op->sr_reg)
+        lea rsi, [rsi + 2]      ; uint8_t *reg = &(op->src_reg)
         call prgndrct
 
         mov rdi, [rbp - 16]     ; struct AsmOp *op = op

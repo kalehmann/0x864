@@ -7,6 +7,7 @@
 | `call`      | Only `CALL rel32` to a label                          |
 | `dec`       | Only registers supported as destination operand       |
 | `inc`       | Only registers supported as destination operand       |
+| `lea`       |                                                       |
 | `mov`       | At least one operand must be a register direct access |
 | `nop`       |                                                       |
 | `pop`       | Only `pop r64`                                        |
