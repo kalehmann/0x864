@@ -14,6 +14,8 @@
 | `pop`       | Only `pop r64`                                        |
 | `push`      | Only `push r64`                                       |
 | `retn`      |                                                       |
+| `syscall`   |                                                       |
+
 
 ### How to develop
 

@@ -285,14 +285,13 @@ extern void as_nop(struct AsmCtx *ctx, struct AsmOp *op);
 extern void as_pop(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
- * Assembles the pop instruction.
+ * Assembles the push instruction.
  *
  * @param ctx is the pointer to the AsmCtx structure.
  * @param op is a pointer to an empty AsmOp structure, that should be filled
  *           with data about the encoded instruction.
  */
 extern void as_push(struct AsmCtx *ctx, struct AsmOp *op);
-
 
 /**
  * Assembles the retn instruction.
@@ -302,6 +301,15 @@ extern void as_push(struct AsmCtx *ctx, struct AsmOp *op);
  *           with data about the encoded instruction.
  */
 extern void as_retn(struct AsmCtx *ctx, struct AsmOp *op);
+
+/**
+ * Assembles the syscall instruction.
+ *
+ * @param ctx is the pointer to the AsmCtx structure.
+ * @param op is a pointer to an empty AsmOp structure, that should be filled
+ *           with data about the encoded instruction.
+ */
+extern void as_syscall(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Checks if the next token in the assembly text is a label.

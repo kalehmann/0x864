@@ -29,6 +29,7 @@
         global  as_pop
         global  as_push
         global  as_retn
+        global  as_syscall
         global  cklb
         global  ckopsize
         global  clr
@@ -807,9 +808,17 @@ as_snginst:
         mov rsi, 0x006e746572   ; retn
         call .testinst
         cmp rax, 1
-        jne .end
+        jne .check_syscall
         lea rsi, [rbp - 32]
         call as_retn
+        jmp .assemble
+.check_syscall:
+        mov rsi, 0x006c6c6163737973
+        call .testinst
+        cmp rax, 1
+        jne .end
+        lea rsi, [rbp - 32]
+        call as_syscall
         jmp .assemble
 
 
@@ -1378,6 +1387,19 @@ as_retn:
         mov [rsi + 5], al       ; op->n_opcodes = 1
         mov al, 0xc3
         mov [rsi + 6], al       ; op->opcodes[0] = 0x90
+        retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
+as_syscall:
+        mov al, 0
+        mov [rsi], al           ; op->encoding = ENCODING_ZO
+        mov al, 2
+        mov [rsi + 5], al       ; op->n_opcodes = 2
+        mov al, 0x0f
+        mov [rsi + 6], al       ; op->opcodes[0] = 0x0f
+        mov al, 0x05
+        mov [rsi + 7], al       ; op->opcodes[1] = 0x05
         retn
 
 cklb:
