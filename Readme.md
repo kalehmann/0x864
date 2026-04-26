@@ -1,5 +1,9 @@
 ## 0x864 - selfh0sted.x86.4ssembler
 
+### Milestones
+
+- 2234b86bbc: Assembled a relocatable elf file for hello world.
+
 ### Supported instructions
 
 | Instruction | Notes                                                 |
