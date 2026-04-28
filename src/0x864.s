@@ -19,6 +19,7 @@
         global  assemble
         global  assemble_op
         global  as_snglinst
+        global  as_and
         global  as_call
         global  as_dec
         global  as_inc
@@ -26,10 +27,12 @@
         global  as_lea
         global  as_mov
         global  as_nop
+        global  as_or
         global  as_pop
         global  as_push
         global  as_retn
         global  as_syscall
+        global  as_xor
         global  cklb
         global  ckln
         global  ckopsize
@@ -493,13 +496,22 @@ assemble_op:
         jmp .write_buffer
 
 .i:
+        lea rsi, [rbp - 34]
+        call .store_rex_w
+
+        mov rdi, [rbp - 16]     ; struct AsmOp *op = op
+        lea rsi, [rbp - 34]
+        lea rdx, [rbp - 32]
+        lea rcx, [rbp - 33]
+        call .store_prefixes
+
         lea rsi, [rbp - 32]     ; uint8_t *buffer = &buffer
         lea rdx, [rbp - 33]     ; uint8_t *bytes_to_write = &bytes_to_write
         call .store_opcodes
 
-        mov rdi, [rbp - 16]
-        lea rsi, [rbp - 32]
-        lea rdx, [rbp - 33]
+        mov rdi, [rbp - 16]     ; struct ASmOp *op = op
+        lea rsi, [rbp - 32]     ; uint8_t *buffer = &buffer
+        lea rdx, [rbp - 33]     ; uint8_t *bytes_to_write = &bytes_to_write
         call .store_immediate
         jmp .write_buffer
 
@@ -540,6 +552,12 @@ assemble_op:
 .mi:
         lea rsi, [rbp - 34]
         call .store_rex_w
+
+        lea rsi, [rbp - 34]
+        lea rdx, [rbp - 35]
+        xor rcx, rcx
+        mov cl, [rdi + 2]
+        call .store_modrm_reg
 
         lea rsi, [rbp - 34]
         lea rdx, [rbp - 35]
@@ -734,6 +752,14 @@ as_snginst:
         call clr
 
         mov rdi, [rbp - 8]
+.check_and:
+        mov rsi, 0x646e61   ; call
+        call .testinst
+        cmp rax, 1
+        jne .check_call
+        lea rsi, [rbp - 32]
+        call as_and
+        jmp .assemble
 .check_call:
         mov rsi, 0x006c6c6163   ; call
         call .testinst
@@ -793,9 +819,17 @@ as_snginst:
         mov rsi, 0x00706f6e     ; nop
         call .testinst
         cmp rax, 1
-        jne .check_pop
+        jne .check_or
         lea rsi, [rbp - 32]
         call as_nop
+        jmp .assemble
+.check_or:
+        mov rsi, 0x726f     ; or
+        call .testinst
+        cmp rax, 1
+        jne .check_pop
+        lea rsi, [rbp - 32]
+        call as_or
         jmp .assemble
 .check_pop:
         mov rsi, 0x00706f70     ; pop
@@ -825,9 +859,17 @@ as_snginst:
         mov rsi, 0x006c6c6163737973
         call .testinst
         cmp rax, 1
-        jne .check_err
+        jne .check_xor
         lea rsi, [rbp - 32]
         call as_syscall
+        jmp .assemble
+.check_xor:
+        mov rsi, 0x726f78
+        call .testinst
+        cmp rax, 1
+        jne .check_err
+        lea rsi, [rbp - 32]
+        call as_xor
         jmp .assemble
 
 .check_err:
@@ -888,6 +930,284 @@ as_snginst:
 .end:
         xor rax, rax
 .ret_err:
+        mov rsp, rbp
+        pop rbp
+        retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
+as_and:
+        push rbp
+        mov rbp, rsp
+        sub rsp, 16
+
+        mov [rbp - 8], rdi
+        mov [rbp - 16], rsi
+
+        mov al, 1
+        mov [rsi + 5], al       ; op->n_opcodes = 1
+
+        call skp2lbinst
+
+        mov rdi, [rbp - 8]
+        mov rdi, [rdi]          ; char *assembly = ctx->assembly
+        mov rsi, 2              ; uint8_t n_ops = 2
+        call ckopsize
+        mov rsi, [rbp - 16]
+        mov [rsi + 1], al       ; op->op_size = al
+        mov [rsi + 9], al       ; op->imm_size = al
+
+        mov rdi, [rbp - 8]
+        mov rdi, [rdi]          ; char const *assembly = ctx->assembly
+        mov rsi, 2              ; uint8_t n_ops = 2
+        call ckoptps
+
+        cmp ax, 2               ; (OP_TYPE_REG << 4) | OP_TYPE_IMM
+        je .r_imm
+        cmp ax, 0b00010000      ; (OP_TYPE_RGNDRCT << 4) | OP_TYPE_REG
+        je .rm_r
+        cmp ax, 1               ; (OP_TYPE_REG << 4) | OP_TYPE_RGNDRCT
+        je .r_rm
+        cmp ax, 0               ; (OP_TYPE_REG << 4) | OP_TYPE_REG
+        je .r_r
+
+        ;; Combination of operands is not supported (yet).
+        mov eax, 2              ; Return ERR_INVALID_OPERANDS
+        mov rsp, rbp
+        pop rbp
+        retn
+
+.r_imm:
+        mov rdi, [rbp - 8]
+        call preg
+        mov rsi, [rbp - 16]
+        mov [rsi + 3], al       ; op->dst_reg = al
+
+        mov rdi, [rbp - 8]
+        call skp2nxtop
+
+        mov rdi, [rbp - 8]
+        call pint
+
+        mov rsi, [rbp - 16]
+        mov dl, [rsi + 3]
+        cmp dl, 0               ; if (op->dst_reg == 0) // rax
+        je .rax_imm
+
+        mov dl, 4
+        mov [rsi], dl           ; op->encoding = ENCODING_MI
+        mov [rsi + 2], dl       ; op->src_reg = 4
+        mov dl, 0b11
+        mov [rsi + 4], dl       ; op->modrm_mod = MOD_DIRECT
+
+        mov dl, [rsi + 1]
+        cmp dl, 8               ; if (op->op_size == 8)
+        je .r_imm8
+        cmp dl, 16              ; if (op->op_size == 16)
+        je .r_imm16
+        cmp dl, 32              ; if (op->op_size == 32)
+        je .r_imm32
+        jmp .r_imm64
+
+.r_imm8:
+        mov [rsi + 16], al      ; op->imm.imm8 = pint(...)
+        mov al, 0x80
+        mov [rsi + 6], al       ; op->opcodes[0] = 0x80
+        jmp .end
+
+.r_imm16:
+        mov [rsi + 16], ax      ; op->imm.imm16 = pint(...)
+        mov al, 0x81
+        mov [rsi + 6], al       ; op->opcodes[0] = 0x81
+        mov al, 0x08
+        mov [rsi + 11], al      ; op->prefix = PREFIX_OP_SIZE_OVERRIDE
+        jmp .end
+
+.r_imm32:
+        mov [rsi + 16], eax      ; op->imm.imm32 = pint(...)
+        mov al, 0x81
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x81
+        mov al, 32
+        mov [rsi + 9], al        ; op->imm_size = 32
+        jmp .end
+
+.r_imm64:
+        mov [rsi + 16], eax      ; op->imm.imm32 = pint(...)
+        mov al, 0x81
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x81
+        mov al, 32
+        mov [rsi + 9], al        ; op->imm_size = 32
+        jmp .end
+
+.rax_imm:
+        mov dl, 2
+        mov [rsi], dl           ; op->encoding = ENCODING_I
+
+        mov dl, [rsi + 1]
+        cmp dl, 8               ; if (op->op_size == 8)
+        je .rax_imm8
+        cmp dl, 16              ; if (op->op_size == 16)
+        je .rax_imm16
+        cmp dl, 32              ; if (op->op_size == 32)
+        je .rax_imm32
+        jmp .rax_imm64
+
+.rax_imm8:
+        mov [rsi + 16], al      ; op->imm.imm8 = pint(...)
+        mov al, 0x24
+        mov [rsi + 6], al       ; op->opcodes[0] = 0x24
+        jmp .end
+
+.rax_imm16:
+        mov [rsi + 16], ax      ; op->imm.imm16 = pint(...)
+        mov al, 0x25
+        mov [rsi + 6], al       ; op->opcodes[0] = 0x25
+        mov al, 0x08
+        mov [rsi + 11], al      ; op->prefix = PREFIX_OP_SIZE_OVERRIDE
+        jmp .end
+
+.rax_imm32:
+        mov [rsi + 16], eax      ; op->imm.imm32 = pint(...)
+        mov al, 0x25
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x25
+        jmp .end
+
+.rax_imm64:
+        mov [rsi + 16], eax      ; op->imm.imm32 = pint(...)
+        mov al, 0x25
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x25
+        mov al, 32
+        mov [rsi + 9], al        ; op->imm_size = 32
+        jmp .end
+
+.rm_r:
+        mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
+        mov rsi, [rbp - 16]     ; struct AsmOp *op = op
+        lea rdx, [rsi + 12]     ; uint32_t *disp = &(op->disp.disp32)
+        lea rsi, [rsi + 3]      ; uint8_t *reg = &(op->dst_reg)
+        call prgndrct
+
+        mov rdi, [rbp - 16]     ; struct AsmOp *op = op
+        call strdspmodrmmod
+
+        mov rdi, [rbp - 8]
+        call skp2nxtop
+
+        mov rdi, [rbp - 8]
+        call preg
+
+        mov rsi, [rbp - 16]
+        mov [rsi + 2], al       ; op->src_reg = al
+        mov al, 5
+        mov [rsi], al           ; op->encoding = ENCODING_MR
+
+        jmp .r_r_check_size
+
+.r_rm:
+        mov rdi, [rbp - 8]
+        call preg
+        mov rsi, [rbp - 16]
+        mov [rsi + 3], al       ; op->dst_reg = al
+        mov al, 8
+        mov [rsi], al           ; op->encoding = ENCODING_RM
+
+        mov rdi, [rbp - 8]
+        call skp2nxtop
+
+        mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
+        mov rsi, [rbp - 16]     ; struct AsmOp *op = op
+        lea rdx, [rsi + 12]     ; uint32_t *disp = &(op->disp.disp32)
+        lea rsi, [rsi + 2]      ; uint8_t *reg = &(op->src_reg)
+        call prgndrct
+
+        mov rdi, [rbp - 16]     ; struct AsmOp *op = op
+        call strdspmodrmmod
+
+        mov rsi, [rbp - 16]
+        mov al, [rsi + 1]
+        cmp al, 8               ; if (op->op_size == 8)
+        je .r_rm8
+        cmp al, 16              ; if (op->op_size == 16)
+        je .r_rm16
+        cmp al, 32              ; if (op->op_size == 32)
+        je .r_rm32
+        jmp .r_rm64
+
+.r_rm8:
+        mov al, 0x22
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x22
+        jmp .end
+
+.r_rm16:
+        mov al, 0x23
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x23
+        mov al, 0x08
+        mov [rsi + 11], al      ; op->prefix = PREFIX_OP_SIZE_OVERRIDE
+        jmp .end
+
+.r_rm32:
+        mov al, 0x23
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x23
+        jmp .end
+
+.r_rm64:
+        mov al, 0x23
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x23
+        jmp .end
+
+.r_r:
+        mov rdi, [rbp - 8]
+        call preg
+        mov rsi, [rbp - 16]
+        mov [rsi + 3], al       ; op->dst_reg = al
+
+        mov rdi, [rbp - 8]
+        call skp2nxtop
+
+        mov rdi, [rbp - 8]
+        call preg
+
+        mov rsi, [rbp - 16]
+        mov [rsi + 2], al       ; op->src_reg = al
+        mov al, 5
+        mov [rsi], al           ; op->encoding = ENCODING_MR
+        mov al, 0b11
+        mov [rsi + 4], al       ; op->modrm_mod = MOD_DIRECT
+
+.r_r_check_size:
+        mov al, [rsi + 1]
+        cmp al, 8               ; if (op->op_size == 8)
+        je .r_r8
+        cmp al, 16              ; if (op->op_size == 16)
+        je .r_r16
+        cmp al, 32              ; if (op->op_size == 32)
+        je .r_r32
+        jmp .r_r64
+
+.r_r8:
+        mov al, 0x20
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x20
+        jmp .end
+
+.r_r16:
+        mov al, 0x21
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x21
+        mov al, 0x08
+        mov [rsi + 11], al      ; op->prefix = PREFIX_OP_SIZE_OVERRIDE
+        jmp .end
+
+.r_r32:
+        mov al, 0x21
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x21
+        jmp .end
+
+.r_r64:
+        mov al, 0x21
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x21
+        jmp .end
+
+.end:
+        xor eax, eax            ; Return ERR_NONE
         mov rsp, rbp
         pop rbp
         retn
@@ -1386,6 +1706,285 @@ as_nop:
 
 ;;; rdi: `struct AsmCtx *ctx`
 ;;; rsi: `struct AsmOp *op`
+as_or:
+        push rbp
+        mov rbp, rsp
+        sub rsp, 16
+
+        mov [rbp - 8], rdi
+        mov [rbp - 16], rsi
+
+        mov al, 1
+        mov [rsi + 5], al       ; op->n_opcodes = 1
+
+        call skp2lbinst
+
+        mov rdi, [rbp - 8]
+        mov rdi, [rdi]          ; char *assembly = ctx->assembly
+        mov rsi, 2              ; uint8_t n_ops = 2
+        call ckopsize
+        mov rsi, [rbp - 16]
+        mov [rsi + 1], al       ; op->op_size = al
+        mov [rsi + 9], al       ; op->imm_size = al
+
+        mov rdi, [rbp - 8]
+        mov rdi, [rdi]          ; char const *assembly = ctx->assembly
+        mov rsi, 2              ; uint8_t n_ops = 2
+        call ckoptps
+
+        cmp ax, 2               ; (OP_TYPE_REG << 4) | OP_TYPE_IMM
+        je .r_imm
+        cmp ax, 0b00010000      ; (OP_TYPE_RGNDRCT << 4) | OP_TYPE_REG
+        je .rm_r
+        cmp ax, 1               ; (OP_TYPE_REG << 4) | OP_TYPE_RGNDRCT
+        je .r_rm
+        cmp ax, 0               ; (OP_TYPE_REG << 4) | OP_TYPE_REG
+        je .r_r
+
+        ;; Combination of operands is not supported (yet).
+        mov eax, 2              ; Return ERR_INVALID_OPERANDS
+        mov rsp, rbp
+        pop rbp
+        retn
+
+.r_imm:
+        mov rdi, [rbp - 8]
+        call preg
+        mov rsi, [rbp - 16]
+        mov [rsi + 3], al       ; op->dst_reg = al
+
+        mov rdi, [rbp - 8]
+        call skp2nxtop
+
+        mov rdi, [rbp - 8]
+        call pint
+
+        mov rsi, [rbp - 16]
+        mov dl, [rsi + 3]
+        cmp dl, 0               ; if (op->dst_reg == 0) // rax
+        je .rax_imm
+
+        mov dl, 4
+        mov [rsi], dl           ; op->encoding = ENCODING_MI
+        mov dl, 1
+        mov [rsi + 2], dl       ; op->src_reg = 1
+        mov dl, 0b11
+        mov [rsi + 4], dl       ; op->modrm_mod = MOD_DIRECT
+
+        mov dl, [rsi + 1]
+        cmp dl, 8               ; if (op->op_size == 8)
+        je .r_imm8
+        cmp dl, 16              ; if (op->op_size == 16)
+        je .r_imm16
+        cmp dl, 32              ; if (op->op_size == 32)
+        je .r_imm32
+        jmp .r_imm64
+
+.r_imm8:
+        mov [rsi + 16], al      ; op->imm.imm8 = pint(...)
+        mov al, 0x80
+        mov [rsi + 6], al       ; op->opcodes[0] = 0x80
+        jmp .end
+
+.r_imm16:
+        mov [rsi + 16], ax      ; op->imm.imm16 = pint(...)
+        mov al, 0x81
+        mov [rsi + 6], al       ; op->opcodes[0] = 0x81
+        mov al, 0x08
+        mov [rsi + 11], al      ; op->prefix = PREFIX_OP_SIZE_OVERRIDE
+        jmp .end
+
+.r_imm32:
+        mov [rsi + 16], eax      ; op->imm.imm32 = pint(...)
+        mov al, 0x81
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x81
+        mov al, 32
+        mov [rsi + 9], al        ; op->imm_size = 32
+        jmp .end
+
+.r_imm64:
+        mov [rsi + 16], eax      ; op->imm.imm32 = pint(...)
+        mov al, 0x81
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x81
+        mov al, 32
+        mov [rsi + 9], al        ; op->imm_size = 32
+        jmp .end
+
+.rax_imm:
+        mov dl, 2
+        mov [rsi], dl           ; op->encoding = ENCODING_I
+
+        mov dl, [rsi + 1]
+        cmp dl, 8               ; if (op->op_size == 8)
+        je .rax_imm8
+        cmp dl, 16              ; if (op->op_size == 16)
+        je .rax_imm16
+        cmp dl, 32              ; if (op->op_size == 32)
+        je .rax_imm32
+        jmp .rax_imm64
+
+.rax_imm8:
+        mov [rsi + 16], al      ; op->imm.imm8 = pint(...)
+        mov al, 0x0c
+        mov [rsi + 6], al       ; op->opcodes[0] = 0x0c
+        jmp .end
+
+.rax_imm16:
+        mov [rsi + 16], ax      ; op->imm.imm16 = pint(...)
+        mov al, 0x0d
+        mov [rsi + 6], al       ; op->opcodes[0] = 0x0d
+        mov al, 0x08
+        mov [rsi + 11], al      ; op->prefix = PREFIX_OP_SIZE_OVERRIDE
+        jmp .end
+
+.rax_imm32:
+        mov [rsi + 16], eax      ; op->imm.imm32 = pint(...)
+        mov al, 0x0d
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x0d
+        jmp .end
+
+.rax_imm64:
+        mov [rsi + 16], eax      ; op->imm.imm32 = pint(...)
+        mov al, 0x0d
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x0d
+        mov al, 32
+        mov [rsi + 9], al        ; op->imm_size = 32
+        jmp .end
+
+.rm_r:
+        mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
+        mov rsi, [rbp - 16]     ; struct AsmOp *op = op
+        lea rdx, [rsi + 12]     ; uint32_t *disp = &(op->disp.disp32)
+        lea rsi, [rsi + 3]      ; uint8_t *reg = &(op->dst_reg)
+        call prgndrct
+
+        mov rdi, [rbp - 16]     ; struct AsmOp *op = op
+        call strdspmodrmmod
+
+        mov rdi, [rbp - 8]
+        call skp2nxtop
+
+        mov rdi, [rbp - 8]
+        call preg
+
+        mov rsi, [rbp - 16]
+        mov [rsi + 2], al       ; op->src_reg = al
+        mov al, 5
+        mov [rsi], al           ; op->encoding = ENCODING_MR
+
+        jmp .r_r_check_size
+
+.r_rm:
+        mov rdi, [rbp - 8]
+        call preg
+        mov rsi, [rbp - 16]
+        mov [rsi + 3], al       ; op->dst_reg = al
+        mov al, 8
+        mov [rsi], al           ; op->encoding = ENCODING_RM
+
+        mov rdi, [rbp - 8]
+        call skp2nxtop
+
+        mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
+        mov rsi, [rbp - 16]     ; struct AsmOp *op = op
+        lea rdx, [rsi + 12]     ; uint32_t *disp = &(op->disp.disp32)
+        lea rsi, [rsi + 2]      ; uint8_t *reg = &(op->src_reg)
+        call prgndrct
+
+        mov rdi, [rbp - 16]     ; struct AsmOp *op = op
+        call strdspmodrmmod
+
+        mov rsi, [rbp - 16]
+        mov al, [rsi + 1]
+        cmp al, 8               ; if (op->op_size == 8)
+        je .r_rm8
+        cmp al, 16              ; if (op->op_size == 16)
+        je .r_rm16
+        cmp al, 32              ; if (op->op_size == 32)
+        je .r_rm32
+        jmp .r_rm64
+
+.r_rm8:
+        mov al, 0x0a
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x0a
+        jmp .end
+
+.r_rm16:
+        mov al, 0x0b
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x0b
+        mov al, 0x08
+        mov [rsi + 11], al      ; op->prefix = PREFIX_OP_SIZE_OVERRIDE
+        jmp .end
+
+.r_rm32:
+        mov al, 0x0b
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x0b
+        jmp .end
+
+.r_rm64:
+        mov al, 0x0b
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x0b
+        jmp .end
+
+.r_r:
+        mov rdi, [rbp - 8]
+        call preg
+        mov rsi, [rbp - 16]
+        mov [rsi + 3], al       ; op->dst_reg = al
+
+        mov rdi, [rbp - 8]
+        call skp2nxtop
+
+        mov rdi, [rbp - 8]
+        call preg
+
+        mov rsi, [rbp - 16]
+        mov [rsi + 2], al       ; op->src_reg = al
+        mov al, 5
+        mov [rsi], al           ; op->encoding = ENCODING_MR
+        mov al, 0b11
+        mov [rsi + 4], al       ; op->modrm_mod = MOD_DIRECT
+
+.r_r_check_size:
+        mov al, [rsi + 1]
+        cmp al, 8               ; if (op->op_size == 8)
+        je .r_r8
+        cmp al, 16              ; if (op->op_size == 16)
+        je .r_r16
+        cmp al, 32              ; if (op->op_size == 32)
+        je .r_r32
+        jmp .r_r64
+
+.r_r8:
+        mov al, 0x08
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x08
+        jmp .end
+
+.r_r16:
+        mov al, 0x09
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x09
+        mov al, 0x08
+        mov [rsi + 11], al      ; op->prefix = PREFIX_OP_SIZE_OVERRIDE
+        jmp .end
+
+.r_r32:
+        mov al, 0x09
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x09
+        jmp .end
+
+.r_r64:
+        mov al, 0x09
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x09
+        jmp .end
+
+.end:
+        xor eax, eax            ; Return ERR_NONE
+        mov rsp, rbp
+        pop rbp
+        retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
 as_pop:
         push rbp
         mov rbp, rsp
@@ -1471,6 +2070,285 @@ as_syscall:
         mov [rsi + 7], al       ; op->opcodes[1] = 0x05
 
         xor eax, eax            ; Return ERR_NONE
+        retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
+as_xor:
+        push rbp
+        mov rbp, rsp
+        sub rsp, 16
+
+        mov [rbp - 8], rdi
+        mov [rbp - 16], rsi
+
+        mov al, 1
+        mov [rsi + 5], al       ; op->n_opcodes = 1
+
+        call skp2lbinst
+
+        mov rdi, [rbp - 8]
+        mov rdi, [rdi]          ; char *assembly = ctx->assembly
+        mov rsi, 2              ; uint8_t n_ops = 2
+        call ckopsize
+        mov rsi, [rbp - 16]
+        mov [rsi + 1], al       ; op->op_size = al
+        mov [rsi + 9], al       ; op->imm_size = al
+
+        mov rdi, [rbp - 8]
+        mov rdi, [rdi]          ; char const *assembly = ctx->assembly
+        mov rsi, 2              ; uint8_t n_ops = 2
+        call ckoptps
+
+        cmp ax, 2               ; (OP_TYPE_REG << 4) | OP_TYPE_IMM
+        je .r_imm
+        cmp ax, 0b00010000      ; (OP_TYPE_RGNDRCT << 4) | OP_TYPE_REG
+        je .rm_r
+        cmp ax, 1               ; (OP_TYPE_REG << 4) | OP_TYPE_RGNDRCT
+        je .r_rm
+        cmp ax, 0               ; (OP_TYPE_REG << 4) | OP_TYPE_REG
+        je .r_r
+
+        ;; Combination of operands is not supported (yet).
+        mov eax, 2              ; Return ERR_INVALID_OPERANDS
+        mov rsp, rbp
+        pop rbp
+        retn
+
+.r_imm:
+        mov rdi, [rbp - 8]
+        call preg
+        mov rsi, [rbp - 16]
+        mov [rsi + 3], al       ; op->dst_reg = al
+
+        mov rdi, [rbp - 8]
+        call skp2nxtop
+
+        mov rdi, [rbp - 8]
+        call pint
+
+        mov rsi, [rbp - 16]
+        mov dl, [rsi + 3]
+        cmp dl, 0               ; if (op->dst_reg == 0) // rax
+        je .rax_imm
+
+        mov dl, 4
+        mov [rsi], dl           ; op->encoding = ENCODING_MI
+        mov dl, 6
+        mov [rsi + 2], dl       ; op->src_reg = 6
+        mov dl, 0b11
+        mov [rsi + 4], dl       ; op->modrm_mod = MOD_DIRECT
+
+        mov dl, [rsi + 1]
+        cmp dl, 8               ; if (op->op_size == 8)
+        je .r_imm8
+        cmp dl, 16              ; if (op->op_size == 16)
+        je .r_imm16
+        cmp dl, 32              ; if (op->op_size == 32)
+        je .r_imm32
+        jmp .r_imm64
+
+.r_imm8:
+        mov [rsi + 16], al      ; op->imm.imm8 = pint(...)
+        mov al, 0x80
+        mov [rsi + 6], al       ; op->opcodes[0] = 0x80
+        jmp .end
+
+.r_imm16:
+        mov [rsi + 16], ax      ; op->imm.imm16 = pint(...)
+        mov al, 0x81
+        mov [rsi + 6], al       ; op->opcodes[0] = 0x81
+        mov al, 0x08
+        mov [rsi + 11], al      ; op->prefix = PREFIX_OP_SIZE_OVERRIDE
+        jmp .end
+
+.r_imm32:
+        mov [rsi + 16], eax      ; op->imm.imm32 = pint(...)
+        mov al, 0x81
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x81
+        mov al, 32
+        mov [rsi + 9], al        ; op->imm_size = 32
+        jmp .end
+
+.r_imm64:
+        mov [rsi + 16], eax      ; op->imm.imm32 = pint(...)
+        mov al, 0x81
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x81
+        mov al, 32
+        mov [rsi + 9], al        ; op->imm_size = 32
+        jmp .end
+
+.rax_imm:
+        mov dl, 2
+        mov [rsi], dl           ; op->encoding = ENCODING_I
+
+        mov dl, [rsi + 1]
+        cmp dl, 8               ; if (op->op_size == 8)
+        je .rax_imm8
+        cmp dl, 16              ; if (op->op_size == 16)
+        je .rax_imm16
+        cmp dl, 32              ; if (op->op_size == 32)
+        je .rax_imm32
+        jmp .rax_imm64
+
+.rax_imm8:
+        mov [rsi + 16], al      ; op->imm.imm8 = pint(...)
+        mov al, 0x34
+        mov [rsi + 6], al       ; op->opcodes[0] = 0x34
+        jmp .end
+
+.rax_imm16:
+        mov [rsi + 16], ax      ; op->imm.imm16 = pint(...)
+        mov al, 0x35
+        mov [rsi + 6], al       ; op->opcodes[0] = 0x35
+        mov al, 0x08
+        mov [rsi + 11], al      ; op->prefix = PREFIX_OP_SIZE_OVERRIDE
+        jmp .end
+
+.rax_imm32:
+        mov [rsi + 16], eax      ; op->imm.imm32 = pint(...)
+        mov al, 0x35
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x35
+        jmp .end
+
+.rax_imm64:
+        mov [rsi + 16], eax      ; op->imm.imm32 = pint(...)
+        mov al, 0x35
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x35
+        mov al, 32
+        mov [rsi + 9], al        ; op->imm_size = 32
+        jmp .end
+
+.rm_r:
+        mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
+        mov rsi, [rbp - 16]     ; struct AsmOp *op = op
+        lea rdx, [rsi + 12]     ; uint32_t *disp = &(op->disp.disp32)
+        lea rsi, [rsi + 3]      ; uint8_t *reg = &(op->dst_reg)
+        call prgndrct
+
+        mov rdi, [rbp - 16]     ; struct AsmOp *op = op
+        call strdspmodrmmod
+
+        mov rdi, [rbp - 8]
+        call skp2nxtop
+
+        mov rdi, [rbp - 8]
+        call preg
+
+        mov rsi, [rbp - 16]
+        mov [rsi + 2], al       ; op->src_reg = al
+        mov al, 5
+        mov [rsi], al           ; op->encoding = ENCODING_MR
+
+        jmp .r_r_check_size
+
+.r_rm:
+        mov rdi, [rbp - 8]
+        call preg
+        mov rsi, [rbp - 16]
+        mov [rsi + 3], al       ; op->dst_reg = al
+        mov al, 8
+        mov [rsi], al           ; op->encoding = ENCODING_RM
+
+        mov rdi, [rbp - 8]
+        call skp2nxtop
+
+        mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
+        mov rsi, [rbp - 16]     ; struct AsmOp *op = op
+        lea rdx, [rsi + 12]     ; uint32_t *disp = &(op->disp.disp32)
+        lea rsi, [rsi + 2]      ; uint8_t *reg = &(op->src_reg)
+        call prgndrct
+
+        mov rdi, [rbp - 16]     ; struct AsmOp *op = op
+        call strdspmodrmmod
+
+        mov rsi, [rbp - 16]
+        mov al, [rsi + 1]
+        cmp al, 8               ; if (op->op_size == 8)
+        je .r_rm8
+        cmp al, 16              ; if (op->op_size == 16)
+        je .r_rm16
+        cmp al, 32              ; if (op->op_size == 32)
+        je .r_rm32
+        jmp .r_rm64
+
+.r_rm8:
+        mov al, 0x32
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x32
+        jmp .end
+
+.r_rm16:
+        mov al, 0x33
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x33
+        mov al, 0x08
+        mov [rsi + 11], al      ; op->prefix = PREFIX_OP_SIZE_OVERRIDE
+        jmp .end
+
+.r_rm32:
+        mov al, 0x33
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x33
+        jmp .end
+
+.r_rm64:
+        mov al, 0x33
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x33
+        jmp .end
+
+.r_r:
+        mov rdi, [rbp - 8]
+        call preg
+        mov rsi, [rbp - 16]
+        mov [rsi + 3], al       ; op->dst_reg = al
+
+        mov rdi, [rbp - 8]
+        call skp2nxtop
+
+        mov rdi, [rbp - 8]
+        call preg
+
+        mov rsi, [rbp - 16]
+        mov [rsi + 2], al       ; op->src_reg = al
+        mov al, 5
+        mov [rsi], al           ; op->encoding = ENCODING_MR
+        mov al, 0b11
+        mov [rsi + 4], al       ; op->modrm_mod = MOD_DIRECT
+
+.r_r_check_size:
+        mov al, [rsi + 1]
+        cmp al, 8               ; if (op->op_size == 8)
+        je .r_r8
+        cmp al, 16              ; if (op->op_size == 16)
+        je .r_r16
+        cmp al, 32              ; if (op->op_size == 32)
+        je .r_r32
+        jmp .r_r64
+
+.r_r8:
+        mov al, 0x30
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x30
+        jmp .end
+
+.r_r16:
+        mov al, 0x31
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x31
+        mov al, 0x08
+        mov [rsi + 11], al      ; op->prefix = PREFIX_OP_SIZE_OVERRIDE
+        jmp .end
+
+.r_r32:
+        mov al, 0x31
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x31
+        jmp .end
+
+.r_r64:
+        mov al, 0x31
+        mov [rsi + 6], al        ; op->opcodes[0] = 0x31
+        jmp .end
+
+.end:
+        xor eax, eax            ; Return ERR_NONE
+        mov rsp, rbp
+        pop rbp
         retn
 
 cklb:
