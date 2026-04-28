@@ -60,6 +60,11 @@
 #define PREFIX_REPE_REPZ 0x04
 #define PREFIX_OP_SIZE_OVERRIDE 0x08
 
+enum AsmErr {
+        ERR_NONE = 0,
+        ERR_UNKNOWN_INSTRUCTION = 1,
+};
+
 struct SymTabNtr {
         char label[240];
         uint32_t __reserved;
@@ -201,7 +206,7 @@ extern size_t algn16(size_t off);
  *
  * @param ctx is the pointer to the AsmCtx structure.
  */
-extern void assemble(struct AsmCtx *);
+extern enum AsmErr assemble(struct AsmCtx *);
 
 /**
  * Encodes an instruction described by the AsmOp structure.
@@ -216,7 +221,7 @@ extern void assemble_op(struct AsmCtx *ctx, struct AsmOp *op);
  *
  * @param ctx is the pointer to the AsmCtx structure.
  */
-extern void as_snglinst(struct AsmCtx *ctx);
+extern enum AsmErr as_snglinst(struct AsmCtx *ctx);
 
 /**
  * Assembles the call instruction.

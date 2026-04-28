@@ -67,8 +67,6 @@
         global  symtablen
         global  symtabnglbls
 
-        section .text
-
 ;;; rdi: `size_t off`
 algn16:
         mov rax, rdi
@@ -124,6 +122,8 @@ assemble:
 
         mov rdi, [rbp - 8]      ; Stores ctx in rsi
         call as_snginst
+        cmp rax, 0
+        jne .ret_err
 
         jmp .parse_loop
 
@@ -131,6 +131,12 @@ assemble:
         mov rdi, [rbp - 8]      ; Stores ctx in rdi
         call scndpss
 
+        xor rax, rax
+        mov rsp, rbp
+        pop rbp
+        retn
+
+.ret_err:
         mov rsp, rbp
         pop rbp
         retn
@@ -819,11 +825,17 @@ as_snginst:
         mov rsi, 0x006c6c6163737973
         call .testinst
         cmp rax, 1
-        jne .end
+        jne .check_err
         lea rsi, [rbp - 32]
         call as_syscall
         jmp .assemble
 
+.check_err:
+        ;; Return ERR_UNKNOWN_INSTRUCTION
+        mov rax, 1
+        mov rsp, rbp
+        pop rbp
+        retn
 
 ;;; rdi: `struct AsmCtx *ctx`
 ;;; rsi: `uint64_t encoded_instruction`
@@ -872,6 +884,7 @@ as_snginst:
         call assemble_op
 
 .end:
+        xor rax, rax
         mov rsp, rbp
         pop rbp
         retn

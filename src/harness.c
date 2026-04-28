@@ -165,6 +165,39 @@ int parse_args(int argc, char * const argv[], struct args * const args)
         return 0;
 }
 
+void print_error(const char * const assembly_text, struct AsmCtx *ctx,
+                 enum AsmErr err)
+{
+        fflush(stdout);
+        char *line = NULL;
+        char const *linebreak = strchr(ctx->assembly, '\n');
+        size_t n = 0;
+
+        if (linebreak != NULL) {
+                n = linebreak - ctx->assembly;
+        } else {
+                n = strlen(ctx->assembly) - 1;
+        }
+
+        line = calloc(n + 1, 1);
+        assert(line != NULL);
+        strncpy(line, ctx->assembly, n);
+        line[n] = '\0';
+
+        fprintf(stderr, "\033[1;38;5;160mFailure\033[0;m\n\n");
+
+        switch (err) {
+        case ERR_UNKNOWN_INSTRUCTION:
+                fprintf(stderr, "Unknown instruction in line %zu "
+                        "arround \"%s\"\n", ckln(assembly_text, ctx->assembly),
+                        line);
+                break;
+        default:
+                fprintf(stderr, "Unknown error in line %zu arround \"%s\"\n",
+                        ckln(assembly_text, ctx->assembly), line);
+        }
+}
+
 void usage(const char * const argv0)
 {
         printf("Usage: %s [...options] filename\n", argv0);
@@ -179,6 +212,7 @@ int main(int argc, char * const argv[])
 {
         struct args args = { 0 };
         struct AsmCtx *ctx = NULL;
+        enum AsmErr err;
         char *assembly_buffer = NULL;
         int exit_code = 0;
         size_t assembly_buffer_size = 0;
@@ -206,7 +240,13 @@ int main(int argc, char * const argv[])
         ctx = make_asmctx(assembly_buffer, 512, 256, 1024, 128);
         assert(ctx != NULL);
 
-        assemble(ctx);
+        err = assemble(ctx);
+
+        if (err != ERR_NONE) {
+                print_error(assembly_buffer, ctx, err);
+                exit_code = 1;
+                goto cleanup;
+        }
 
         if (args.format == BIN) {
                 fwrite(ctx->bintxt, ctx->bintxt_size, 1, args.fout);
