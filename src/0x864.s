@@ -31,6 +31,7 @@
         global  as_retn
         global  as_syscall
         global  cklb
+        global  ckln
         global  ckopsize
         global  ckoptps
         global  clr
@@ -1421,6 +1422,23 @@ cklb:
 .end:
         pop rdi
         pop rbp
+        retn
+
+;;; rdi: `char const *assembly`
+;;; rsi: `char const *cpos`
+ckln:
+        mov rax, 1              ; size_t line = 1
+.loop:
+        cmp rdi, rsi
+        je .end
+        mov cl, [rdi]
+        cmp cl, 0xa             ; if (*assembly != '\n')
+        jne .loop_next
+        inc rax
+.loop_next:
+        inc rdi
+        jmp .loop
+.end:
         retn
 
 ;;; rdi: `char *assembly`

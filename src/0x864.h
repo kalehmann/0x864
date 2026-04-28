@@ -327,6 +327,17 @@ extern void as_syscall(struct AsmCtx *ctx, struct AsmOp *op);
 extern int cklb(char const *assembly);
 
 /**
+ * Get the current line in the assmebly text.
+ *
+ * @param assembly is the programs code in assembly language
+ * @param cpos is a pointer to the current position of the parser in the
+ *        assembly language text
+ *
+ * @returns the line in the assembly text, that the current position is on
+ */
+extern size_t ckln(char const *assembly, char const *cpos);
+
+/**
  * Get the size of an operation from it's operands.
  *
  * @param assembly is a pointer to the assembly string.

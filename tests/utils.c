@@ -31,6 +31,20 @@ void test_algn16(void)
         TEST_CHECK(algn16(0xff) == 0x100);
 }
 
+void test_ckln(void)
+{
+        char const *assembly = ";;; Comment at the start\n"
+                "\n"
+                "\tglobal _start\n"
+                "\n"
+                "_start:\n"
+                "\tpush rbp\n"
+                "\tmov rbp, rsp\n";
+        char const *cpos = strstr(assembly, "rbp");
+
+        TEST_CHECK(ckln(assembly, cpos) == 6);
+}
+
 void test_clr(void)
 {
         uint8_t buffer[] = { 0x01, 0x02, 0x03, 0x04 };
