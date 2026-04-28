@@ -28,6 +28,7 @@ void test_as_nop(void);
 void test_as_retn(void);
 void test_cklb(void);
 void test_ckopsize(void);
+void test_ckoptps(void);
 void test_isint(void);
 void test_isopdlm(void);
 void test_isreg(void);

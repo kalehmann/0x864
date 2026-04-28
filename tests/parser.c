@@ -120,6 +120,21 @@ void test_ckopsize(void)
         TEST_CHECK(ckopsize("al, 0xff", 2) == 8);
 }
 
+void test_ckoptps(void)
+{
+        uint16_t op_type = OP_TYPE_REG;
+        TEST_CHECK(ckoptps("al", 1) == op_type);
+        TEST_CHECK(ckoptps("foobar", 1) == OP_TYPE_LBL);
+        TEST_CHECK(ckoptps("0xff", 1) == OP_TYPE_IMM);
+        op_type = (OP_TYPE_RGNDRCT << 4) | OP_TYPE_REG;
+        TEST_CHECK(ckoptps("[rbp - 8], al", 2) == op_type);
+        op_type = (OP_TYPE_REG << 4) | OP_TYPE_LBL;
+        TEST_CHECK(ckoptps("rsi, label", 2) == op_type);
+        op_type = (OP_TYPE_REG << 4) | OP_TYPE_REG;
+        TEST_CHECK(ckoptps("eax, edi", 2) == op_type);
+        op_type = (OP_TYPE_REG << 4) | OP_TYPE_REG;
+        TEST_CHECK(ckoptps("bl, ah\n", 2) == op_type);
+}
 
 void test_isint(void)
 {

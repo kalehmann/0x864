@@ -48,6 +48,12 @@
 #define MOD_INDIRECT_32 0b10
 #define MOD_DIRECT 0b11
 
+// Possible encodings of operand types for ckoptps
+#define OP_TYPE_REG 0b00
+#define OP_TYPE_RGNDRCT 0b01
+#define OP_TYPE_IMM 0b10
+#define OP_TYPE_LBL 0b11
+
 // Possible values for the `prefix` field of the AsmOp structure.
 #define PREFIX_LOCK 0x01
 #define PREFIX_REPNE_REPNZ 0x02
@@ -321,14 +327,25 @@ extern void as_syscall(struct AsmCtx *ctx, struct AsmOp *op);
 extern int cklb(char const *assembly);
 
 /**
- * Get the size of an operation from it's operants.
+ * Get the size of an operation from it's operands.
  *
  * @param assembly is a pointer to the assembly string.
- * @param n_ops is the number of operants
+ * @param n_ops is the number of operands
  *
  * @returns the size of the operation in bits (8, 16, 32 or 64)
  */
 extern uint8_t ckopsize(char const *assembly, uint8_t n_ops);
+
+/**
+ * Returns the types of the operands for an instruction
+ *
+ * @param assembly is a pointer to the assembly string.
+ * @param n_ops is the number of operands
+ *
+ * @returns the encoded operand types. The i-th operand is can by obtained from
+ *          the result by `(ckopts(...) >> ((n_ops - i) * 4)) & 0xf`
+ */
+extern uint16_t ckoptps(char const *assembly, uint8_t n_ops);
 
 /**
  * Fills a buffer with zeros.

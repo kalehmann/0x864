@@ -36,6 +36,7 @@ TEST_LIST = {
         { "as_retn", test_as_retn },
         { "cklb", test_cklb },
         { "ckopsize", test_ckopsize },
+        { "ckoptps", test_ckoptps },
         { "clr", test_clr },
         { "cpy", test_cpy },
         { "elf64_clcshstrtabsz", test_elf64_clcshstrtabsz },

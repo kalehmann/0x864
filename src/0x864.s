@@ -32,6 +32,7 @@
         global  as_syscall
         global  cklb
         global  ckopsize
+        global  ckoptps
         global  clr
         global  cpy
         global  elf64_clcshstrtabsz
@@ -1106,14 +1107,30 @@ as_mov:
         mov rsi, [rbp - 16]
         mov [rsi + 1], al       ; op->op_size = al
 
-        ;; Check if first operand is a register indirect access
         mov rdi, [rbp - 8]
-        mov rdi, [rdi]
-        call isrgndrct
-        cmp al, 0
-        je .first_op_is_reg
+        mov rdi, [rdi]          ; char *assembly = ctx->assembly
+        mov rsi, 2              ; uint8_t n_ops = 2
+        call ckoptps
 
-.mov_rm:
+        cmp ax, 0b00000000      ; (OP_TYPE_REG << 4) | OP_TYPE_REG
+        je .mov_rm_r_reg
+        cmp ax, 0b00010000      ; (OP_TYPE_RGNDRCT << 4) | OP_TYPE_REG
+        je .mov_rm_r_rgndrct
+        cmp ax, 0b00000001      ; (OP_TYPE_REG << 4) | OP_TYPE_RGNDRCT
+        je .mov_r_rm
+        cmp ax, 0b00000010      ; (OP_TYPE_REG << 4) | OP_TYPE_IMM
+        je .mov_r_imm
+
+.mov_rm_r_reg:
+        ;; Parse first operand as register
+        mov rdi, [rbp - 8]
+        call preg
+        mov rsi, [rbp - 16]
+        mov [rsi + 3], al       ; op->dst_reg = al
+        jmp .mov_rm_r
+
+.mov_rm_r_rgndrct:
+        ;; Parse first operand as register indirect access
         mov rdi, [rbp - 8]
         mov rsi, [rbp - 16]
         lea rdx, [rsi + 12]     ; uint32_t *disp = &(op->disp.disp32)
@@ -1123,7 +1140,8 @@ as_mov:
         mov rdi, [rbp - 16]     ; struct AsmOp *op = op
         call strdspmodrmmod
 
-        ;; Skip to the next token - the comma
+.mov_rm_r:
+        ;; Skip to the next operand
         mov rdi, [rbp - 8]
         call skp2nxtop
 
@@ -1131,7 +1149,6 @@ as_mov:
         call preg
         mov rsi, [rbp - 16]
         mov [rsi + 2], al       ; op->src_reg = al
-.mov_rm_r:
         mov al, 0x05
         mov [rsi], al           ; op->encoding = ENCODING_MR
         mov al, [rsi + 1]
@@ -1163,48 +1180,22 @@ as_mov:
         mov [rsi + 6], al       ; op->opcodes[0] = 0x88
         jmp .end
 
-.first_op_is_reg:
+.mov_r_imm:
+        ;; Parse first operand as register
         mov rdi, [rbp - 8]
         call preg
         mov rsi, [rbp - 16]
         mov [rsi + 3], al       ; op->dst_reg = al
 
-        ;; Skip to the next token - the comma
+        ;; Skip to the next operand
         mov rdi, [rbp - 8]
-        call skp2lbinst
+        call skp2nxtop
 
-        ;; Skip the comma between the operands
-        mov rdi, [rbp - 8]
-        mov rsi, [rdi]
-        inc rsi
-        mov [rdi], rsi          ; *(ctx->assembly)++
-        call skp2lbinst
-
-        ;; Check if second operand is register indirect access
-        mov rdi, [rbp - 8]
-        mov rdi, [rdi]
-        call isrgndrct
-        cmp al, 0
-        jne .mov_r_rm
-
-        ;; Check if second operand is immediate
-        mov rdi, [rbp - 8]
-        mov rdi, [rdi]
-        call isint
-        cmp al, 0
-        jne .mov_r_imm
-
-        ;; Handle second operand as register
-        mov rdi, [rbp - 8]
-        call preg
-        mov rsi, [rbp - 16]
-        mov [rsi + 2], al       ; op->src_reg = al
-        jmp .mov_rm_r
-
-.mov_r_imm:
         mov rsi, [rbp - 16]
         mov al, 0x07
         mov [rsi], al           ; op->encoding = ENCODING_OI
+
+        ;; Parse second operand as immediate
         mov rdi, [rbp - 8]
         call pint
         mov rsi, [rbp - 16]
@@ -1251,6 +1242,17 @@ as_mov:
         jmp .end
 
 .mov_r_rm:
+        ;; Parse first operand as register
+        mov rdi, [rbp - 8]
+        call preg
+        mov rsi, [rbp - 16]
+        mov [rsi + 3], al       ; op->dst_reg = al
+
+        ;; Skip to the next operand
+        mov rdi, [rbp - 8]
+        call skp2nxtop
+
+        ;; Parse second operand as register indirect access
         mov rdi, [rbp - 8]
         mov rsi, [rbp - 16]
         lea rdx, [rsi + 12]     ; uint32_t *disp = &(op->disp.disp32)
@@ -1514,6 +1516,79 @@ ckopsize:
 .end:
         xor eax, eax
         mov al, [rbp - 10]
+        mov rsp, rbp
+        pop rbp
+        retn
+
+;;; rdi: `char const *assembly`
+;;; rsi: `uint8_t n_ops`
+ckoptps:
+        push rbp
+        mov rbp, rsp
+        sub rsp, 24
+        mov [rbp - 8], rdi
+        mov rax, rsi
+        mov [rbp - 9], al
+        xor eax, eax
+        mov [rbp - 10], al     ; uint8_t i = 0
+        mov [rbp - 12], ax     ; uint16_t op_types = 0
+
+        lea rdi, [rbp - 8]
+        call skp2lbinst
+
+.check_op:
+        mov rdi, [rbp - 8]
+        call isreg
+        cmp rax, 1
+        jne .check_rgndrct
+        lea rdi, [rbp - 8]
+        call preg
+        mov dx, 0               ; dx = OP_TYPE_REG
+        jmp .check_op_end
+.check_rgndrct:
+        mov rdi, [rbp - 8]
+        call isrgndrct
+        cmp rax, 1
+        jne .check_int
+        lea rdi, [rbp - 8]      ; char const **assembly = &assembly
+        lea rsi, [rbp - 16]
+        lea rdx, [rbp - 16]
+        call prgndrct
+        mov dx, 1               ; dx = OP_TYPE_RGNDRCT
+        jmp .check_op_end
+.check_int:
+        mov rdi, [rbp - 8]      ; char const **assembly = &assembly
+        call isint
+        cmp rax, 1
+        jne .check_label
+        lea rdi, [rbp - 8]
+        call pint
+        mov dx, 2               ; dx = OP_TYPE_IMM
+        jmp .check_op_end
+.check_label:
+        lea rdi, [rbp - 8]      ; char const **assembly = &assembly
+        xor rsi, rsi            ; char *label = NULL
+        xor rdx, rdx            ; size_t n = 0
+        call readnlbl
+        mov dx, 3               ; dx = OP_TYPE_LBL
+.check_op_end:
+        mov ax, [rbp - 12]
+        shl ax, 4
+        or ax, dx
+        mov [rbp - 12], ax      ; op_types = (op_types << 4) | dx
+        mov cl, [rbp - 10]
+        inc cl
+        mov [rbp - 10], cl      ; i++
+        mov al, [rbp - 9]
+        cmp al, cl              ; if (i == n_ops)
+        je .ret
+        lea rdi, [rbp - 8]      ; char const **assembly = &assembly
+        call skp2nxtop
+        jmp .check_op
+
+.ret:
+        xor eax, eax
+        mov ax, [rbp - 12]
         mov rsp, rbp
         pop rbp
         retn
