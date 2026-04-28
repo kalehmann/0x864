@@ -58,51 +58,6 @@ void test_assemble(void)
         TEST_CHECK(assemble(ctx) == ERR_UNKNOWN_INSTRUCTION);
 }
 
-void test_as_call(void)
-{
-        struct AsmOp op = { 0 };
-        struct AsmCtx *ctx = make_asmctx(" .label ; Comment", 16, 8, 8, 0);
-        TEST_ASSERT(ctx != NULL);
-        as_call(ctx, &op);
-
-        TEST_CHECK(op.encoding == ENCODING_D);
-        TEST_CHECK(op.op_size == 32);
-        TEST_CHECK(op.n_opcodes == 1);
-        TEST_CHECK(op.opcodes[0] == 0xE8);
-        TEST_CHECK(op.imm_size == 32);
-
-        free_asmctx(ctx);
-}
-
-void test_as_nop(void)
-{
-        struct AsmOp op = { 0 };
-        struct AsmCtx *ctx = make_asmctx("", 0, 0, 0, 0);
-        TEST_ASSERT(ctx != NULL);
-        as_nop(ctx, &op);
-
-        TEST_CHECK(op.encoding == ENCODING_ZO);
-        TEST_CHECK(op.n_opcodes == 1);
-        TEST_CHECK(op.opcodes[0] == 0x90);
-
-        free_asmctx(ctx);
-}
-
-void test_as_retn(void)
-{
-        struct AsmOp op = { 0 };
-        struct AsmCtx *ctx = make_asmctx("", 0, 0, 0, 0);
-        TEST_ASSERT(ctx != NULL);
-        as_retn(ctx, &op);
-
-        TEST_CHECK(op.encoding == ENCODING_ZO);
-        TEST_CHECK(op.n_opcodes == 1);
-        TEST_CHECK(op.opcodes[0] == 0xc3);
-
-        free_asmctx(ctx);
-}
-
-
 void test_cklb(void)
 {
         TEST_CHECK(cklb("") == 0);

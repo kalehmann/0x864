@@ -879,12 +879,15 @@ as_snginst:
         retn
 
 .assemble:
+        cmp rax, 0
+        jne .ret_err
         mov rdi, [rbp - 8]
         lea rsi, [rbp - 32]
         call assemble_op
 
 .end:
         xor rax, rax
+.ret_err:
         mov rsp, rbp
         pop rbp
         retn
@@ -901,18 +904,13 @@ as_call:
         call skp2lbinst
 
         mov rdi, [rbp - 8]
-        mov rdi, [rdi]          ; char *assembly = ctx->assembly
-        call isreg
-        cmp rax, 1
-        je .call_reg
+        mov rdi, [rdi]          ; char const *assembly = ctx->assembly
+        mov rsi, 1              ; uint8_t n_ops = 1
+        call ckoptps
 
-        mov rdi, [rbp - 8]
-        mov rdi, [rdi]          ; char *assembly = ctx->assembly
-        call isint
-        cmp rax, 1
-        je .call_int
+        cmp ax, 3               ; OP_TYPE_LBL
+        jne .ret_invalid_operand
 
-.call_label:
         mov rdi, [rbp - 8]
         call strlbl
 
@@ -932,9 +930,14 @@ as_call:
 
         jmp .end
 
-.call_int:
-.call_reg:
 .end:
+        xor eax, eax            ; Return ERR_NONE
+        mov rsp, rbp
+        pop rbp
+        retn
+
+.ret_invalid_operand:
+        mov eax, 2              ; Return ERR_INVALID_OPERANDS
         mov rsp, rbp
         pop rbp
         retn
@@ -951,8 +954,8 @@ as_dec:
         mov rsi, [rbp - 8]
         ;; Encode a 1 as source register - this is the only difference between
         ;; dec and inc.
-        mov al, 1
-        mov [rsi + 2], al       ; op->src_reg = 1
+        mov cl, 1
+        mov [rsi + 2], cl       ; op->src_reg = 1
 
         mov rsp, rbp
         pop rbp
@@ -975,6 +978,14 @@ as_inc:
         mov [rsi + 5], al       ; op->n_opcodes = 1
 
         call skp2lbinst
+
+        mov rdi, [rbp - 8]
+        mov rdi, [rdi]          ; char const *assembly = ctx->assembly
+        mov rsi, 1              ; uint8_t n_ops = 1
+        call ckoptps
+
+        cmp ax, 0               ; OP_TYPE_REG
+        jne .ret_invalid_operand
 
         mov rdi, [rbp - 8]
         mov rdi, [rdi]          ; char *assembly = ctx->assembly
@@ -1013,6 +1024,13 @@ as_inc:
         mov rsi, [rbp - 16]
         mov [rsi + 3], al       ; op->dst_reg = al
 
+        xor eax, eax            ; Return ERR_NONE
+        mov rsp, rbp
+        pop rbp
+        retn
+
+.ret_invalid_operand:
+        mov eax, 2              ; Return ERR_INVALID_OPERANDS
         mov rsp, rbp
         pop rbp
         retn
@@ -1038,10 +1056,25 @@ as_int:
         call skp2lbinst
 
         mov rdi, [rbp - 8]
+        mov rdi, [rdi]          ; char const *assembly = ctx->assembly
+        mov rsi, 1              ; uint8_t n_ops = 1
+        call ckoptps
+
+        cmp ax, 2               ; OP_TYPE_IMM
+        jne .ret_invalid_operand
+
+        mov rdi, [rbp - 8]
         call pint
         mov rsi, [rbp - 16]
         mov [rsi + 16], al      ; op->imm.imm8 = pint(ctx->assembly)
 
+        xor eax, eax            ; Return ERR_NONE
+        mov rsp, rbp
+        pop rbp
+        retn
+
+.ret_invalid_operand:
+        mov eax, 2              ; Return ERR_INVALID_OPERANDS
         mov rsp, rbp
         pop rbp
         retn
@@ -1063,6 +1096,14 @@ as_lea:
         mov [rsi + 6], al       ; op->opcodes[0] = 0x8d
 
         call skp2lbinst
+
+        mov rdi, [rbp - 8]
+        mov rdi, [rdi]          ; char const *assembly = ctx->assembly
+        mov rsi, 2              ; uint8_t n_ops = 2
+        call ckoptps
+
+        cmp ax, 1               ; (OP_TYPE_REG << 4) | OP_TYPE_RGNDRCT
+        jne .ret_invalid_operand
 
         mov rdi, [rbp - 8]
         mov rdi, [rdi]          ; char *assembly = ctx->assembly
@@ -1094,6 +1135,13 @@ as_lea:
         mov rdi, [rbp - 16]     ; struct AsmOp *op = op
         call strdspmodrmmod
 
+        xor eax, eax            ; Return ERR_NONE
+        mov rsp, rbp
+        pop rbp
+        retn
+
+.ret_invalid_operand:
+        mov eax, 2              ; Return ERR_INVALID_OPERANDS
         mov rsp, rbp
         pop rbp
         retn
@@ -1134,6 +1182,7 @@ as_mov:
         je .mov_r_rm
         cmp ax, 0b00000010      ; (OP_TYPE_REG << 4) | OP_TYPE_IMM
         je .mov_r_imm
+        jmp .ret_invalid_operand
 
 .mov_rm_r_reg:
         ;; Parse first operand as register
@@ -1311,6 +1360,13 @@ as_mov:
         jmp .end
 
 .end:
+        xor eax, eax            ; Return ERR_NONE
+        mov rsp, rbp
+        pop rbp
+        retn
+
+.ret_invalid_operand:
+        mov eax, 2              ; Return ERR_INVALID_OPERANDS
         mov rsp, rbp
         pop rbp
         retn
@@ -1324,6 +1380,8 @@ as_nop:
         mov [rsi + 5], al       ; op->n_opcodes = 1
         mov al, 0x90
         mov [rsi + 6], al       ; op->opcodes[0] = 0x90
+
+        xor eax, eax            ; Return ERR_NONE
         retn
 
 ;;; rdi: `struct AsmCtx *ctx`
@@ -1346,10 +1404,25 @@ as_pop:
         call skp2lbinst
 
         mov rdi, [rbp - 8]
+        mov rdi, [rdi]          ; char const *assembly = ctx->assembly
+        mov rsi, 1              ; uint8_t n_ops = 1
+        call ckoptps
+
+        cmp ax, 0               ; OP_TYPE_REG
+        jne .ret_invalid_operand
+
+        mov rdi, [rbp - 8]
         call preg
         mov rsi, [rbp - 16]
         mov [rsi + 3], al       ; op->dst_reg = al
 
+        xor eax, eax            ; Return ERR_NONE
+        mov rsp, rbp
+        pop rbp
+        retn
+
+.ret_invalid_operand:
+        mov eax, 2              ; Return ERR_INVALID_OPERANDS
         mov rsp, rbp
         pop rbp
         retn
@@ -1363,20 +1436,10 @@ as_push:
         mov [rbp - 8], rdi
         mov [rbp - 16], rsi
 
-        mov al, 0x06
-        mov [rsi], al           ; op->encoding = ENCODING_O
-        mov al, 1
-        mov [rsi + 5], al       ; op->n_opcodes = 1
-        mov al, 0x50
-        mov [rsi + 6], al       ; op->opcodes[0] = 0x50
-
-        ;; Skip to next token - the register
-        call skp2lbinst
-
-        mov rdi, [rbp - 8]
-        call preg
+        call as_pop
         mov rsi, [rbp - 16]
-        mov [rsi + 3], al       ; op->dst_reg = al
+        mov cl, 0x50
+        mov [rsi + 6], cl       ; op->opcodes[0] = 0x50
 
         mov rsp, rbp
         pop rbp
@@ -1391,6 +1454,8 @@ as_retn:
         mov [rsi + 5], al       ; op->n_opcodes = 1
         mov al, 0xc3
         mov [rsi + 6], al       ; op->opcodes[0] = 0x90
+
+        xor eax, eax            ; Return ERR_NONE
         retn
 
 ;;; rdi: `struct AsmCtx *ctx`
@@ -1404,6 +1469,8 @@ as_syscall:
         mov [rsi + 6], al       ; op->opcodes[0] = 0x0f
         mov al, 0x05
         mov [rsi + 7], al       ; op->opcodes[1] = 0x05
+
+        xor eax, eax            ; Return ERR_NONE
         retn
 
 cklb:

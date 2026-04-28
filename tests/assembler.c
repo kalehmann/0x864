@@ -238,6 +238,74 @@ void test_assemble_op(void)
         memset(&op, 0, sizeof(struct AsmOp));
 }
 
+void test_as_call(void)
+{
+        struct AsmOp op = { 0 };
+        struct AsmCtx *ctx = make_asmctx(" .label ; Comment", 16, 8, 8, 0);
+        TEST_ASSERT(ctx != NULL);
+
+        TEST_CHECK(as_call(ctx, &op) == ERR_NONE);
+        TEST_CHECK(op.encoding == ENCODING_D);
+        TEST_CHECK(op.op_size == 32);
+        TEST_CHECK(op.n_opcodes == 1);
+        TEST_CHECK(op.opcodes[0] == 0xE8);
+        TEST_CHECK(op.imm_size == 32);
+
+        free_asmctx(ctx);
+}
+
+void test_as_int(void)
+{
+        struct AsmOp op = { 0 };
+        struct AsmCtx *ctx = make_asmctx(" 0x80\n", 0, 0, 0, 0);
+        TEST_ASSERT(ctx != NULL);
+
+        TEST_CHECK(as_int(ctx, &op) == ERR_NONE);
+        TEST_CHECK(op.encoding == ENCODING_I);
+        TEST_CHECK(op.n_opcodes == 1);
+        TEST_CHECK(op.opcodes[0] == 0xcd);
+        TEST_CHECK(op.imm_size == 8);
+        TEST_CHECK(op.imm.imm8 == (int8_t)0x80);
+
+        free_asmctx(ctx);
+
+        // Test `int` does not accept a register as operand
+        ctx = make_asmctx(" al\n", 0, 0, 0, 0);
+        TEST_ASSERT(ctx != NULL);
+
+        TEST_CHECK(as_int(ctx, &op) == ERR_INVALID_OPERANDS);
+
+        free_asmctx(ctx);
+}
+
+void test_as_nop(void)
+{
+        struct AsmOp op = { 0 };
+        struct AsmCtx *ctx = make_asmctx("", 0, 0, 0, 0);
+        TEST_ASSERT(ctx != NULL);
+
+        TEST_CHECK(as_nop(ctx, &op) == ERR_NONE);
+        TEST_CHECK(op.encoding == ENCODING_ZO);
+        TEST_CHECK(op.n_opcodes == 1);
+        TEST_CHECK(op.opcodes[0] == 0x90);
+
+        free_asmctx(ctx);
+}
+
+void test_as_retn(void)
+{
+        struct AsmOp op = { 0 };
+        struct AsmCtx *ctx = make_asmctx("", 0, 0, 0, 0);
+        TEST_ASSERT(ctx != NULL);
+
+        TEST_CHECK(as_retn(ctx, &op) == ERR_NONE);
+        TEST_CHECK(op.encoding == ENCODING_ZO);
+        TEST_CHECK(op.n_opcodes == 1);
+        TEST_CHECK(op.opcodes[0] == 0xc3);
+
+        free_asmctx(ctx);
+}
+
 void test_strdspmodrmmod(void)
 {
         struct AsmOp op = { 0 };

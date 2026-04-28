@@ -23,9 +23,6 @@
 void test_struct_AsmCtx_is_packed(void);
 void test_struct_SymTabNtr_is_packed(void);
 void test_assemble(void);
-void test_as_call(void);
-void test_as_nop(void);
-void test_as_retn(void);
 void test_cklb(void);
 void test_ckopsize(void);
 void test_ckoptps(void);

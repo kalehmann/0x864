@@ -192,6 +192,11 @@ void print_error(const char * const assembly_text, struct AsmCtx *ctx,
                         "arround \"%s\"\n", ckln(assembly_text, ctx->assembly),
                         line);
                 break;
+        case ERR_INVALID_OPERANDS:
+                fprintf(stderr, "Invalid operands for instruction in line %zu "
+                        "arround \"%s\"\n", ckln(assembly_text, ctx->assembly),
+                        line);
+                break;
         default:
                 fprintf(stderr, "Unknown error in line %zu arround \"%s\"\n",
                         ckln(assembly_text, ctx->assembly), line);

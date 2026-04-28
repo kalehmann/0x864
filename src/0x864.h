@@ -63,6 +63,7 @@
 enum AsmErr {
         ERR_NONE = 0,
         ERR_UNKNOWN_INSTRUCTION = 1,
+        ERR_INVALID_OPERANDS = 2,
 };
 
 struct SymTabNtr {
@@ -205,6 +206,8 @@ extern size_t algn16(size_t off);
  * end.
  *
  * @param ctx is the pointer to the AsmCtx structure.
+ *
+ * @returns `ERR_NONE` on success or any error, that occured
  */
 extern enum AsmErr assemble(struct AsmCtx *);
 
@@ -220,6 +223,8 @@ extern void assemble_op(struct AsmCtx *ctx, struct AsmOp *op);
  * Assembles a single instruction.
  *
  * @param ctx is the pointer to the AsmCtx structure.
+ *
+ * @returns `ERR_NONE` on success or any error, that occured
  */
 extern enum AsmErr as_snglinst(struct AsmCtx *ctx);
 
@@ -229,8 +234,10 @@ extern enum AsmErr as_snglinst(struct AsmCtx *ctx);
  * @param ctx is the pointer to the AsmCtx structure.
  * @param op is a pointer to an empty AsmOp structure, that should be filled
  *           with data about the encoded instruction.
+ *
+ * @returns `ERR_NONE` on success or any error, that occured
  */
-extern void as_call(struct AsmCtx *ctx, struct AsmOp *op);
+extern enum AsmErr as_call(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the dec instruction.
@@ -238,8 +245,10 @@ extern void as_call(struct AsmCtx *ctx, struct AsmOp *op);
  * @param ctx is the pointer to the AsmCtx structure.
  * @param op is a pointer to an empty AsmOp structure, that should be filled
  *           with data about the encoded instruction.
+ *
+ * @returns `ERR_NONE` on success or any error, that occured
  */
-extern void as_dec(struct AsmCtx *ctx, struct AsmOp *op);
+extern enum AsmErr as_dec(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the inc instruction.
@@ -247,8 +256,10 @@ extern void as_dec(struct AsmCtx *ctx, struct AsmOp *op);
  * @param ctx is the pointer to the AsmCtx structure.
  * @param op is a pointer to an empty AsmOp structure, that should be filled
  *           with data about the encoded instruction.
+ *
+ * @returns `ERR_NONE` on success or any error, that occured
  */
-extern void as_inc(struct AsmCtx *ctx, struct AsmOp *op);
+extern enum AsmErr as_inc(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the int instruction.
@@ -256,8 +267,10 @@ extern void as_inc(struct AsmCtx *ctx, struct AsmOp *op);
  * @param ctx is the pointer to the AsmCtx structure.
  * @param op is a pointer to an empty AsmOp structure, that should be filled
  *           with data about the encoded instruction.
+ *
+ * @returns `ERR_NONE` on success or any error, that occured
  */
-extern void as_int(struct AsmCtx *ctx, struct AsmOp *op);
+extern enum AsmErr as_int(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the lea instruction.
@@ -265,8 +278,10 @@ extern void as_int(struct AsmCtx *ctx, struct AsmOp *op);
  * @param ctx is the pointer to the AsmCtx structure.
  * @param op is a pointer to an empty AsmOp structure, that should be filled
  *           with data about the encoded instruction.
+ *
+ * @returns `ERR_NONE` on success or any error, that occured
  */
-extern void as_lea(struct AsmCtx *ctx, struct AsmOp *op);
+extern enum AsmErr as_lea(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the mov instruction.
@@ -274,8 +289,10 @@ extern void as_lea(struct AsmCtx *ctx, struct AsmOp *op);
  * @param ctx is the pointer to the AsmCtx structure.
  * @param op is a pointer to an empty AsmOp structure, that should be filled
  *           with data about the encoded instruction.
+ *
+ * @returns `ERR_NONE` on success or any error, that occured
  */
-extern void as_mov(struct AsmCtx *ctx, struct AsmOp *op);
+extern enum AsmErr as_mov(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the nop instruction.
@@ -283,8 +300,10 @@ extern void as_mov(struct AsmCtx *ctx, struct AsmOp *op);
  * @param ctx is the pointer to the AsmCtx structure.
  * @param op is a pointer to an empty AsmOp structure, that should be filled
  *           with data about the encoded instruction.
+ *
+ * @returns `ERR_NONE` on success or any error, that occured
  */
-extern void as_nop(struct AsmCtx *ctx, struct AsmOp *op);
+extern enum AsmErr as_nop(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the pop instruction.
@@ -292,8 +311,10 @@ extern void as_nop(struct AsmCtx *ctx, struct AsmOp *op);
  * @param ctx is the pointer to the AsmCtx structure.
  * @param op is a pointer to an empty AsmOp structure, that should be filled
  *           with data about the encoded instruction.
+ *
+ * @returns `ERR_NONE` on success or any error, that occured
  */
-extern void as_pop(struct AsmCtx *ctx, struct AsmOp *op);
+extern enum AsmErr as_pop(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the push instruction.
@@ -301,8 +322,10 @@ extern void as_pop(struct AsmCtx *ctx, struct AsmOp *op);
  * @param ctx is the pointer to the AsmCtx structure.
  * @param op is a pointer to an empty AsmOp structure, that should be filled
  *           with data about the encoded instruction.
+ *
+ * @returns `ERR_NONE` on success or any error, that occured
  */
-extern void as_push(struct AsmCtx *ctx, struct AsmOp *op);
+extern enum AsmErr as_push(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the retn instruction.
@@ -310,8 +333,10 @@ extern void as_push(struct AsmCtx *ctx, struct AsmOp *op);
  * @param ctx is the pointer to the AsmCtx structure.
  * @param op is a pointer to an empty AsmOp structure, that should be filled
  *           with data about the encoded instruction.
+ *
+ * @returns `ERR_NONE` on success or any error, that occured
  */
-extern void as_retn(struct AsmCtx *ctx, struct AsmOp *op);
+extern enum AsmErr as_retn(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the syscall instruction.
@@ -319,8 +344,10 @@ extern void as_retn(struct AsmCtx *ctx, struct AsmOp *op);
  * @param ctx is the pointer to the AsmCtx structure.
  * @param op is a pointer to an empty AsmOp structure, that should be filled
  *           with data about the encoded instruction.
+ *
+ * @returns `ERR_NONE` on success or any error, that occured
  */
-extern void as_syscall(struct AsmCtx *ctx, struct AsmOp *op);
+extern enum AsmErr as_syscall(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Checks if the next token in the assembly text is a label.

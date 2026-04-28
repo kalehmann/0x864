@@ -32,6 +32,7 @@ TEST_LIST = {
         { "assemble", test_assemble },
         { "assemble_op", test_assemble_op },
         { "as_call", test_as_call },
+        { "as_int", test_as_int },
         { "as_nop", test_as_nop },
         { "as_retn", test_as_retn },
         { "cklb", test_cklb },
