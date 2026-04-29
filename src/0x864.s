@@ -22,6 +22,7 @@
         global  as_and
         global  as_call
         global  as_dec
+        global  as_genop2ax32
         global  as_inc
         global  as_int
         global  as_lea
@@ -943,73 +944,16 @@ as_snginst:
 as_and:
         push rbp
         mov rbp, rsp
-        sub rsp, 32
+        sub rsp, 16
 
-        mov [rbp - 8], rdi
-        mov [rbp - 16], rsi
+        mov edx, 0x24           ; uint8_t op_al_imm8 = 0x24
+        mov ecx, 0x80           ; uint8_t op_rimm8 = 0x80
+        mov r8d, 0x20           ; uint8_t op_rmr8 = 0x20
+        mov r9d, 0x22           ; uint8_t op_rrm8 = 0x22
+        mov eax, 4
+        mov [rbp - 16], rax     ; uint8_t modrm_mod = 4
+        call as_genop2ax32
 
-        call skp2lbinst
-
-        mov rdi, [rbp - 8]
-        mov rdi, [rdi]          ; char const *assembly = ctx->assembly
-        mov rsi, 2              ; uint8_t n_ops = 2
-        call ckoptps
-
-        cmp ax, 2               ; (OP_TYPE_REG << 4) | OP_TYPE_IMM
-        jne .check_rmr
-
-        ;; Peak register
-        mov rdi, [rbp - 8]
-        mov r8, [rdi]
-        mov [rbp - 24], r8
-        lea rdi, [rbp - 24]
-        call preg
-        cmp rax, 0              ; if (preg(...) != ax)
-        jne .rimm
-
-        mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
-        mov rsi, [rbp - 16]     ; struct AsmOp *op = op
-        mov dl, 0x24            ; uint8_t op8 = 0x24
-        call genop2aximm32
-        jmp .end
-.rimm:
-        mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
-        mov rsi, [rbp - 16]     ; struct AsmOp *op = op
-        mov dl, 0x80            ; uint8_t op8 = 0x80
-        mov cl, 4               ; uint8_t modrm_reg = 4
-        call genop2rimm32
-        jmp .end
-
-.check_rmr:
-        mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
-        mov rsi, [rbp - 16]     ; struct AsmOp *op = op
-        mov dl, 0x20            ; uint8_t op8 = 0x20
-
-        cmp ax, 0b00010000      ; (OP_TYPE_RGNDRCT << 4) | OP_TYPE_REG
-        jne .check_rr
-        call genop2rmr
-        jmp .end
-.check_rr:
-        cmp ax, 0               ; (OP_TYPE_REG << 4) | OP_TYPE_REG
-        jne .check_rrm
-        call genop2rmr
-        jmp .end
-.check_rrm:
-        mov dl, 0x22            ; uint8_t op8 = 0x22
-        cmp ax, 1               ; (OP_TYPE_REG << 4) | OP_TYPE_RGNDRCT
-        jne .ret_invalid_operands
-        call genop2rrm
-        jmp .end
-
-.ret_invalid_operands:
-        ;; Combination of operands is not supported (yet).
-        mov eax, 2              ; Return ERR_INVALID_OPERANDS
-        mov rsp, rbp
-        pop rbp
-        retn
-
-.end:
-        xor eax, eax            ; Return ERR_NONE
         mov rsp, rbp
         pop rbp
         retn
@@ -1079,6 +1023,92 @@ as_dec:
         mov cl, 1
         mov [rsi + 2], cl       ; op->src_reg = 1
 
+        mov rsp, rbp
+        pop rbp
+        retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
+;;; rdx: `uint8_t op_al_imm8`
+;;; rcx: `uint8_t op_rimm8`
+;;; r8: `uint8_t op_rmr8`
+;;; r9: `uint8_t op_rrm8`
+;;; [rbp + 16]: `uint8_t modrm_reg`
+as_genop2ax32:
+        push rbp
+        mov rbp, rsp
+        sub rsp, 32
+        mov [rbp - 8], rdi
+        mov [rbp - 16], rsi
+        mov [rbp - 17], dl
+        mov [rbp - 18], cl
+        mov [rbp - 19], r8b
+        mov [rbp - 20], r9b
+        mov al, [rbp + 16]
+        mov [rbp - 21], al
+
+        call skp2lbinst
+
+        mov rdi, [rbp - 8]
+        mov rdi, [rdi]          ; char const *assembly = ctx->assembly
+        mov rsi, 2              ; uint8_t n_ops = 2
+        call ckoptps
+
+        cmp ax, 2               ; (OP_TYPE_REG << 4) | OP_TYPE_IMM
+        jne .check_rmr
+
+        ;; Peak register
+        mov rdi, [rbp - 8]
+        mov r8, [rdi]
+        mov [rbp - 32], r8
+        lea rdi, [rbp - 32]
+        call preg
+        cmp rax, 0              ; if (preg(...) != ax)
+        jne .rimm
+
+        mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
+        mov rsi, [rbp - 16]     ; struct AsmOp *op = op
+        mov dl, [rbp - 17]      ; uint8_t op8 = op_al_imm8
+        call genop2aximm32
+        jmp .end
+.rimm:
+        mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
+        mov rsi, [rbp - 16]     ; struct AsmOp *op = op
+        mov dl, [rbp - 18]      ; uint8_t op8 = op_rimm8
+        mov cl, [rbp - 21]      ; uint8_t modrm_reg = modrm_reg
+        call genop2rimm32
+        jmp .end
+
+.check_rmr:
+        mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
+        mov rsi, [rbp - 16]     ; struct AsmOp *op = op
+        mov dl, [rbp - 19]      ; uint8_t op8 = op_rmr8
+
+        cmp ax, 0b00010000      ; (OP_TYPE_RGNDRCT << 4) | OP_TYPE_REG
+        jne .check_rr
+        call genop2rmr
+        jmp .end
+.check_rr:
+        cmp ax, 0               ; (OP_TYPE_REG << 4) | OP_TYPE_REG
+        jne .check_rrm
+        call genop2rmr
+        jmp .end
+.check_rrm:
+        mov dl, [rbp - 20]      ; uint8_t op8 = op_rrm8
+        cmp ax, 1               ; (OP_TYPE_REG << 4) | OP_TYPE_RGNDRCT
+        jne .ret_invalid_operands
+        call genop2rrm
+        jmp .end
+
+.ret_invalid_operands:
+        ;; Combination of operands is not supported (yet).
+        mov eax, 2              ; Return ERR_INVALID_OPERANDS
+        mov rsp, rbp
+        pop rbp
+        retn
+
+.end:
+        xor eax, eax            ; Return ERR_NONE
         mov rsp, rbp
         pop rbp
         retn
@@ -1380,73 +1410,16 @@ as_nop:
 as_or:
         push rbp
         mov rbp, rsp
-        sub rsp, 32
+        sub rsp, 16
 
-        mov [rbp - 8], rdi
-        mov [rbp - 16], rsi
+        mov edx, 0x0c           ; uint8_t op_al_imm8 = 0x0c
+        mov ecx, 0x80           ; uint8_t op_rimm8 = 0x80
+        mov r8d, 0x08           ; uint8_t op_rmr8 = 0x08
+        mov r9d, 0x0a           ; uint8_t op_rrm8 = 0x0a
+        mov eax, 1
+        mov [rbp - 16], rax     ; uint8_t modrm_mod = 4
+        call as_genop2ax32
 
-        call skp2lbinst
-
-        mov rdi, [rbp - 8]
-        mov rdi, [rdi]          ; char const *assembly = ctx->assembly
-        mov rsi, 2              ; uint8_t n_ops = 2
-        call ckoptps
-
-        cmp ax, 2               ; (OP_TYPE_REG << 4) | OP_TYPE_IMM
-        jne .check_rmr
-
-        ;; Peak register
-        mov rdi, [rbp - 8]
-        mov r8, [rdi]
-        mov [rbp - 24], r8
-        lea rdi, [rbp - 24]
-        call preg
-        cmp rax, 0              ; if (preg(...) != ax)
-        jne .rimm
-
-        mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
-        mov rsi, [rbp - 16]     ; struct AsmOp *op = op
-        mov dl, 0x0c            ; uint8_t op8 = 0x0c
-        call genop2aximm32
-        jmp .end
-.rimm:
-        mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
-        mov rsi, [rbp - 16]     ; struct AsmOp *op = op
-        mov dl, 0x80            ; uint8_t op8 = 0x80
-        mov cl, 1               ; uint8_t modrm_reg = 1
-        call genop2rimm32
-        jmp .end
-
-.check_rmr:
-        mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
-        mov rsi, [rbp - 16]     ; struct AsmOp *op = op
-        mov dl, 0x08            ; uint8_t op8 = 0x08
-
-        cmp ax, 0b00010000      ; (OP_TYPE_RGNDRCT << 4) | OP_TYPE_REG
-        jne .check_rr
-        call genop2rmr
-        jmp .end
-.check_rr:
-        cmp ax, 0               ; (OP_TYPE_REG << 4) | OP_TYPE_REG
-        jne .check_rrm
-        call genop2rmr
-        jmp .end
-.check_rrm:
-        mov dl, 0x0a            ; uint8_t op8 = 0x0a
-        cmp ax, 1               ; (OP_TYPE_REG << 4) | OP_TYPE_RGNDRCT
-        jne .ret_invalid_operands
-        call genop2rrm
-        jmp .end
-
-.ret_invalid_operands:
-        ;; Combination of operands is not supported (yet).
-        mov eax, 2              ; Return ERR_INVALID_OPERANDS
-        mov rsp, rbp
-        pop rbp
-        retn
-
-.end:
-        xor eax, eax            ; Return ERR_NONE
         mov rsp, rbp
         pop rbp
         retn
@@ -1545,73 +1518,16 @@ as_syscall:
 as_xor:
         push rbp
         mov rbp, rsp
-        sub rsp, 32
+        sub rsp, 16
 
-        mov [rbp - 8], rdi
-        mov [rbp - 16], rsi
+        mov edx, 0x34           ; uint8_t op_al_imm8 = 0x34
+        mov ecx, 0x80           ; uint8_t op_rimm8 = 0x80
+        mov r8d, 0x30           ; uint8_t op_rmr8 = 0x30
+        mov r9d, 0x32           ; uint8_t op_rrm8 = 0x32
+        mov eax, 6
+        mov [rbp - 16], rax     ; uint8_t modrm_mod = 4
+        call as_genop2ax32
 
-        call skp2lbinst
-
-        mov rdi, [rbp - 8]
-        mov rdi, [rdi]          ; char const *assembly = ctx->assembly
-        mov rsi, 2              ; uint8_t n_ops = 2
-        call ckoptps
-
-        cmp ax, 2               ; (OP_TYPE_REG << 4) | OP_TYPE_IMM
-        jne .check_rmr
-
-        ;; Peak register
-        mov rdi, [rbp - 8]
-        mov r8, [rdi]
-        mov [rbp - 24], r8
-        lea rdi, [rbp - 24]
-        call preg
-        cmp rax, 0              ; if (preg(...) != ax)
-        jne .rimm
-
-        mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
-        mov rsi, [rbp - 16]     ; struct AsmOp *op = op
-        mov dl, 0x34            ; uint8_t op8 = 0x34
-        call genop2aximm32
-        jmp .end
-.rimm:
-        mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
-        mov rsi, [rbp - 16]     ; struct AsmOp *op = op
-        mov dl, 0x80            ; uint8_t op8 = 0x80
-        mov cl, 6               ; uint8_t modrm_reg = 6
-        call genop2rimm32
-        jmp .end
-
-.check_rmr:
-        mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
-        mov rsi, [rbp - 16]     ; struct AsmOp *op = op
-        mov dl, 0x30            ; uint8_t op8 = 0x30
-
-        cmp ax, 0b00010000      ; (OP_TYPE_RGNDRCT << 4) | OP_TYPE_REG
-        jne .check_rr
-        call genop2rmr
-        jmp .end
-.check_rr:
-        cmp ax, 0               ; (OP_TYPE_REG << 4) | OP_TYPE_REG
-        jne .check_rrm
-        call genop2rmr
-        jmp .end
-.check_rrm:
-        mov dl, 0x32            ; uint8_t op8 = 0x32
-        cmp ax, 1               ; (OP_TYPE_REG << 4) | OP_TYPE_RGNDRCT
-        jne .ret_invalid_operands
-        call genop2rrm
-        jmp .end
-
-.ret_invalid_operands:
-        ;; Combination of operands is not supported (yet).
-        mov eax, 2              ; Return ERR_INVALID_OPERANDS
-        mov rsp, rbp
-        pop rbp
-        retn
-
-.end:
-        xor eax, eax            ; Return ERR_NONE
         mov rsp, rbp
         pop rbp
         retn

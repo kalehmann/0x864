@@ -23,6 +23,7 @@
 void test_struct_AsmOp_is_packed(void);
 void test_assemble_op(void);
 void test_as_call(void);
+void test_as_genop2ax32(void);
 void test_as_int(void);
 void test_as_nop(void);
 void test_as_retn(void);

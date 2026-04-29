@@ -254,6 +254,55 @@ void test_as_call(void)
         free_asmctx(ctx);
 }
 
+void test_as_genop2ax32(void)
+{
+        struct AsmCtx *ctx = NULL;
+        enum AsmErr err = ERR_NONE;
+        struct AsmOp op = { 0 };
+
+        // Test imm to imm is not supported
+        ctx = make_asmctx("1, 2", 0, 0, 0, 0);
+        TEST_ASSERT(ctx != NULL);
+        err = as_genop2ax32(ctx, &op, 0, 0, 0, 0, 0);
+        TEST_CHECK(err == ERR_INVALID_OPERANDS);
+        free_asmctx(ctx);
+
+        // Test special handling for al register
+        ctx = make_asmctx("al, 2", 0, 0, 0, 0);
+        TEST_ASSERT(ctx != NULL);
+        err = as_genop2ax32(ctx, &op, 0x0c, 0, 0, 0, 0);
+        TEST_CHECK(err == ERR_NONE);
+        TEST_CHECK(op.encoding == ENCODING_I);
+        TEST_CHECK(op.n_opcodes == 1);
+        TEST_CHECK(op.opcodes[0] == 0x0c);
+        free_asmctx(ctx);
+
+        // ModRM.reg is encoded
+        ctx = make_asmctx("bl, 2", 0, 0, 0, 0);
+        TEST_ASSERT(ctx != NULL);
+        err = as_genop2ax32(ctx, &op, 0, 0x80, 0, 0, 7);
+        TEST_CHECK(err == ERR_NONE);
+        TEST_CHECK(op.encoding == ENCODING_MI);
+        TEST_CHECK(op.op_size == 8);
+        TEST_CHECK(op.src_reg == 7);
+        TEST_CHECK(op.n_opcodes == 1);
+        TEST_CHECK(op.opcodes[0] == 0x80);
+        free_asmctx(ctx);
+
+        // Opcode for 32 bit operation is opcode for 8 bit operation plus one
+        ctx = make_asmctx("ecx, 2", 0, 0, 0, 0);
+        TEST_ASSERT(ctx != NULL);
+        err = as_genop2ax32(ctx, &op, 0, 0x80, 0, 0, 7);
+        TEST_CHECK(err == ERR_NONE);
+        TEST_CHECK(op.encoding == ENCODING_MI);
+        TEST_CHECK(op.op_size == 32);
+        TEST_CHECK(op.src_reg == 7);
+        TEST_CHECK(op.n_opcodes == 1);
+        TEST_CHECK(op.opcodes[0] == 0x81);
+        free_asmctx(ctx);
+}
+
+
 void test_as_int(void)
 {
         struct AsmOp op = { 0 };

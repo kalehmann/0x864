@@ -262,6 +262,53 @@ extern enum AsmErr as_call(struct AsmCtx *ctx, struct AsmOp *op);
 extern enum AsmErr as_dec(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
+ * Assembles a generic 2 operand instruction with special handling for `ax`.
+ *
+ * Suitable as generic as generic implementation for example the `add`, `and`,
+ * `cmp`, `or`, `sub`, `xor` instructions.
+ *
+ * This function can be used as a generic implementation of a instruction under
+ * the following assumptions:
+ *
+ * - the operation size matches the source register size
+ * - the 64 bit operation uses a 32 bit immediate
+ * - the instruction operand encoding is I for `ax` destination and an immediate
+ *   as source
+ * - the instruction operand encoding is MI for any other register as destination
+ *   and an immediate as source
+ * - the instruction operand encoding is MR for R/M as destination and a register
+ *   as source
+ * - the instruction operand encoding is RM for a register as destination and R\M
+ *   as source
+ * - the 8-bit operation uses a single opcode
+ * - the 16-bit operation uses the opcode of the 8-bit operation plus one and
+ *   the operand size override prefix (0x66)
+ * - the 32-bit operation uses the opcode of the 8-bit operation plus one
+ * - the 64-bit operation uses the opcode of the 8-bit operation plus one and
+ *   the REX.W bit
+ * - the MI encoding may have additional data in the ModRM.reg field
+ *
+ * @param ctx is a pointer to the AsmCtx structure
+ * @param op is a pointer to the AsmOp structure
+ * @param op8_al_imm8 is the opcode for the 8-bit operation with `al` as
+ *                    destination and an immediate as source.
+ * @param op8_rimm8 is the opcode for the 8-bit operation with any register other
+ *                  than `al` as destination and an immediate as source.
+ * @param op8_rmr8 is the opcode for the 8-bit operation with a R\M as source
+ *                 and a register as destination.
+ * @param op8_rrm8 is the opcode for the 8-bit operation with a register as
+ *                 source and R/M as destination.
+ * @param modrm_reg is additional data to encode in the ModRM.reg field for the I
+ *                  instruction operand encoding.
+ *
+ * @returns `ERR_NONE` on success or any error, that occured.
+ */
+extern enum AsmErr as_genop2ax32(struct AsmCtx *ctx, struct AsmOp *op,
+                                 uint8_t op_al_imm8, uint8_t op_rimm8,
+                                 uint8_t op_rmr8, uint8_t op_rrm8,
+                                 uint8_t modrm_reg);
+
+/**
  * Assembles the inc instruction.
  *
  * @param ctx is the pointer to the AsmCtx structure.
