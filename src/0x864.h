@@ -507,6 +507,46 @@ extern size_t elf64_dump(struct AsmCtx *ctx, void *buffer, size_t n,
 extern size_t elf64_dump_header(struct AsmCtx *ctx, void *buffer, size_t n);
 
 /**
+ * Fills the AsmOp structure for a R source and R\M destination instruction.
+ *
+ * This function can be used as a generic implementation of the instruction under
+ * the following assumptions:
+ *
+ * - the operation size matches the source register size
+ * - the instruction operand encoding is MR
+ * - the 8-bit operation uses a single opcode `op8`
+ * - the 16-bit operation uses a single opcode `op8 + 1` and the operand size
+ *   override prefix (0x66)
+ * - the 32-bit operation uses a single opcode `op8 + 1`
+ * - the 64-bit operation uses a single opcode `op8 + 1` and the REX.W bit
+ *
+ * @param ctx is a pointer to the AsmCtx structure
+ * @param op is a pointer to the AsmOp structure
+ * @param op8 is the opcode for the 8-bit operation.
+ */
+extern void genop2rmr(struct AsmCtx *ctx, struct AsmOp *op, uint8_t op8);
+
+/**
+ * Fills the AsmOp structure for a R\M source and R destination instruction.
+ *
+ * This function can be used as a generic implementation of the instruction under
+ * the following assumptions:
+ *
+ * - the operation size matches the source register size
+ * - the instruction operand encoding is RM
+ * - the 8-bit operation uses a single opcode `op8`
+ * - the 16-bit operation uses a single opcode `op8 + 1` and the operand size
+ *   override prefix (0x66)
+ * - the 32-bit operation uses a single opcode `op8 + 1`
+ * - the 64-bit operation uses a single opcode `op8 + 1` and the REX.W bit
+ *
+ * @param ctx is a pointer to the AsmCtx structure
+ * @param op is a pointer to the AsmOp structure
+ * @param op8 is the opcode for the 8-bit operation.
+ */
+extern void genop2rrm(struct AsmCtx *ctx, struct AsmOp *op, uint8_t op8);
+
+/**
  * Checks whether the given label is declared as global.
  *
  * @param ctx is a pointer to the AsmCtx structure
