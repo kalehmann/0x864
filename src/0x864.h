@@ -507,6 +507,50 @@ extern size_t elf64_dump(struct AsmCtx *ctx, void *buffer, size_t n,
 extern size_t elf64_dump_header(struct AsmCtx *ctx, void *buffer, size_t n);
 
 /**
+ * Fills the AsmOp structure for an immediate to ax instruction with 32 bit limit
+ *
+ * This function can be used as a generic implementation of the instruction under
+ * the following assumptions:
+ *
+ * - the operation size matches the source register size
+ * - the 64 bit operation uses a 32 bit immediate
+ * - the instruction operand encoding is I
+ * - the 8-bit operation uses a single opcode `op8`
+ * - the 16-bit operation uses a single opcode `op8 + 1` and the operand size
+ *   override prefix (0x66)
+ * - the 32-bit operation uses a single opcode `op8 + 1`
+ * - the 64-bit operation uses a single opcode `op8 + 1` and the REX.W bit
+ *
+ * @param ctx is a pointer to the AsmCtx structure
+ * @param op is a pointer to the AsmOp structure
+ * @param op8 is the opcode for the 8-bit operation.
+ */
+extern void genop2aximm32(struct AsmCtx *ctx, struct AsmOp *op, uint8_t op8);
+
+/**
+ * Fills the AsmOp structure for a immediate to R\M instruction with 32 bit limit
+ *
+ * This function can be used as a generic implementation of the instruction under
+ * the following assumptions:
+ *
+ * - the operation size matches the source register size
+ * - the 64 bit operation uses a 32 bit immediate
+ * - the instruction operand encoding is MI
+ * - the 8-bit operation uses a single opcode `op8`
+ * - the 16-bit operation uses a single opcode `op8 + 1` and the operand size
+ *   override prefix (0x66)
+ * - the 32-bit operation uses a single opcode `op8 + 1`
+ * - the 64-bit operation uses a single opcode `op8 + 1` and the REX.W bit
+ *
+ * @param ctx is a pointer to the AsmCtx structure
+ * @param op is a pointer to the AsmOp structure
+ * @param op8 is the opcode for the 8-bit operation.
+ * @param modrm_reg is additional data to encode in the ModRM.reg field.
+ */
+extern void genop2rimm32(struct AsmCtx *ctx, struct AsmOp *op, uint8_t op8,
+                         uint8_t modrm_reg);
+
+/**
  * Fills the AsmOp structure for a R source and R\M destination instruction.
  *
  * This function can be used as a generic implementation of the instruction under

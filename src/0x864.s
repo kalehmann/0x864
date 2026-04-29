@@ -45,6 +45,8 @@
         global  elf64_clctextsz
         global  elf64_dump
         global  elf64_dump_header
+        global  genop2aximm32
+        global  genop2rimm32
         global  genop2rmr
         global  genop2rrm
         global  isglbl
@@ -941,36 +943,48 @@ as_snginst:
 as_and:
         push rbp
         mov rbp, rsp
-        sub rsp, 16
+        sub rsp, 32
 
         mov [rbp - 8], rdi
         mov [rbp - 16], rsi
 
-        mov al, 1
-        mov [rsi + 5], al       ; op->n_opcodes = 1
-
         call skp2lbinst
-
-        mov rdi, [rbp - 8]
-        mov rdi, [rdi]          ; char *assembly = ctx->assembly
-        mov rsi, 2              ; uint8_t n_ops = 2
-        call ckopsize
-        mov rsi, [rbp - 16]
-        mov [rsi + 1], al       ; op->op_size = al
-        mov [rsi + 9], al       ; op->imm_size = al
 
         mov rdi, [rbp - 8]
         mov rdi, [rdi]          ; char const *assembly = ctx->assembly
         mov rsi, 2              ; uint8_t n_ops = 2
         call ckoptps
 
+        cmp ax, 2               ; (OP_TYPE_REG << 4) | OP_TYPE_IMM
+        jne .check_rmr
+
+        ;; Peak register
+        mov rdi, [rbp - 8]
+        mov r8, [rdi]
+        mov [rbp - 24], r8
+        lea rdi, [rbp - 24]
+        call preg
+        cmp rax, 0              ; if (preg(...) != ax)
+        jne .rimm
+
+        mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
+        mov rsi, [rbp - 16]     ; struct AsmOp *op = op
+        mov dl, 0x24            ; uint8_t op8 = 0x24
+        call genop2aximm32
+        jmp .end
+.rimm:
+        mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
+        mov rsi, [rbp - 16]     ; struct AsmOp *op = op
+        mov dl, 0x80            ; uint8_t op8 = 0x80
+        mov cl, 4               ; uint8_t modrm_reg = 4
+        call genop2rimm32
+        jmp .end
+
+.check_rmr:
         mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
         mov rsi, [rbp - 16]     ; struct AsmOp *op = op
         mov dl, 0x20            ; uint8_t op8 = 0x20
 
-        cmp ax, 2               ; (OP_TYPE_REG << 4) | OP_TYPE_IMM
-        je .r_imm
-.check_rmr:
         cmp ax, 0b00010000      ; (OP_TYPE_RGNDRCT << 4) | OP_TYPE_REG
         jne .check_rr
         call genop2rmr
@@ -993,109 +1007,6 @@ as_and:
         mov rsp, rbp
         pop rbp
         retn
-
-.r_imm:
-        mov rdi, [rbp - 8]
-        call preg
-        mov rsi, [rbp - 16]
-        mov [rsi + 3], al       ; op->dst_reg = al
-
-        mov rdi, [rbp - 8]
-        call skp2nxtop
-
-        mov rdi, [rbp - 8]
-        call pint
-
-        mov rsi, [rbp - 16]
-        mov dl, [rsi + 3]
-        cmp dl, 0               ; if (op->dst_reg == 0) // rax
-        je .rax_imm
-
-        mov dl, 4
-        mov [rsi], dl           ; op->encoding = ENCODING_MI
-        mov [rsi + 2], dl       ; op->src_reg = 4
-        mov dl, 0b11
-        mov [rsi + 4], dl       ; op->modrm_mod = MOD_DIRECT
-
-        mov dl, [rsi + 1]
-        cmp dl, 8               ; if (op->op_size == 8)
-        je .r_imm8
-        cmp dl, 16              ; if (op->op_size == 16)
-        je .r_imm16
-        cmp dl, 32              ; if (op->op_size == 32)
-        je .r_imm32
-        jmp .r_imm64
-
-.r_imm8:
-        mov [rsi + 16], al      ; op->imm.imm8 = pint(...)
-        mov al, 0x80
-        mov [rsi + 6], al       ; op->opcodes[0] = 0x80
-        jmp .end
-
-.r_imm16:
-        mov [rsi + 16], ax      ; op->imm.imm16 = pint(...)
-        mov al, 0x81
-        mov [rsi + 6], al       ; op->opcodes[0] = 0x81
-        mov al, 0x08
-        mov [rsi + 11], al      ; op->prefix = PREFIX_OP_SIZE_OVERRIDE
-        jmp .end
-
-.r_imm32:
-        mov [rsi + 16], eax      ; op->imm.imm32 = pint(...)
-        mov al, 0x81
-        mov [rsi + 6], al        ; op->opcodes[0] = 0x81
-        mov al, 32
-        mov [rsi + 9], al        ; op->imm_size = 32
-        jmp .end
-
-.r_imm64:
-        mov [rsi + 16], eax      ; op->imm.imm32 = pint(...)
-        mov al, 0x81
-        mov [rsi + 6], al        ; op->opcodes[0] = 0x81
-        mov al, 32
-        mov [rsi + 9], al        ; op->imm_size = 32
-        jmp .end
-
-.rax_imm:
-        mov dl, 2
-        mov [rsi], dl           ; op->encoding = ENCODING_I
-
-        mov dl, [rsi + 1]
-        cmp dl, 8               ; if (op->op_size == 8)
-        je .rax_imm8
-        cmp dl, 16              ; if (op->op_size == 16)
-        je .rax_imm16
-        cmp dl, 32              ; if (op->op_size == 32)
-        je .rax_imm32
-        jmp .rax_imm64
-
-.rax_imm8:
-        mov [rsi + 16], al      ; op->imm.imm8 = pint(...)
-        mov al, 0x24
-        mov [rsi + 6], al       ; op->opcodes[0] = 0x24
-        jmp .end
-
-.rax_imm16:
-        mov [rsi + 16], ax      ; op->imm.imm16 = pint(...)
-        mov al, 0x25
-        mov [rsi + 6], al       ; op->opcodes[0] = 0x25
-        mov al, 0x08
-        mov [rsi + 11], al      ; op->prefix = PREFIX_OP_SIZE_OVERRIDE
-        jmp .end
-
-.rax_imm32:
-        mov [rsi + 16], eax      ; op->imm.imm32 = pint(...)
-        mov al, 0x25
-        mov [rsi + 6], al        ; op->opcodes[0] = 0x25
-        jmp .end
-
-.rax_imm64:
-        mov [rsi + 16], eax      ; op->imm.imm32 = pint(...)
-        mov al, 0x25
-        mov [rsi + 6], al        ; op->opcodes[0] = 0x25
-        mov al, 32
-        mov [rsi + 9], al        ; op->imm_size = 32
-        jmp .end
 
 .end:
         xor eax, eax            ; Return ERR_NONE
@@ -1469,36 +1380,48 @@ as_nop:
 as_or:
         push rbp
         mov rbp, rsp
-        sub rsp, 16
+        sub rsp, 32
 
         mov [rbp - 8], rdi
         mov [rbp - 16], rsi
 
-        mov al, 1
-        mov [rsi + 5], al       ; op->n_opcodes = 1
-
         call skp2lbinst
-
-        mov rdi, [rbp - 8]
-        mov rdi, [rdi]          ; char *assembly = ctx->assembly
-        mov rsi, 2              ; uint8_t n_ops = 2
-        call ckopsize
-        mov rsi, [rbp - 16]
-        mov [rsi + 1], al       ; op->op_size = al
-        mov [rsi + 9], al       ; op->imm_size = al
 
         mov rdi, [rbp - 8]
         mov rdi, [rdi]          ; char const *assembly = ctx->assembly
         mov rsi, 2              ; uint8_t n_ops = 2
         call ckoptps
 
+        cmp ax, 2               ; (OP_TYPE_REG << 4) | OP_TYPE_IMM
+        jne .check_rmr
+
+        ;; Peak register
+        mov rdi, [rbp - 8]
+        mov r8, [rdi]
+        mov [rbp - 24], r8
+        lea rdi, [rbp - 24]
+        call preg
+        cmp rax, 0              ; if (preg(...) != ax)
+        jne .rimm
+
+        mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
+        mov rsi, [rbp - 16]     ; struct AsmOp *op = op
+        mov dl, 0x0c            ; uint8_t op8 = 0x0c
+        call genop2aximm32
+        jmp .end
+.rimm:
+        mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
+        mov rsi, [rbp - 16]     ; struct AsmOp *op = op
+        mov dl, 0x80            ; uint8_t op8 = 0x80
+        mov cl, 1               ; uint8_t modrm_reg = 1
+        call genop2rimm32
+        jmp .end
+
+.check_rmr:
         mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
         mov rsi, [rbp - 16]     ; struct AsmOp *op = op
         mov dl, 0x08            ; uint8_t op8 = 0x08
 
-        cmp ax, 2               ; (OP_TYPE_REG << 4) | OP_TYPE_IMM
-        je .r_imm
-.check_rmr:
         cmp ax, 0b00010000      ; (OP_TYPE_RGNDRCT << 4) | OP_TYPE_REG
         jne .check_rr
         call genop2rmr
@@ -1521,110 +1444,6 @@ as_or:
         mov rsp, rbp
         pop rbp
         retn
-
-.r_imm:
-        mov rdi, [rbp - 8]
-        call preg
-        mov rsi, [rbp - 16]
-        mov [rsi + 3], al       ; op->dst_reg = al
-
-        mov rdi, [rbp - 8]
-        call skp2nxtop
-
-        mov rdi, [rbp - 8]
-        call pint
-
-        mov rsi, [rbp - 16]
-        mov dl, [rsi + 3]
-        cmp dl, 0               ; if (op->dst_reg == 0) // rax
-        je .rax_imm
-
-        mov dl, 4
-        mov [rsi], dl           ; op->encoding = ENCODING_MI
-        mov dl, 1
-        mov [rsi + 2], dl       ; op->src_reg = 1
-        mov dl, 0b11
-        mov [rsi + 4], dl       ; op->modrm_mod = MOD_DIRECT
-
-        mov dl, [rsi + 1]
-        cmp dl, 8               ; if (op->op_size == 8)
-        je .r_imm8
-        cmp dl, 16              ; if (op->op_size == 16)
-        je .r_imm16
-        cmp dl, 32              ; if (op->op_size == 32)
-        je .r_imm32
-        jmp .r_imm64
-
-.r_imm8:
-        mov [rsi + 16], al      ; op->imm.imm8 = pint(...)
-        mov al, 0x80
-        mov [rsi + 6], al       ; op->opcodes[0] = 0x80
-        jmp .end
-
-.r_imm16:
-        mov [rsi + 16], ax      ; op->imm.imm16 = pint(...)
-        mov al, 0x81
-        mov [rsi + 6], al       ; op->opcodes[0] = 0x81
-        mov al, 0x08
-        mov [rsi + 11], al      ; op->prefix = PREFIX_OP_SIZE_OVERRIDE
-        jmp .end
-
-.r_imm32:
-        mov [rsi + 16], eax      ; op->imm.imm32 = pint(...)
-        mov al, 0x81
-        mov [rsi + 6], al        ; op->opcodes[0] = 0x81
-        mov al, 32
-        mov [rsi + 9], al        ; op->imm_size = 32
-        jmp .end
-
-.r_imm64:
-        mov [rsi + 16], eax      ; op->imm.imm32 = pint(...)
-        mov al, 0x81
-        mov [rsi + 6], al        ; op->opcodes[0] = 0x81
-        mov al, 32
-        mov [rsi + 9], al        ; op->imm_size = 32
-        jmp .end
-
-.rax_imm:
-        mov dl, 2
-        mov [rsi], dl           ; op->encoding = ENCODING_I
-
-        mov dl, [rsi + 1]
-        cmp dl, 8               ; if (op->op_size == 8)
-        je .rax_imm8
-        cmp dl, 16              ; if (op->op_size == 16)
-        je .rax_imm16
-        cmp dl, 32              ; if (op->op_size == 32)
-        je .rax_imm32
-        jmp .rax_imm64
-
-.rax_imm8:
-        mov [rsi + 16], al      ; op->imm.imm8 = pint(...)
-        mov al, 0x0c
-        mov [rsi + 6], al       ; op->opcodes[0] = 0x0c
-        jmp .end
-
-.rax_imm16:
-        mov [rsi + 16], ax      ; op->imm.imm16 = pint(...)
-        mov al, 0x0d
-        mov [rsi + 6], al       ; op->opcodes[0] = 0x0d
-        mov al, 0x08
-        mov [rsi + 11], al      ; op->prefix = PREFIX_OP_SIZE_OVERRIDE
-        jmp .end
-
-.rax_imm32:
-        mov [rsi + 16], eax      ; op->imm.imm32 = pint(...)
-        mov al, 0x0d
-        mov [rsi + 6], al        ; op->opcodes[0] = 0x0d
-        jmp .end
-
-.rax_imm64:
-        mov [rsi + 16], eax      ; op->imm.imm32 = pint(...)
-        mov al, 0x0d
-        mov [rsi + 6], al        ; op->opcodes[0] = 0x0d
-        mov al, 32
-        mov [rsi + 9], al        ; op->imm_size = 32
-        jmp .end
 
 .end:
         xor eax, eax            ; Return ERR_NONE
@@ -1726,36 +1545,48 @@ as_syscall:
 as_xor:
         push rbp
         mov rbp, rsp
-        sub rsp, 16
+        sub rsp, 32
 
         mov [rbp - 8], rdi
         mov [rbp - 16], rsi
 
-        mov al, 1
-        mov [rsi + 5], al       ; op->n_opcodes = 1
-
         call skp2lbinst
-
-        mov rdi, [rbp - 8]
-        mov rdi, [rdi]          ; char *assembly = ctx->assembly
-        mov rsi, 2              ; uint8_t n_ops = 2
-        call ckopsize
-        mov rsi, [rbp - 16]
-        mov [rsi + 1], al       ; op->op_size = al
-        mov [rsi + 9], al       ; op->imm_size = al
 
         mov rdi, [rbp - 8]
         mov rdi, [rdi]          ; char const *assembly = ctx->assembly
         mov rsi, 2              ; uint8_t n_ops = 2
         call ckoptps
 
+        cmp ax, 2               ; (OP_TYPE_REG << 4) | OP_TYPE_IMM
+        jne .check_rmr
+
+        ;; Peak register
+        mov rdi, [rbp - 8]
+        mov r8, [rdi]
+        mov [rbp - 24], r8
+        lea rdi, [rbp - 24]
+        call preg
+        cmp rax, 0              ; if (preg(...) != ax)
+        jne .rimm
+
+        mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
+        mov rsi, [rbp - 16]     ; struct AsmOp *op = op
+        mov dl, 0x34            ; uint8_t op8 = 0x34
+        call genop2aximm32
+        jmp .end
+.rimm:
+        mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
+        mov rsi, [rbp - 16]     ; struct AsmOp *op = op
+        mov dl, 0x80            ; uint8_t op8 = 0x80
+        mov cl, 6               ; uint8_t modrm_reg = 6
+        call genop2rimm32
+        jmp .end
+
+.check_rmr:
         mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
         mov rsi, [rbp - 16]     ; struct AsmOp *op = op
         mov dl, 0x30            ; uint8_t op8 = 0x30
 
-        cmp ax, 2               ; (OP_TYPE_REG << 4) | OP_TYPE_IMM
-        je .r_imm
-.check_rmr:
         cmp ax, 0b00010000      ; (OP_TYPE_RGNDRCT << 4) | OP_TYPE_REG
         jne .check_rr
         call genop2rmr
@@ -1778,110 +1609,6 @@ as_xor:
         mov rsp, rbp
         pop rbp
         retn
-
-.r_imm:
-        mov rdi, [rbp - 8]
-        call preg
-        mov rsi, [rbp - 16]
-        mov [rsi + 3], al       ; op->dst_reg = al
-
-        mov rdi, [rbp - 8]
-        call skp2nxtop
-
-        mov rdi, [rbp - 8]
-        call pint
-
-        mov rsi, [rbp - 16]
-        mov dl, [rsi + 3]
-        cmp dl, 0               ; if (op->dst_reg == 0) // rax
-        je .rax_imm
-
-        mov dl, 4
-        mov [rsi], dl           ; op->encoding = ENCODING_MI
-        mov dl, 6
-        mov [rsi + 2], dl       ; op->src_reg = 6
-        mov dl, 0b11
-        mov [rsi + 4], dl       ; op->modrm_mod = MOD_DIRECT
-
-        mov dl, [rsi + 1]
-        cmp dl, 8               ; if (op->op_size == 8)
-        je .r_imm8
-        cmp dl, 16              ; if (op->op_size == 16)
-        je .r_imm16
-        cmp dl, 32              ; if (op->op_size == 32)
-        je .r_imm32
-        jmp .r_imm64
-
-.r_imm8:
-        mov [rsi + 16], al      ; op->imm.imm8 = pint(...)
-        mov al, 0x80
-        mov [rsi + 6], al       ; op->opcodes[0] = 0x80
-        jmp .end
-
-.r_imm16:
-        mov [rsi + 16], ax      ; op->imm.imm16 = pint(...)
-        mov al, 0x81
-        mov [rsi + 6], al       ; op->opcodes[0] = 0x81
-        mov al, 0x08
-        mov [rsi + 11], al      ; op->prefix = PREFIX_OP_SIZE_OVERRIDE
-        jmp .end
-
-.r_imm32:
-        mov [rsi + 16], eax      ; op->imm.imm32 = pint(...)
-        mov al, 0x81
-        mov [rsi + 6], al        ; op->opcodes[0] = 0x81
-        mov al, 32
-        mov [rsi + 9], al        ; op->imm_size = 32
-        jmp .end
-
-.r_imm64:
-        mov [rsi + 16], eax      ; op->imm.imm32 = pint(...)
-        mov al, 0x81
-        mov [rsi + 6], al        ; op->opcodes[0] = 0x81
-        mov al, 32
-        mov [rsi + 9], al        ; op->imm_size = 32
-        jmp .end
-
-.rax_imm:
-        mov dl, 2
-        mov [rsi], dl           ; op->encoding = ENCODING_I
-
-        mov dl, [rsi + 1]
-        cmp dl, 8               ; if (op->op_size == 8)
-        je .rax_imm8
-        cmp dl, 16              ; if (op->op_size == 16)
-        je .rax_imm16
-        cmp dl, 32              ; if (op->op_size == 32)
-        je .rax_imm32
-        jmp .rax_imm64
-
-.rax_imm8:
-        mov [rsi + 16], al      ; op->imm.imm8 = pint(...)
-        mov al, 0x34
-        mov [rsi + 6], al       ; op->opcodes[0] = 0x34
-        jmp .end
-
-.rax_imm16:
-        mov [rsi + 16], ax      ; op->imm.imm16 = pint(...)
-        mov al, 0x35
-        mov [rsi + 6], al       ; op->opcodes[0] = 0x35
-        mov al, 0x08
-        mov [rsi + 11], al      ; op->prefix = PREFIX_OP_SIZE_OVERRIDE
-        jmp .end
-
-.rax_imm32:
-        mov [rsi + 16], eax      ; op->imm.imm32 = pint(...)
-        mov al, 0x35
-        mov [rsi + 6], al        ; op->opcodes[0] = 0x35
-        jmp .end
-
-.rax_imm64:
-        mov [rsi + 16], eax      ; op->imm.imm32 = pint(...)
-        mov al, 0x35
-        mov [rsi + 6], al        ; op->opcodes[0] = 0x35
-        mov al, 32
-        mov [rsi + 9], al        ; op->imm_size = 32
-        jmp .end
 
 .end:
         xor eax, eax            ; Return ERR_NONE
@@ -2913,6 +2640,171 @@ elf64_dump_text:
 .ret_err:
         xor eax, eax
 .ret:
+        mov rsp, rbp
+        pop rbp
+        retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
+;;; rdx: `uint8_t op8`
+genop2aximm32:
+        push rbp
+        mov rbp, rsp
+        sub rsp, 32
+
+        mov [rbp - 8], rdi
+        mov [rbp - 16], rsi
+        mov [rbp - 17], dl
+
+        mov al, 2
+        mov [rsi], al           ; op->encoding = ENCODING_I
+        mov al, 1
+        mov [rsi + 5], al       ; op->n_opcodes = 1
+
+        mov rdi, [rbp - 8]
+        mov rdi, [rdi]          ; char *assembly = ctx->assembly
+        mov rsi, 2              ; uint8_t n_ops = 2
+        call ckopsize
+        mov rsi, [rbp - 16]
+        mov [rsi + 1], al       ; op->op_size = al
+        mov [rsi + 9], al       ; op->imm_size = al
+
+        mov rdi, [rbp - 8]      ; char **assembly = &ctx->assembly
+        call preg
+
+        mov rdi, [rbp - 8]      ; char **assembly = &ctx->assembly
+        call skp2nxtop
+
+        mov rdi, [rbp - 8]      ; char **assembly = &ctx->assembly
+        call pint
+
+        mov rsi, [rbp - 16]
+        mov dl, [rsi + 1]
+        cmp dl, 8               ; if (op->op_size == 8)
+        je .imm8
+        cmp dl, 16              ; if (op->op_size == 16)
+        je .imm16
+        cmp dl, 32              ; if (op->op_size == 32)
+        je .imm32
+        jmp .imm64
+
+.imm8:
+        mov [rsi + 16], al      ; op->imm.imm8 = pint(...)
+        mov al, [rbp - 17]
+        mov [rsi + 6], al       ; op->opcodes[0] = op8
+        jmp .end
+
+.imm16:
+        mov [rsi + 16], ax      ; op->imm.imm16 = pint(...)
+        mov al, [rbp - 17]
+        inc al
+        mov [rsi + 6], al       ; op->opcodes[0] = op8 + 1
+        mov al, 0x08
+        mov [rsi + 11], al      ; op->prefix = PREFIX_OP_SIZE_OVERRIDE
+        jmp .end
+
+.imm32:
+        mov [rsi + 16], eax     ; op->imm.imm32 = pint(...)
+        mov al, [rbp - 17]
+        inc al
+        mov [rsi + 6], al       ; op->opcodes[0] = op8 + 1
+        jmp .end
+
+.imm64:
+        mov [rsi + 16], eax      ; op->imm.imm32 = pint(...)
+        mov al, [rbp - 17]
+        inc al
+        mov [rsi + 6], al       ; op->opcodes[0] = op8 + 1
+        mov al, 32
+        mov [rsi + 9], al       ; op->imm_size = 32
+
+.end:
+        mov rsp, rbp
+        pop rbp
+        retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
+;;; rdx: `uint8_t op8`
+;;; rcx: `uint8_t modrm_reg`
+genop2rimm32:
+        push rbp
+        mov rbp, rsp
+        sub rsp, 32
+
+        mov [rbp - 8], rdi
+        mov [rbp - 16], rsi
+        mov [rbp - 17], dl
+
+        mov al, 4
+        mov [rsi], al           ; op->encoding = ENCODING_MI
+        mov al, 1
+        mov [rsi + 5], al       ; op->n_opcodes = 1
+        mov [rsi + 2], cl       ; op->src_reg = modrm_reg
+
+        mov rdi, [rbp - 8]
+        mov rdi, [rdi]          ; char *assembly = ctx->assembly
+        mov rsi, 2              ; uint8_t n_ops = 2
+        call ckopsize
+        mov rsi, [rbp - 16]
+        mov [rsi + 1], al       ; op->op_size = al
+        mov [rsi + 9], al       ; op->imm_size = al
+
+        mov rdi, [rbp - 8]      ; char **assembly = &ctx->assembly
+        call preg
+
+        mov rsi, [rbp - 16]
+        mov [rsi + 3], al       ; op->dst_reg = preg(&ctx->assembly)
+        mov al, 0b11
+        mov [rsi + 4], al       ; op->modrm_mod = MOD_DIRECT
+
+        mov rdi, [rbp - 8]      ; char **assembly = &ctx->assembly
+        call skp2nxtop
+
+        mov rdi, [rbp - 8]      ; char **assembly = &ctx->assembly
+        call pint
+
+        mov rsi, [rbp - 16]
+        mov dl, [rsi + 1]
+        cmp dl, 8               ; if (op->op_size == 8)
+        je .op8
+        cmp dl, 16              ; if (op->op_size == 16)
+        je .op16
+        cmp dl, 32              ; if (op->op_size == 32)
+        je .op32
+        jmp .op64
+
+.op8:
+        mov [rsi + 16], al      ; op->imm.imm8 = pint(...)
+        mov al, [rbp - 17]
+        mov [rsi + 6], al       ; op->opcodes[0] = op8
+        jmp .end
+
+.op16:
+        mov [rsi + 16], ax      ; op->imm.imm16 = pint(...)
+        mov al, [rbp - 17]
+        inc al
+        mov [rsi + 6], al       ; op->opcodes[0] = op8 + 1
+        mov al, 0x08
+        mov [rsi + 11], al      ; op->prefix = PREFIX_OP_SIZE_OVERRIDE
+        jmp .end
+
+.op32:
+        mov [rsi + 16], eax     ; op->imm.imm32 = pint(...)
+        mov al, [rbp - 17]
+        inc al
+        mov [rsi + 6], al       ; op->opcodes[0] = op8 + 1
+        jmp .end
+
+.op64:
+        mov [rsi + 16], eax     ; op->imm.imm32 = pint(...)
+        mov al, [rbp - 17]
+        inc al
+        mov [rsi + 6], al       ; op->opcodes[0] = op8 + 1
+        mov al, 32
+        mov [rsi + 9], al       ; op->imm_size = 32
+
+.end:
         mov rsp, rbp
         pop rbp
         retn
