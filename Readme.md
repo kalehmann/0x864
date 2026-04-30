@@ -6,22 +6,24 @@
 
 ### Supported instructions
 
-| Instruction | Notes                                                 |
-|-------------|-------------------------------------------------------|
-| `and`       | At least one operand must be a register direct access |
-| `call`      | Only `CALL rel32` to a label                          |
-| `dec`       | Only registers supported as destination operand       |
-| `inc`       | Only registers supported as destination operand       |
-| `int`       |                                                       |
-| `lea`       |                                                       |
-| `mov`       | At least one operand must be a register direct access |
-| `nop`       |                                                       |
-| `or`        | At least one operand must be a register direct access |
-| `pop`       | Only `pop r64`                                        |
-| `push`      | Only `push r64`                                       |
-| `retn`      |                                                       |
-| `syscall`   |                                                       |
-| `xor`       | At least one operand must be a register direct access |
+| Instruction | Notes                                                           |
+|-------------|-----------------------------------------------------------------|
+| `and`       | One operand must be a register; No add sign-extended imm8       |
+| `and`       | At least one operand must be a register direct access           |
+| `call`      | Only `CALL rel32` to a label                                    |
+| `dec`       | Only registers supported as destination operand                 |
+| `inc`       | Only registers supported as destination operand                 |
+| `int`       |                                                                 |
+| `lea`       |                                                                 |
+| `mov`       | At least one operand must be a register direct access           |
+| `nop`       |                                                                 |
+| `or`        | At least one operand must be a register direct access           |
+| `pop`       | Only `pop r64`                                                  |
+| `push`      | Only `push r64`                                                 |
+| `retn`      |                                                                 |
+| `sub`       | One operand must be a register; No add sign-extended imm8       |
+| `syscall`   |                                                                 |
+| `xor`       | At least one operand must be a register direct access           |
 
 ### Executing assembled programs
 

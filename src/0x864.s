@@ -19,6 +19,7 @@
         global  assemble
         global  assemble_op
         global  as_snglinst
+        global  as_add
         global  as_and
         global  as_call
         global  as_dec
@@ -32,6 +33,7 @@
         global  as_pop
         global  as_push
         global  as_retn
+        global  as_sub
         global  as_syscall
         global  as_xor
         global  cklb
@@ -757,8 +759,16 @@ as_snginst:
         call clr
 
         mov rdi, [rbp - 8]
+.check_add:
+        mov rsi, 0x646461   ; add
+        call .testinst
+        cmp rax, 1
+        jne .check_and
+        lea rsi, [rbp - 32]
+        call as_add
+        jmp .assemble
 .check_and:
-        mov rsi, 0x646e61   ; call
+        mov rsi, 0x646e61   ; and
         call .testinst
         cmp rax, 1
         jne .check_call
@@ -856,9 +866,17 @@ as_snginst:
         mov rsi, 0x006e746572   ; retn
         call .testinst
         cmp rax, 1
-        jne .check_syscall
+        jne .check_sub
         lea rsi, [rbp - 32]
         call as_retn
+        jmp .assemble
+.check_sub:
+        mov rsi, 0x627573       ; sub
+        call .testinst
+        cmp rax, 1
+        jne .check_syscall
+        lea rsi, [rbp - 32]
+        call as_sub
         jmp .assemble
 .check_syscall:
         mov rsi, 0x006c6c6163737973
@@ -869,7 +887,7 @@ as_snginst:
         call as_syscall
         jmp .assemble
 .check_xor:
-        mov rsi, 0x726f78
+        mov rsi, 0x726f78       ; xor
         call .testinst
         cmp rax, 1
         jne .check_err
@@ -935,6 +953,25 @@ as_snginst:
 .end:
         xor rax, rax
 .ret_err:
+        mov rsp, rbp
+        pop rbp
+        retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
+as_add:
+        push rbp
+        mov rbp, rsp
+        sub rsp, 16
+
+        mov edx, 0x04           ; uint8_t op_al_imm8 = 0x04
+        mov ecx, 0x80           ; uint8_t op_rimm8 = 0x80
+        mov r8d, 0x00           ; uint8_t op_rmr8 = 0x00
+        mov r9d, 0x02           ; uint8_t op_rrm8 = 0x02
+        xor eax, eax
+        mov [rbp - 16], rax     ; uint8_t modrm_mod = 0
+        call as_genop2ax32
+
         mov rsp, rbp
         pop rbp
         retn
@@ -1511,6 +1548,25 @@ as_syscall:
         mov [rsi + 7], al       ; op->opcodes[1] = 0x05
 
         xor eax, eax            ; Return ERR_NONE
+        retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
+as_sub:
+        push rbp
+        mov rbp, rsp
+        sub rsp, 16
+
+        mov edx, 0x2c           ; uint8_t op_al_imm8 = 0x2c
+        mov ecx, 0x80           ; uint8_t op_rimm8 = 0x80
+        mov r8d, 0x28           ; uint8_t op_rmr8 = 0x28
+        mov r9d, 0x2a           ; uint8_t op_rrm8 = 0x2a
+        mov eax, 5
+        mov [rbp - 16], rax     ; uint8_t modrm_mod = 5
+        call as_genop2ax32
+
+        mov rsp, rbp
+        pop rbp
         retn
 
 ;;; rdi: `struct AsmCtx *ctx`
