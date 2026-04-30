@@ -23,6 +23,7 @@
         global  as_and
         global  as_call
         global  as_dec
+        global  as_genop1rm
         global  as_genop2ax32
         global  as_inc
         global  as_int
@@ -1048,18 +1049,88 @@ as_call:
 ;;; rdi: `struct AsmCtx *ctx`
 ;;; rsi: `struct AsmOp *op`
 as_dec:
+        mov dl, 0xfe
+        mov ecx, 1
+        call as_genop1rm
+        retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
+;;; rdx: `uint8_t op_rm8`
+;;; rcx: `uint8_t modrm_reg`
+as_genop1rm:
         push rbp
         mov rbp, rsp
-        sub rsp, 8
-        mov [rbp - 8], rsi
+        sub rsp, 32
+        mov [rbp - 8], rdi
+        mov [rbp - 16], rsi
+        mov [rbp - 17], dl
 
-        call as_inc
-        mov rsi, [rbp - 8]
-        ;; Encode a 1 as source register - this is the only difference between
-        ;; dec and inc.
-        mov cl, 1
-        mov [rsi + 2], cl       ; op->src_reg = 1
+        mov al, 0x03
+        mov [rsi], al           ; op->encoding = ENCODING_M
+        mov [rsi + 2], cl       ; op->src_reg = modrm_reg
+        mov al, 0b11
+        mov [rsi + 4], al       ; op->modrm_mod = MOD_DIRECT
+        mov al, 1
+        mov [rsi + 5], al       ; op->n_opcodes = 1
 
+        call skp2lbinst
+
+        mov rdi, [rbp - 8]
+        mov rdi, [rdi]          ; char const *assembly = ctx->assembly
+        mov rsi, 1              ; uint8_t n_ops = 1
+        call ckoptps
+
+        cmp ax, 0               ; if (chkopts(ctx->assmebly) != OP_TYPE_REG
+        jne .ret_invalid_operands
+
+        mov rdi, [rbp - 8]
+        mov rdi, [rdi]          ; char *assembly = ctx->assembly
+        mov rsi, 1              ; uint8_t n_ops = 1
+        call ckopsize
+        mov rsi, [rbp - 16]
+        mov [rsi + 1], al       ; op->op_size = al
+        cmp al, 8
+        je .op8
+        cmp al, 16
+        je .op16
+        jmp .op_gt_16
+
+.op8:
+        mov rsi, [rbp - 16]
+        mov al, [rbp - 17]
+        mov [rsi + 6], al       ; op->opcodes[0] = op_rm8
+        jmp .parse_reg
+
+.op16:
+        mov rsi, [rbp - 16]
+        mov al, [rbp - 17]
+        inc al
+        mov [rsi + 6], al       ; op->opcodes[0] = op_rm8
+        mov al, 0x08
+        mov [rsi + 11], al      ; op->prefix = PREFIX_OP_SIZE_OVERRIDE
+        jmp .parse_reg
+
+.op_gt_16:
+        mov rsi, [rbp - 16]
+        mov al, [rbp - 17]
+        inc al
+        mov [rsi + 6], al       ; op->opcodes[0] = op_rm8
+        jmp .parse_reg
+
+.parse_reg:
+        mov rdi, [rbp - 8]
+        call preg
+        mov rsi, [rbp - 16]
+        mov [rsi + 3], al       ; op->dst_reg = preg(&(ctx->assembly))
+
+        xor eax, eax            ; Return ERR_NONE
+        mov rsp, rbp
+        pop rbp
+        retn
+
+.ret_invalid_operands:
+        mov eax, 2              ; Return ERR_INVALID_OPERANDS
         mov rsp, rbp
         pop rbp
         retn
@@ -1153,75 +1224,9 @@ as_genop2ax32:
 ;;; rdi: `struct AsmCtx *ctx`
 ;;; rsi: `struct AsmOp *op`
 as_inc:
-        push rbp
-        mov rbp, rsp
-        sub rsp, 16
-        mov [rbp - 8], rdi
-        mov [rbp - 16], rsi
-
-        mov al, 0x03
-        mov [rsi], al           ; op->encoding = ENCODING_M
-        mov al, 0b11
-        mov [rsi + 4], al       ; op->modrm_mod = MOD_DIRECT
-        mov al, 1
-        mov [rsi + 5], al       ; op->n_opcodes = 1
-
-        call skp2lbinst
-
-        mov rdi, [rbp - 8]
-        mov rdi, [rdi]          ; char const *assembly = ctx->assembly
-        mov rsi, 1              ; uint8_t n_ops = 1
-        call ckoptps
-
-        cmp ax, 0               ; OP_TYPE_REG
-        jne .ret_invalid_operand
-
-        mov rdi, [rbp - 8]
-        mov rdi, [rdi]          ; char *assembly = ctx->assembly
-        mov rsi, 1              ; uint8_t n_ops = 1
-        call ckopsize
-        mov rsi, [rbp - 16]
-        mov [rsi + 1], al       ; op->op_size = al
-        cmp al, 8
-        je .op_size_8
-        cmp al, 16
-        je .op_size_16
-        jmp .op_size_gt_16
-
-.op_size_8:
-        mov rsi, [rbp - 16]
-        mov al, 0xfe
-        mov [rsi + 6], al       ; op->opcodes[0] = 0xfe
-        jmp .parse_dest_reg
-
-.op_size_16:
-        mov rsi, [rbp - 16]
-        mov al, 0x08
-        mov [rsi + 11], al      ; op->prefix = PREFIX_OP_SIZE_OVERRIDE
-        mov al, 0xff
-        mov [rsi + 6], al       ; op->opcodes[0] = 0xff
-        jmp .parse_dest_reg
-
-.op_size_gt_16:
-        mov rsi, [rbp - 16]
-        mov al, 0xff
-        mov [rsi + 6], al       ; op->opcodes[0] = 0xff
-
-.parse_dest_reg:
-        mov rdi, [rbp - 8]
-        call preg
-        mov rsi, [rbp - 16]
-        mov [rsi + 3], al       ; op->dst_reg = al
-
-        xor eax, eax            ; Return ERR_NONE
-        mov rsp, rbp
-        pop rbp
-        retn
-
-.ret_invalid_operand:
-        mov eax, 2              ; Return ERR_INVALID_OPERANDS
-        mov rsp, rbp
-        pop rbp
+        mov dl, 0xfe
+        xor ecx, ecx
+        call as_genop1rm
         retn
 
 ;;; rdi: `struct AsmCtx *ctx`

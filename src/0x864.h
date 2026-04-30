@@ -273,10 +273,39 @@ extern enum AsmErr as_call(struct AsmCtx *ctx, struct AsmOp *op);
 extern enum AsmErr as_dec(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
+ * Assembles a generic 1 operand instruction with an R/M destination.
+ *
+ * Suitable as generic as generic implementation for example the `dec`, `div`,
+ * `inc` or `mul` instructions.
+ *
+ * This function can be used as a generic implementation of a instruction under
+ * the following assumptions:
+ *
+ * - the operation size matches the source register size
+ * - the instruction operand encoding is M
+ * - the 8-bit operation uses a single opcode
+ * - the 16-bit operation uses the opcode of the 8-bit operation plus one and
+ *   the operand size override prefix (0x66)
+ * - the 32-bit operation uses the opcode of the 8-bit operation plus one
+ * - the 64-bit operation uses the opcode of the 8-bit operation plus one and
+ *   the REX.W bit
+ * - there may be additional data in the ModRM.reg field
+ *
+ * @param ctx is a pointer to the AsmCtx structure
+ * @param op is a pointer to the AsmOp structure
+ * @param op8_rm8 is the opcode for the 8-bit operation
+ * @param modrm_reg is additional data to encode in the ModRM.reg
+ *
+ * @returns `ERR_NONE` on success or any error, that occured.
+ */
+extern enum AsmErr as_genop1rm(struct AsmCtx *ctx, struct AsmOp *op,
+                               uint8_t op_rm8, uint8_t modrm_reg);
+
+/**
  * Assembles a generic 2 operand instruction with special handling for `ax`.
  *
  * Suitable as generic as generic implementation for example the `add`, `and`,
- * `cmp`, `or`, `sub`, `xor` instructions.
+ * `cmp`, `or`, `sub` or `xor` instructions.
  *
  * This function can be used as a generic implementation of a instruction under
  * the following assumptions:
