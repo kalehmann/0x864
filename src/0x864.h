@@ -284,6 +284,24 @@ extern enum AsmErr as_dec(struct AsmCtx *ctx, struct AsmOp *op);
 extern enum AsmErr as_div(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
+ * Assembles a generic jump instruction.
+ *
+ * Suitable as generic as generic implementation for the `call`, `jmp` or `j*`
+ * (jcc) instructions. The instruction operand encoding is always D and the
+ * offset rel32 with no optimizations for shorter jump offsets.
+ *
+ * @param ctx is a pointer to the AsmCtx structure
+ * @param op is a pointer to the AsmOp structure
+ * @param opcodes are the opcodes for the instruction
+ * @param n_opcodes is the number of opcodes (one or two) in the `opcodes`
+ *                  parameters
+ *
+ * @returns `ERR_NONE` on success or any error, that occured.
+ */
+extern enum AsmErr as_genjmp(struct AsmCtx *ctx, struct AsmOp *op,
+                             uint16_t opcodes, uint8_t n_opcodes);
+
+/**
  * Assembles a generic 1 operand instruction with an R/M destination.
  *
  * Suitable as generic as generic implementation for example the `dec`, `div`,

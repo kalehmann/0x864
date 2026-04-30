@@ -1017,51 +1017,9 @@ as_and:
 ;;; rdi: `struct AsmCtx *ctx`
 ;;; rsi: `struct AsmOp *op`
 as_call:
-        push rbp
-        mov rbp, rsp
-        sub rsp, 16
-
-        mov [rbp - 8], rdi
-        mov [rbp - 16], rsi
-        call skp2lbinst
-
-        mov rdi, [rbp - 8]
-        mov rdi, [rdi]          ; char const *assembly = ctx->assembly
-        mov rsi, 1              ; uint8_t n_ops = 1
-        call ckoptps
-
-        cmp ax, 3               ; OP_TYPE_LBL
-        jne .ret_invalid_operand
-
-        mov rdi, [rbp - 8]
-        call strlbl
-
-        mov rsi, [rbp - 16]
-        mov al, 1
-        mov [rsi], al           ; op->encoding = ENCODING_D
-        mov al, 32
-        mov [rsi + 1], al       ; op->op_size = 32
-        mov al, 1
-        mov [rsi + 5], al       ; op->n_opcodes = 1
-        mov al, 0xe8
-        mov [rsi + 6], al       ; op->opcodes[0] = 0xe8
-        mov al, 32
-        mov [rsi + 9], al       ; op->imm_size = 32
-        mov al, 2
-        mov [rsi + 10], al      ; op->d_label = D_LABEL_RELATIVE
-
-        jmp .end
-
-.end:
-        xor eax, eax            ; Return ERR_NONE
-        mov rsp, rbp
-        pop rbp
-        retn
-
-.ret_invalid_operand:
-        mov eax, 2              ; Return ERR_INVALID_OPERANDS
-        mov rsp, rbp
-        pop rbp
+        mov dx, 0xe8
+        mov cl, 1
+        call as_genjmp
         retn
 
 ;;; rdi: `struct AsmCtx *ctx`
@@ -1078,6 +1036,54 @@ as_div:
         mov dl, 0xf6
         mov ecx, 6
         call as_genop1rm
+        retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
+;;; rdx: `uint16_t opcodes`
+;;; rcx: `uint8_t n_opcodes`
+as_genjmp:
+        push rbp
+        mov rbp, rsp
+        sub rsp, 32
+        mov [rbp - 8], rdi
+        mov [rbp - 16], rsi
+        mov [rbp - 17], dl
+
+        mov al, 0x01
+        mov [rsi], al           ; op->encoding = ENCODING_D
+        mov al, 32
+        mov [rsi + 1], al       ; op->op_size = 32
+        mov [rsi + 5], cl       ; op->n_opcodes = n_opcodes
+        mov [rsi + 6], dx       ; op->opcodes[0] = opcodes & 0xff
+                                ; op->opcodes[1] = opcodes >> 4
+        mov al, 32
+        mov [rsi + 9], al       ; op->imm_size = 32
+        mov al, 2
+        mov [rsi + 10], al      ; op->d_label = D_LABEL_RELATIVE
+
+        call skp2lbinst
+
+        mov rdi, [rbp - 8]
+        mov rdi, [rdi]          ; char const *assembly = ctx->assembly
+        mov rsi, 1              ; uint8_t n_ops = 1
+        call ckoptps
+
+        cmp ax, 3               ; if (chkopts(ctx->assmebly) != OP_TYPE_LBL
+        jne .ret_invalid_operands
+
+        mov rdi, [rbp - 8]
+        call strlbl
+
+        xor eax, eax            ; Return ERR_NONE
+        mov rsp, rbp
+        pop rbp
+        retn
+
+.ret_invalid_operands:
+        mov eax, 2              ; Return ERR_INVALID_OPERANDS
+        mov rsp, rbp
+        pop rbp
         retn
 
 ;;; rdi: `struct AsmCtx *ctx`
