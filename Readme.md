@@ -12,10 +12,12 @@
 | `and`       | At least one operand must be a register direct access           |
 | `call`      | Only `CALL rel32` to a label                                    |
 | `dec`       | Only registers supported as destination operand                 |
+| `div`       | Only registers supported as operand                             |
 | `inc`       | Only registers supported as destination operand                 |
 | `int`       |                                                                 |
 | `lea`       |                                                                 |
 | `mov`       | At least one operand must be a register direct access           |
+| `mul`       | Only registers supported as operand                             |
 | `nop`       |                                                                 |
 | `or`        | At least one operand must be a register direct access           |
 | `pop`       | Only `pop r64`                                                  |

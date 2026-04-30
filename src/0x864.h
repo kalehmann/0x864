@@ -273,6 +273,17 @@ extern enum AsmErr as_call(struct AsmCtx *ctx, struct AsmOp *op);
 extern enum AsmErr as_dec(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
+ * Assembles the div instruction.
+ *
+ * @param ctx is the pointer to the AsmCtx structure.
+ * @param op is a pointer to an empty AsmOp structure, that should be filled
+ *           with data about the encoded instruction.
+ *
+ * @returns `ERR_NONE` on success or any error, that occured
+ */
+extern enum AsmErr as_div(struct AsmCtx *ctx, struct AsmOp *op);
+
+/**
  * Assembles a generic 1 operand instruction with an R/M destination.
  *
  * Suitable as generic as generic implementation for example the `dec`, `div`,
@@ -391,6 +402,17 @@ extern enum AsmErr as_lea(struct AsmCtx *ctx, struct AsmOp *op);
  * @returns `ERR_NONE` on success or any error, that occured
  */
 extern enum AsmErr as_mov(struct AsmCtx *ctx, struct AsmOp *op);
+
+/**
+ * Assembles the mul instruction.
+ *
+ * @param ctx is the pointer to the AsmCtx structure.
+ * @param op is a pointer to an empty AsmOp structure, that should be filled
+ *           with data about the encoded instruction.
+ *
+ * @returns `ERR_NONE` on success or any error, that occured
+ */
+extern enum AsmErr as_mul(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the nop instruction.

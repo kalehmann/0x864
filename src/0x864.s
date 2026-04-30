@@ -23,12 +23,14 @@
         global  as_and
         global  as_call
         global  as_dec
+        global  as_div
         global  as_genop1rm
         global  as_genop2ax32
         global  as_inc
         global  as_int
         global  as_lea
         global  as_mov
+        global  as_mul
         global  as_nop
         global  as_or
         global  as_pop
@@ -788,9 +790,17 @@ as_snginst:
         mov rsi, 0x00636564     ; dec
         call .testinst
         cmp rax, 1
-        jne .check_global
+        jne .check_div
         lea rsi, [rbp - 32]
         call as_dec
+        jmp .assemble
+.check_div:
+        mov rsi, 0x00766964     ; div
+        call .testinst
+        cmp rax, 1
+        jne .check_global
+        lea rsi, [rbp - 32]
+        call as_div
         jmp .assemble
 .check_global:
         mov rsi, 0x6c61626f6c67 ; global
@@ -827,9 +837,17 @@ as_snginst:
         mov rsi, 0x00766f6d     ; mov
         call .testinst
         cmp rax, 1
-        jne .check_nop
+        jne .check_mul
         lea rsi, [rbp - 32]
         call as_mov
+        jmp .assemble
+.check_mul:
+        mov rsi, 0x6c756d     ; mul
+        call .testinst
+        cmp rax, 1
+        jne .check_nop
+        lea rsi, [rbp - 32]
+        call as_mul
         jmp .assemble
 .check_nop:
         mov rsi, 0x00706f6e     ; nop
@@ -1051,6 +1069,14 @@ as_call:
 as_dec:
         mov dl, 0xfe
         mov ecx, 1
+        call as_genop1rm
+        retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
+as_div:
+        mov dl, 0xf6
+        mov ecx, 6
         call as_genop1rm
         retn
 
@@ -1432,6 +1458,14 @@ as_mov:
         mov eax, 2              ; Return ERR_INVALID_OPERANDS
         mov rsp, rbp
         pop rbp
+        retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
+as_mul:
+        mov dl, 0xf6
+        mov ecx, 4
+        call as_genop1rm
         retn
 
 ;;; rdi: `struct AsmCtx *ctx`

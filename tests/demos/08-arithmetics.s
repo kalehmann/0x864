@@ -53,6 +53,18 @@ demo_08_arithmetics:
         sub ecx, [rbp - 4]
         sub rdx, [rbp - 8]
 
+        mul ch
+        mul bl
+        mul cx
+        mul edx
+        mul r8
+
+        div ch
+        div bl
+        div cx
+        div edx
+        div r8
+
         mov rsp, rbp
         pop rbp
         retn
