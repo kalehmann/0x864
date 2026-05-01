@@ -6,11 +6,14 @@
 ;;; 1. First compile the assembler with `make`
 ;;; 2. Then assemble the hello world program to a relocatable elf file
 ;;;     ```
-;;;     ./src/0x864 tests/demos/06-hello-world.s -o tests/demos/06-hello-world.o -felf64
+;;;     ./src/0x864 \
+;;;             -o tests/demos/06-hello-world.o \
+;;;             -felf64 \
+;;;             tests/demos/06-hello-world.s
 ;;;     ```
 ;;; 3. Now link the relocatable file as an executable file
 ;;;     ```
-;;;     ld -m elf_x86_64 tests/demos/06-hello-world.o -o hello-world
+;;;     ld -m elf_x86_64 -o hello-world tests/demos/06-hello-world.o
 ;;;     ```
 ;;; 4. Execute the program
 ;;;     ```
