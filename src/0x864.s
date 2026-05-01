@@ -43,6 +43,8 @@
         global  as_pop
         global  as_push
         global  as_retn
+        global  as_shl
+        global  as_shr
         global  as_sub
         global  as_syscall
         global  as_xor
@@ -940,9 +942,25 @@ as_snginst:
         mov rsi, 0x006e746572   ; retn
         call .testinst
         cmp rax, 1
-        jne .check_sub
+        jne .check_shl
         lea rsi, [rbp - 32]
         call as_retn
+        jmp .assemble
+.check_shl:
+        mov rsi, 0x6c6873       ; shl
+        call .testinst
+        cmp rax, 1
+        jne .check_shr
+        lea rsi, [rbp - 32]
+        call as_shl
+        jmp .assemble
+.check_shr:
+        mov rsi, 0x726873       ; shl
+        call .testinst
+        cmp rax, 1
+        jne .check_sub
+        lea rsi, [rbp - 32]
+        call as_shr
         jmp .assemble
 .check_sub:
         mov rsi, 0x627573       ; sub
@@ -1719,6 +1737,141 @@ as_syscall:
         mov [rsi + 7], al       ; op->opcodes[1] = 0x05
 
         xor eax, eax            ; Return ERR_NONE
+        retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
+as_shl:
+        push rbp
+        mov rbp, rsp
+        sub rsp, 16
+        mov [rbp - 8], rdi
+        mov [rbp - 16], rsi
+
+        mov al, 0x04
+        mov [rsi], al           ; op->encoding = ENCODING_MI
+        mov al, 4
+        mov [rsi + 2], al       ; op->src_reg = 4
+        mov al, 0b11
+        mov [rsi + 4], al       ; op->modrm_mod = MOD_DIRECT
+        mov al, 1
+        mov [rsi + 5], al       ; op->n_opcodes = 1
+        mov al, 8
+        mov [rsi + 9], 8        ; op->imm_size = 8
+
+
+        ;; Skip to next token - the register
+        call skp2lbinst
+
+        mov rdi, [rbp - 8]
+        mov rdi, [rdi]          ; char *assembly = ctx->assembly
+        mov rsi, 1              ; uint8_t n_ops = 1
+        call ckopsize
+        mov rsi, [rbp - 16]
+        mov [rsi + 1], al       ; op->op_size = al
+
+        mov rdi, [rbp - 8]
+        mov rdi, [rdi]          ; char const *assembly = ctx->assembly
+        mov rsi, 2              ; uint8_t n_ops = 2
+        call ckoptps
+
+        cmp ax, 2               ; (OP_TYPE_REG << 4) | OP_TYPE_IMM
+        jne .ret_invalid_operands
+
+        mov rdi, [rbp - 8]      ; char **assembly = &ctx->assembly
+        call preg
+        mov rsi, [rbp - 16]
+        mov [rsi + 3], al       ; op->dst_reg = preg(&ctx->assembly)
+
+        mov rdi, [rbp - 8]      ; char **assembly = &ctx->assembly
+        call skp2nxtop
+
+        mov rdi, [rbp - 8]      ; char **assembly = &ctx->assembly
+        call pint
+        mov rsi, [rbp - 16]
+        mov [rsi + 16], al      ; op->imm.imm8 = pint(&ctx->assembly)
+
+        cmp al, 1               ; if (op->imm.imm8 == 1)
+        je .shift1
+
+        mov al, [rsi + 1]
+        cmp al, 8               ; if (op->op_size == 8)
+        je .op8
+        cmp al, 16              ; if (op->op_size == 16)
+        je .op16
+        jmp .op32_64
+
+.shift1:
+        mov al, 0x03
+        mov [rsi], al           ; op->encoding = ENCODING_M
+        mov al, [rsi + 1]
+        cmp al, 8               ; if (op->op_size == 8)
+        je .shift1_op8
+        cmp al, 16              ; if (op->op_size == 16)
+        je .shift1_op16
+        jmp .shift1_op32_64
+
+.shift1_op8:
+        mov al, 0xd0
+        mov [rsi + 6], al       ; op->opcodes[0] = 0xd0
+        jmp .end
+
+.shift1_op16:
+        mov al, 0xd1
+        mov [rsi + 6], al       ; op->opcodes[0] = 0xd1
+        mov al, 0x08
+        mov [rsi + 11], al      ; op->prefix = PREFIX_OP_SIZE_OVERRIDE
+        jmp .end
+
+.shift1_op32_64:
+        mov al, 0xd1
+        mov [rsi + 6], al       ; op->opcodes[0] = 0xd1
+        jmp .end
+
+.op8:
+        mov al, 0xc0
+        mov [rsi + 6], al       ; op->opcodes[0] = 0xc0
+        jmp .end
+
+.op16:
+        mov al, 0xc1
+        mov [rsi + 6], al       ; op->opcodes[0] = 0xc1
+        mov al, 0x08
+        mov [rsi + 11], al      ; op->prefix = PREFIX_OP_SIZE_OVERRIDE
+        jmp .end
+
+.op32_64:
+        mov al, 0xc1
+        mov [rsi + 6], al       ; op->opcodes[0] = 0xc1
+
+.end:
+        xor eax, eax            ; Return ERR_NONE
+        mov rsp, rbp
+        pop rbp
+        retn
+
+.ret_invalid_operands:
+        mov eax, 2              ; Return ERR_INVALID_OPERANDS
+        mov rsp, rbp
+        pop rbp
+        retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
+as_shr:
+        push rbp
+        mov rbp, rsp
+        sub rsp, 16
+        mov [rbp - 8], rdi
+        mov [rbp - 16], rsi
+
+        call as_shl
+        mov rsi, [rbp - 16]
+        mov cl, 5
+        mov [rsi + 2], cl       ; op->src_reg = 5
+
+        mov rsp, rbp
+        pop rbp
         retn
 
 ;;; rdi: `struct AsmCtx *ctx`

@@ -10,17 +10,17 @@
 |-------------|-----------------------------------------------------------------|
 | `and`       | One operand must be a register                                  |
 | `and`       | At least one operand must be a register direct access           |
-| `call`      | Only `CALL rel32` to a label                                    |
+| `call`      | Only `call rel32` to a label                                    |
 | `cmp`       | At least one operand must be a register direct access           |
 | `dec`       | Only registers supported as destination operand                 |
 | `div`       | Only registers supported as operand                             |
 | `inc`       | Only registers supported as destination operand                 |
 | `int`       |                                                                 |
-| `ja`        | Only `JA rel32` to a label                                      |
-| `jb`        | Only `JB rel32` to a label                                      |
-| `je`        | Only `JE rel32` to a label                                      |
-| `jmp`       | Only `JMP rel32` to a label                                     |
-| `jne`       | Only `JNE rel32` to a label                                     |
+| `ja`        | Only `ja rel32` to a label                                      |
+| `jb`        | Only `jb rel32` to a label                                      |
+| `je`        | Only `je rel32` to a label                                      |
+| `jmp`       | Only `jmp rel32` to a label                                     |
+| `jne`       | Only `jne rel32` to a label                                     |
 | `lea`       |                                                                 |
 | `mov`       | At least one operand must be a register direct access           |
 | `mul`       | Only registers supported as operand                             |
@@ -29,6 +29,8 @@
 | `pop`       | Only `pop r64`                                                  |
 | `push`      | Only `push r64`                                                 |
 | `retn`      |                                                                 |
+| `shl`       | Only `shl r/m*, imm8`                                           |
+| `shr`       | Only `shr r/m*, imm8`                                           |
 | `sub`       | One operand must be a register                                  |
 | `syscall`   |                                                                 |
 | `xor`       | At least one operand must be a register direct access           |
