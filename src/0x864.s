@@ -398,7 +398,7 @@ assemble_op:
         and ah, 0x01
         cmp ah, 0               ; if ((op->prefix & PREFIX_LOCK) == 0)
         je .store_prefixes_repne
-        mov ah, 0xF0
+        mov ah, 0xf0
         mov [rdx], ah
         inc al
         inc rdx
@@ -408,7 +408,7 @@ assemble_op:
         and ah, 0x02
         cmp ah, 0               ; if ((op->prefix & PREFIX_REPNE_REPNZ) == 0)
         je .store_prefixes_repe
-        mov ah, 0xF2
+        mov ah, 0xf2
         mov [rdx], ah
         inc al
         inc rdx
@@ -418,7 +418,7 @@ assemble_op:
         and ah, 0x04
         cmp ah, 0               ; if ((op->prefix & PREFIX_REPE_REPZ) == 0)
         je .store_prefixes_op_size
-        mov ah, 0xF3
+        mov ah, 0xf3
         mov [rdx], ah
         inc al
         inc rdx
@@ -1735,7 +1735,7 @@ as_retn:
         mov al, 1
         mov [rsi + 5], al       ; op->n_opcodes = 1
         mov al, 0xc3
-        mov [rsi + 6], al       ; op->opcodes[0] = 0x90
+        mov [rsi + 6], al       ; op->opcodes[0] = 0xc3
 
         xor eax, eax            ; Return ERR_NONE
         retn
