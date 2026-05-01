@@ -62,7 +62,7 @@ struct AsmCtx *make_asmctx(char const *assembly, size_t max_bintxt_size,
         }
         ctx->max_reftab_entries = max_reftab_entries;
         if (max_globals > 0) {
-                ctx->globals = calloc(1, 64);
+                ctx->globals = calloc(max_globals, 64);
                 if (ctx->globals == NULL) {
                         free(ctx->bintxt);
                         free(ctx->symtab);
