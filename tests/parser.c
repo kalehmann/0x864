@@ -135,7 +135,11 @@ void test_isreg(void)
         TEST_CHECK(isreg("edx;Comment here\n") == 1);
         TEST_CHECK(isreg("r8\t\t\n") == 1);
         TEST_CHECK(isreg("r9 ") == 1);
+        TEST_CHECK(isreg("r9b ") == 1);
+        TEST_CHECK(isreg("r9d ") == 1);
         TEST_CHECK(isreg("r10 ") == 1);
+        TEST_CHECK(isreg("r11b ") == 1);
+        TEST_CHECK(isreg("r11d ") == 1);
         TEST_CHECK(isreg("r11 ") == 1);
         TEST_CHECK(isreg("r12 ") == 1);
         TEST_CHECK(isreg("r13 ") == 1);

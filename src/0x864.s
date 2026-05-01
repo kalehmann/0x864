@@ -3625,6 +3625,9 @@ pr8:
         mov cl, 0b0010
         cmp [rdi], al
         je .a_b_c_d
+        mov al, 0x72            ; Ascii lowercase letter r
+        cmp [rdi], al
+        je .r
         jmp .ret_false
 
 .a_b_c_d:
@@ -3634,6 +3637,56 @@ pr8:
         je .check_token_delim
         mov al, 0x68            ; Ascii lowercase letter h
         or cl, 0b0100
+        cmp [rdi], al
+        je .check_token_delim
+        jmp .ret_false
+
+.r:
+        inc rdi
+        mov al, 0x38            ; Ascii number 8
+        mov cl, 0b1000
+        cmp [rdi], al
+        je .r8_r9_r1x
+        mov al, 0x39            ; Ascii number 9
+        mov cl, 0b1001
+        cmp [rdi], al
+        je .r8_r9_r1x
+        mov al, 0x31            ; Ascii number 1
+        cmp [rdi], al
+        je .r1
+        jmp .ret_false
+
+.r1:
+        inc rdi
+        mov al, 0x30            ; Ascii number 0
+        cmp [rdi], al
+        mov cl, 0b1010
+        je .r8_r9_r1x
+        mov al, 0x31            ; Ascii number 1
+        mov cl, 0b1011
+        cmp [rdi], al
+        je .r8_r9_r1x
+        mov al, 0x32            ; Ascii number 2
+        mov cl, 0b1100
+        cmp [rdi], al
+        je .r8_r9_r1x
+        mov al, 0x33            ; Ascii number 3
+        mov cl, 0b1101
+        cmp [rdi], al
+        je .r8_r9_r1x
+        mov al, 0x34            ; Ascii number 4
+        mov cl, 0b1110
+        cmp [rdi], al
+        je .r8_r9_r1x
+        mov al, 0x35            ; Ascii number 5
+        mov cl, 0b1111
+        cmp [rdi], al
+        je .r8_r9_r1x
+        jmp .ret_false
+
+.r8_r9_r1x:
+        inc rdi
+        mov al, 0x62            ; Ascii lowercase letter b
         cmp [rdi], al
         je .check_token_delim
         jmp .ret_false
