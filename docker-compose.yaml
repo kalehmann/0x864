@@ -1,0 +1,18 @@
+---
+x-generic-service: &generic-service
+        build:
+                context: "."
+        image: "git.kalehmann.de/karsten/0x864"
+        volumes:
+                - ".:/0x864"
+        working_dir: "/0x864"
+
+services:
+        make:
+                <<: *generic-service
+                entrypoint: "/usr/bin/make"
+
+        shell:
+                <<: *generic-service
+                entrypoint: "/bin/bash"
+...
