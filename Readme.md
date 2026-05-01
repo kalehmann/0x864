@@ -11,6 +11,7 @@
 | `and`       | One operand must be a register; No add sign-extended imm8       |
 | `and`       | At least one operand must be a register direct access           |
 | `call`      | Only `CALL rel32` to a label                                    |
+| `cmp`       | At least one operand must be a register direct access           |
 | `dec`       | Only registers supported as destination operand                 |
 | `div`       | Only registers supported as operand                             |
 | `inc`       | Only registers supported as destination operand                 |

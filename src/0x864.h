@@ -262,6 +262,17 @@ extern enum AsmErr as_and(struct AsmCtx *ctx, struct AsmOp *op);
 extern enum AsmErr as_call(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
+ * Assembles the cmp instruction.
+ *
+ * @param ctx is the pointer to the AsmCtx structure.
+ * @param op is a pointer to an empty AsmOp structure, that should be filled
+ *           with data about the encoded instruction.
+ *
+ * @returns `ERR_NONE` on success or any error, that occured
+ */
+extern enum AsmErr as_cmp(struct AsmCtx *ctx, struct AsmOp *op);
+
+/**
  * Assembles the dec instruction.
  *
  * @param ctx is the pointer to the AsmCtx structure.

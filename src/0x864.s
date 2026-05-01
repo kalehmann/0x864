@@ -22,6 +22,7 @@
         global  as_add
         global  as_and
         global  as_call
+        global  as_cmp
         global  as_dec
         global  as_div
         global  as_genjmp
@@ -785,9 +786,17 @@ as_snginst:
         mov rsi, 0x006c6c6163   ; call
         call .testinst
         cmp rax, 1
-        jne .check_dec
+        jne .check_cmp
         lea rsi, [rbp - 32]
         call as_call
+        jmp .assemble
+.check_cmp:
+        mov rsi, 0x706d63       ; cmp
+        call .testinst
+        cmp rax, 1
+        jne .check_dec
+        lea rsi, [rbp - 32]
+        call as_cmp
         jmp .assemble
 .check_dec:
         mov rsi, 0x00636564     ; dec
@@ -1039,6 +1048,19 @@ as_call:
         mov dx, 0xe8
         mov cl, 1
         call as_genjmp
+        retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
+as_cmp:
+        mov edx, 0x3c           ; uint8_t op_al_imm8 = 0x3c
+        mov ecx, 0x80           ; uint8_t op_rimm8 = 0x80
+        mov r8d, 0x38           ; uint8_t op_rmr8 = 0x38
+        mov r9d, 0x3a           ; uint8_t op_rrm8 = 0x3a
+        mov eax, 7
+        mov [rbp - 16], rax     ; uint8_t modrm_mod = 7
+        call as_genop2ax32
+
         retn
 
 ;;; rdi: `struct AsmCtx *ctx`
