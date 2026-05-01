@@ -7,6 +7,7 @@ demo_10_jmp_conditional:
         jb .end
         cmp r15d, 0
         je .end
+        jz .end
         jne .end
         jnz .end
 .end:

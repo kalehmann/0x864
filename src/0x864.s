@@ -886,9 +886,17 @@ as_snginst:
         mov rsi, 0x7a6e6a       ; jnz
         call .testinst
         cmp rax, 1
-        jne .check_lea
+        jne .check_jz
         lea rsi, [rbp - 32]
         call as_jne             ; jnz is same as jne
+        jmp .assemble
+.check_jz:
+        mov rsi, 0x7a6a         ; jz
+        call .testinst
+        cmp rax, 1
+        jne .check_lea
+        lea rsi, [rbp - 32]
+        call as_je              ; jz is same as je
         jmp .assemble
 .check_lea:
         mov rsi, 0x0061656c     ; lea

@@ -22,6 +22,7 @@
 | `jmp`       | Only `jmp rel32` to a label                                     |
 | `jne`       | Only `jne rel32` to a label                                     |
 | `jnz`       | Only `jnz rel32` to a label                                     |
+| `jz`        | Only `jz rel32` to a label                                      |
 | `lea`       |                                                                 |
 | `mov`       | At least one operand must be a register direct access           |
 | `mul`       | Only registers supported as operand                             |
