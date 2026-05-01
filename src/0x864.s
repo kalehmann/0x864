@@ -875,12 +875,20 @@ as_snginst:
         call as_jmp
         jmp .assemble
 .check_jne:
-        mov rsi, 0x656e6a         ; jne
+        mov rsi, 0x656e6a       ; jne
+        call .testinst
+        cmp rax, 1
+        jne .check_jnz
+        lea rsi, [rbp - 32]
+        call as_jne
+        jmp .assemble
+.check_jnz:
+        mov rsi, 0x7a6e6a       ; jnz
         call .testinst
         cmp rax, 1
         jne .check_lea
         lea rsi, [rbp - 32]
-        call as_jne
+        call as_jne             ; jnz is same as jne
         jmp .assemble
 .check_lea:
         mov rsi, 0x0061656c     ; lea

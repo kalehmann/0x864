@@ -8,5 +8,6 @@ demo_10_jmp_conditional:
         cmp r15d, 0
         je .end
         jne .end
+        jnz .end
 .end:
         retn
