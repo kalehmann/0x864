@@ -1765,7 +1765,7 @@ as_shl:
         mov al, 1
         mov [rsi + 5], al       ; op->n_opcodes = 1
         mov al, 8
-        mov [rsi + 9], 8        ; op->imm_size = 8
+        mov [rsi + 9], al       ; op->imm_size = 8
 
 
         ;; Skip to next token - the register
