@@ -1,0 +1,14 @@
+---
+when:
+    event: "push"
+steps:
+    - name: "Build"
+      image: "git.kalehmann.de/karsten/0x864:latest"
+      commands:
+          - "make"
+    - name: "Run tests"
+      image: "git.kalehmann.de/karsten/0x864:latest"
+      commands:
+          - "make tests"
+      depends_on:
+          - 'Build'
