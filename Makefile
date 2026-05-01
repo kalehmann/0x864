@@ -1,5 +1,5 @@
 CC = gcc
-CC_FLAGS = -Wall -g
+CC_FLAGS = -Wall -g -fno-eliminate-unused-debug-types
 CC_TEST_FLAGS = -Isrc -Ivendor/acutest/include -Itests
 NASM = nasm
 OBJCOPY = objcopy
