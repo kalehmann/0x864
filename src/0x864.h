@@ -366,6 +366,11 @@ extern enum AsmErr as_genop1rm(struct AsmCtx *ctx, struct AsmOp *op,
  * - the 32-bit operation uses the opcode of the 8-bit operation plus one
  * - the 64-bit operation uses the opcode of the 8-bit operation plus one and
  *   the REX.W bit
+ * - if the operation has a register as destination, an immediate as source and
+ *   that immediate fits into a `int8_t`, the operation has an opcode to
+ *   sign-extend the immediate to the register size. The 16-bit operation then
+ *   utilizes the operand size override prefix and the 64-bit operation sets the
+ *   REX.W bit while the opcode stays the same
  * - the MI encoding may have additional data in the ModRM.reg field
  *
  * @param ctx is a pointer to the AsmCtx structure
@@ -374,6 +379,8 @@ extern enum AsmErr as_genop1rm(struct AsmCtx *ctx, struct AsmOp *op,
  *                    destination and an immediate as source.
  * @param op8_rimm8 is the opcode for the 8-bit operation with any register other
  *                  than `al` as destination and an immediate as source.
+ * @param op8_rsimm8 is the opcode for the operation with a register of any size
+ *                   and a sign-extended 8-bit immediate as source.
  * @param op8_rmr8 is the opcode for the 8-bit operation with a R\M as source
  *                 and a register as destination.
  * @param op8_rrm8 is the opcode for the 8-bit operation with a register as
@@ -385,8 +392,8 @@ extern enum AsmErr as_genop1rm(struct AsmCtx *ctx, struct AsmOp *op,
  */
 extern enum AsmErr as_genop2ax32(struct AsmCtx *ctx, struct AsmOp *op,
                                  uint8_t op_al_imm8, uint8_t op_rimm8,
-                                 uint8_t op_rmr8, uint8_t op_rrm8,
-                                 uint8_t modrm_reg);
+                                 uint8_t op_rsimm8, uint8_t op_rmr8,
+                                 uint8_t op_rrm8, uint8_t modrm_reg);
 
 /**
  * Assembles the inc instruction.
@@ -712,14 +719,21 @@ extern void genop2aximm32(struct AsmCtx *ctx, struct AsmOp *op, uint8_t op8);
  *   override prefix (0x66)
  * - the 32-bit operation uses a single opcode `op8 + 1`
  * - the 64-bit operation uses a single opcode `op8 + 1` and the REX.W bit
+ * - if the operation has a register as destination, an immediate as source and
+ *   that immediate fits into a `int8_t`, the operation has an opcode to
+ *   sign-extend the immediate to the register size. The 16-bit operation then
+ *   utilizes the operand size override prefix and the 64-bit operation sets the
+ *   REX.W bit while the opcode stays the same
  *
  * @param ctx is a pointer to the AsmCtx structure
  * @param op is a pointer to the AsmOp structure
  * @param op8 is the opcode for the 8-bit operation.
+ * @param op_simm8 is the opcode for the operation with a sign-extended 8-bit
+ *                 immediate.
  * @param modrm_reg is additional data to encode in the ModRM.reg field.
  */
 extern void genop2rimm32(struct AsmCtx *ctx, struct AsmOp *op, uint8_t op8,
-                         uint8_t modrm_reg);
+                         uint8_t op_simm8, uint8_t modrm_reg);
 
 /**
  * Fills the AsmOp structure for a R source and R\M destination instruction.

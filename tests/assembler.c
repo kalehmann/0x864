@@ -263,14 +263,14 @@ void test_as_genop2ax32(void)
         // Test imm to imm is not supported
         ctx = make_asmctx("1, 2", 0, 0, 0, 0);
         TEST_ASSERT(ctx != NULL);
-        err = as_genop2ax32(ctx, &op, 0, 0, 0, 0, 0);
+        err = as_genop2ax32(ctx, &op, 0, 0, 0, 0, 0, 0);
         TEST_CHECK(err == ERR_INVALID_OPERANDS);
         free_asmctx(ctx);
 
         // Test special handling for al register
         ctx = make_asmctx("al, 2", 0, 0, 0, 0);
         TEST_ASSERT(ctx != NULL);
-        err = as_genop2ax32(ctx, &op, 0x0c, 0, 0, 0, 0);
+        err = as_genop2ax32(ctx, &op, 0x0c, 0, 0, 0, 0, 0);
         TEST_CHECK(err == ERR_NONE);
         TEST_CHECK(op.encoding == ENCODING_I);
         TEST_CHECK(op.n_opcodes == 1);
@@ -280,7 +280,7 @@ void test_as_genop2ax32(void)
         // ModRM.reg is encoded
         ctx = make_asmctx("bl, 2", 0, 0, 0, 0);
         TEST_ASSERT(ctx != NULL);
-        err = as_genop2ax32(ctx, &op, 0, 0x80, 0, 0, 7);
+        err = as_genop2ax32(ctx, &op, 0, 0x80, 0x83, 0, 0, 7);
         TEST_CHECK(err == ERR_NONE);
         TEST_CHECK(op.encoding == ENCODING_MI);
         TEST_CHECK(op.op_size == 8);
@@ -290,15 +290,28 @@ void test_as_genop2ax32(void)
         free_asmctx(ctx);
 
         // Opcode for 32 bit operation is opcode for 8 bit operation plus one
-        ctx = make_asmctx("ecx, 2", 0, 0, 0, 0);
+        ctx = make_asmctx("ecx, 0x100", 0, 0, 0, 0);
         TEST_ASSERT(ctx != NULL);
-        err = as_genop2ax32(ctx, &op, 0, 0x80, 0, 0, 7);
+        err = as_genop2ax32(ctx, &op, 0, 0x80, 0x83, 0, 0, 7);
         TEST_CHECK(err == ERR_NONE);
         TEST_CHECK(op.encoding == ENCODING_MI);
         TEST_CHECK(op.op_size == 32);
         TEST_CHECK(op.src_reg == 7);
         TEST_CHECK(op.n_opcodes == 1);
         TEST_CHECK(op.opcodes[0] == 0x81);
+        free_asmctx(ctx);
+
+        // Sign-extended 8-bit operation is used, if immediate fits in int8_t
+        ctx = make_asmctx("ecx, 120", 0, 0, 0, 0);
+        TEST_ASSERT(ctx != NULL);
+        err = as_genop2ax32(ctx, &op, 0, 0x80, 0x83, 0, 0, 7);
+        TEST_CHECK(err == ERR_NONE);
+        TEST_CHECK(op.encoding == ENCODING_MI);
+        TEST_CHECK(op.op_size == 32);
+        TEST_CHECK(op.src_reg == 7);
+        TEST_CHECK(op.n_opcodes == 1);
+        TEST_CHECK(op.opcodes[0] == 0x83);
+        TEST_CHECK(op.imm_size == 8);
         free_asmctx(ctx);
 }
 

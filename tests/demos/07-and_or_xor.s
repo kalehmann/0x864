@@ -13,6 +13,7 @@ demo_07_and_or_xor:
         and cx, 0xabcd
         and edx, 0x12abcdef
         and rsi, 0x12abcdef
+        and rdx, 127
 
         and cl, ah
         and bx, dx

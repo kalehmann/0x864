@@ -1013,10 +1013,12 @@ as_add:
 
         mov edx, 0x04           ; uint8_t op_al_imm8 = 0x04
         mov ecx, 0x80           ; uint8_t op_rimm8 = 0x80
-        mov r8d, 0x00           ; uint8_t op_rmr8 = 0x00
-        mov r9d, 0x02           ; uint8_t op_rrm8 = 0x02
+        mov r8d, 0x83           ; uint8_t op_rsimm8 = 0x83
+        mov r9d, 0x00           ; uint8_t op_rmr8 = 0x00
+        mov eax, 0x02
+        mov [rbp - 16], rax     ; uint8_t op_rrm8 = 0x02
         xor eax, eax
-        mov [rbp - 16], rax     ; uint8_t modrm_mod = 0
+        mov [rbp - 8], rax      ; uint8_t modrm_mod = 0
         call as_genop2ax32
 
         mov rsp, rbp
@@ -1032,10 +1034,12 @@ as_and:
 
         mov edx, 0x24           ; uint8_t op_al_imm8 = 0x24
         mov ecx, 0x80           ; uint8_t op_rimm8 = 0x80
-        mov r8d, 0x20           ; uint8_t op_rmr8 = 0x20
-        mov r9d, 0x22           ; uint8_t op_rrm8 = 0x22
+        mov r8d, 0x83           ; uint8_t op_rsimm8 = 0x83
+        mov r9d, 0x20           ; uint8_t op_rmr8 = 0x20
+        mov eax, 0x22
+        mov [rbp - 16], rax     ; uint8_t op_rrm8 = 0x22
         mov eax, 4
-        mov [rbp - 16], rax     ; uint8_t modrm_mod = 4
+        mov [rbp - 8], rax      ; uint8_t modrm_mod = 4
         call as_genop2ax32
 
         mov rsp, rbp
@@ -1053,14 +1057,22 @@ as_call:
 ;;; rdi: `struct AsmCtx *ctx`
 ;;; rsi: `struct AsmOp *op`
 as_cmp:
+        push rbp
+        mov rbp, rsp
+        sub rsp, 16
+
         mov edx, 0x3c           ; uint8_t op_al_imm8 = 0x3c
         mov ecx, 0x80           ; uint8_t op_rimm8 = 0x80
-        mov r8d, 0x38           ; uint8_t op_rmr8 = 0x38
-        mov r9d, 0x3a           ; uint8_t op_rrm8 = 0x3a
+        mov r8d, 0x83           ; uint8_t op_rsimm8 = 0x83
+        mov r9d, 0x38           ; uint8_t op_rmr8 = 0x38
+        mov eax, 0x3a
+        mov [rbp - 16], rax     ; uint8_t op_rrm8 = 0x3a
         mov eax, 7
-        mov [rbp - 16], rax     ; uint8_t modrm_mod = 7
+        mov [rbp - 8], rax     ; uint8_t modrm_mod = 7
         call as_genop2ax32
 
+        mov rsp, rbp
+        pop rbp
         retn
 
 ;;; rdi: `struct AsmCtx *ctx`
@@ -1212,9 +1224,10 @@ as_genop1rm:
 ;;; rsi: `struct AsmOp *op`
 ;;; rdx: `uint8_t op_al_imm8`
 ;;; rcx: `uint8_t op_rimm8`
-;;; r8: `uint8_t op_rmr8`
-;;; r9: `uint8_t op_rrm8`
-;;; [rbp + 16]: `uint8_t modrm_reg`
+;;; r8: `uint8_t op_rsimm8`
+;;; r9: `uint8_t op_rmr8`
+;;; [rbp + 16]: `uint8_t op_rrm8`
+;;; [rbp + 24]: `uint8_t modrm_reg`
 as_genop2ax32:
         push rbp
         mov rbp, rsp
@@ -1227,6 +1240,8 @@ as_genop2ax32:
         mov [rbp - 20], r9b
         mov al, [rbp + 16]
         mov [rbp - 21], al
+        mov al, [rbp + 24]
+        mov [rbp - 22], al
 
         call skp2lbinst
 
@@ -1256,14 +1271,15 @@ as_genop2ax32:
         mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
         mov rsi, [rbp - 16]     ; struct AsmOp *op = op
         mov dl, [rbp - 18]      ; uint8_t op8 = op_rimm8
-        mov cl, [rbp - 21]      ; uint8_t modrm_reg = modrm_reg
+        mov cl, [rbp - 19]      ; uint8_t op_simm8 = op_rsimm8
+        mov r8b, [rbp - 22]     ; uint8_t modrm_reg = modrm_reg
         call genop2rimm32
         jmp .end
 
 .check_rmr:
         mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
         mov rsi, [rbp - 16]     ; struct AsmOp *op = op
-        mov dl, [rbp - 19]      ; uint8_t op8 = op_rmr8
+        mov dl, [rbp - 20]      ; uint8_t op8 = op_rmr8
 
         cmp ax, 0b00010000      ; (OP_TYPE_RGNDRCT << 4) | OP_TYPE_REG
         jne .check_rr
@@ -1275,7 +1291,7 @@ as_genop2ax32:
         call genop2rmr
         jmp .end
 .check_rrm:
-        mov dl, [rbp - 20]      ; uint8_t op8 = op_rrm8
+        mov dl, [rbp - 21]      ; uint8_t op8 = op_rrm8
         cmp ax, 1               ; (OP_TYPE_REG << 4) | OP_TYPE_RGNDRCT
         jne .ret_invalid_operands
         call genop2rrm
@@ -1553,10 +1569,12 @@ as_or:
 
         mov edx, 0x0c           ; uint8_t op_al_imm8 = 0x0c
         mov ecx, 0x80           ; uint8_t op_rimm8 = 0x80
-        mov r8d, 0x08           ; uint8_t op_rmr8 = 0x08
-        mov r9d, 0x0a           ; uint8_t op_rrm8 = 0x0a
+        mov r8d, 0x83           ; uint8_t op_rsimm8 = 0x83
+        mov r9d, 0x08           ; uint8_t op_rmr8 = 0x08
+        mov eax, 0x0a
+        mov [rbp - 16], rax     ; uint8_t op_rrm8 = 0x0a
         mov eax, 1
-        mov [rbp - 16], rax     ; uint8_t modrm_mod = 4
+        mov [rbp - 8], rax      ; uint8_t modrm_mod = 4
         call as_genop2ax32
 
         mov rsp, rbp
@@ -1661,10 +1679,12 @@ as_sub:
 
         mov edx, 0x2c           ; uint8_t op_al_imm8 = 0x2c
         mov ecx, 0x80           ; uint8_t op_rimm8 = 0x80
-        mov r8d, 0x28           ; uint8_t op_rmr8 = 0x28
-        mov r9d, 0x2a           ; uint8_t op_rrm8 = 0x2a
+        mov r8d, 0x83           ; uint8_t op_rsimm8 = 0x83
+        mov r9d, 0x28           ; uint8_t op_rmr8 = 0x28
+        mov eax, 0x2a
+        mov [rbp - 16], rax     ; uint8_t op_rrm8 = 0x2a
         mov eax, 5
-        mov [rbp - 16], rax     ; uint8_t modrm_mod = 5
+        mov [rbp - 8], rax      ; uint8_t modrm_mod = 5
         call as_genop2ax32
 
         mov rsp, rbp
@@ -1680,10 +1700,12 @@ as_xor:
 
         mov edx, 0x34           ; uint8_t op_al_imm8 = 0x34
         mov ecx, 0x80           ; uint8_t op_rimm8 = 0x80
-        mov r8d, 0x30           ; uint8_t op_rmr8 = 0x30
-        mov r9d, 0x32           ; uint8_t op_rrm8 = 0x32
+        mov r8d, 0x83           ; uint8_t op_rsimm8 = 0x83
+        mov r9d, 0x30           ; uint8_t op_rmr8 = 0x30
+        mov eax, 0x32
+        mov [rbp - 16], rax     ; uint8_t op_rrm8 = 0x32
         mov eax, 6
-        mov [rbp - 16], rax     ; uint8_t modrm_mod = 4
+        mov [rbp - 8], rax      ; uint8_t modrm_mod = 4
         call as_genop2ax32
 
         mov rsp, rbp
@@ -2800,7 +2822,8 @@ genop2aximm32:
 ;;; rdi: `struct AsmCtx *ctx`
 ;;; rsi: `struct AsmOp *op`
 ;;; rdx: `uint8_t op8`
-;;; rcx: `uint8_t modrm_reg`
+;;; rcx: `uint8_t op_simm8`
+;;; r8: `uint8_t modrm_reg`
 genop2rimm32:
         push rbp
         mov rbp, rsp
@@ -2809,12 +2832,13 @@ genop2rimm32:
         mov [rbp - 8], rdi
         mov [rbp - 16], rsi
         mov [rbp - 17], dl
+        mov [rbp - 18], cl
 
         mov al, 4
         mov [rsi], al           ; op->encoding = ENCODING_MI
         mov al, 1
         mov [rsi + 5], al       ; op->n_opcodes = 1
-        mov [rsi + 2], cl       ; op->src_reg = modrm_reg
+        mov [rsi + 2], r8b      ; op->src_reg = modrm_reg
 
         mov rdi, [rbp - 8]
         mov rdi, [rdi]          ; char *assembly = ctx->assembly
@@ -2855,15 +2879,19 @@ genop2rimm32:
         jmp .end
 
 .op16:
+        mov cl, 0x08
+        mov [rsi + 11], cl      ; op->prefix = PREFIX_OP_SIZE_OVERRIDE
+        cmp ax, 128             ; if (pint(...) < 128)
+        jb .op_sign_extended
         mov [rsi + 16], ax      ; op->imm.imm16 = pint(...)
         mov al, [rbp - 17]
         inc al
         mov [rsi + 6], al       ; op->opcodes[0] = op8 + 1
-        mov al, 0x08
-        mov [rsi + 11], al      ; op->prefix = PREFIX_OP_SIZE_OVERRIDE
         jmp .end
 
 .op32:
+        cmp eax, 128            ; if (pint(...) < 128)
+        jb .op_sign_extended
         mov [rsi + 16], eax     ; op->imm.imm32 = pint(...)
         mov al, [rbp - 17]
         inc al
@@ -2871,12 +2899,22 @@ genop2rimm32:
         jmp .end
 
 .op64:
+        cmp eax, 128            ; if (pint(...) < 128)
+        jb .op_sign_extended
         mov [rsi + 16], eax     ; op->imm.imm32 = pint(...)
         mov al, [rbp - 17]
         inc al
         mov [rsi + 6], al       ; op->opcodes[0] = op8 + 1
         mov al, 32
         mov [rsi + 9], al       ; op->imm_size = 32
+        jmp .end
+
+.op_sign_extended:
+        mov [rsi + 16], al      ; op->imm.imm8 = pint(...)
+        mov al, 8
+        mov [rsi + 9], al       ; op->imm_size = 8
+        mov al, [rbp - 18]
+        mov [rsi + 6], al       ; op->opcodes[0] = op_rsimm8
 
 .end:
         mov rsp, rbp

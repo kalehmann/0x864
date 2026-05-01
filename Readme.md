@@ -8,7 +8,7 @@
 
 | Instruction | Notes                                                           |
 |-------------|-----------------------------------------------------------------|
-| `and`       | One operand must be a register; No add sign-extended imm8       |
+| `and`       | One operand must be a register                                  |
 | `and`       | At least one operand must be a register direct access           |
 | `call`      | Only `CALL rel32` to a label                                    |
 | `cmp`       | At least one operand must be a register direct access           |
@@ -26,7 +26,7 @@
 | `pop`       | Only `pop r64`                                                  |
 | `push`      | Only `push r64`                                                 |
 | `retn`      |                                                                 |
-| `sub`       | One operand must be a register; No add sign-extended imm8       |
+| `sub`       | One operand must be a register                                  |
 | `syscall`   |                                                                 |
 | `xor`       | At least one operand must be a register direct access           |
 
