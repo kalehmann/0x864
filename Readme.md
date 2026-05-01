@@ -15,6 +15,7 @@
 | `div`       | Only registers supported as operand                             |
 | `inc`       | Only registers supported as destination operand                 |
 | `int`       |                                                                 |
+| `jmp`       | Only `JMP rel32` to a label                                     |
 | `lea`       |                                                                 |
 | `mov`       | At least one operand must be a register direct access           |
 | `mul`       | Only registers supported as operand                             |

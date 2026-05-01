@@ -24,10 +24,12 @@
         global  as_call
         global  as_dec
         global  as_div
+        global  as_genjmp
         global  as_genop1rm
         global  as_genop2ax32
         global  as_inc
         global  as_int
+        global  as_jmp
         global  as_lea
         global  as_mov
         global  as_mul
@@ -818,12 +820,20 @@ as_snginst:
         call as_inc
         jmp .assemble
 .check_int:
-        mov rsi, 0x746e69       ; add
+        mov rsi, 0x746e69       ; int
+        call .testinst
+        cmp rax, 1
+        jne .check_jmp
+        lea rsi, [rbp - 32]
+        call as_int
+        jmp .assemble
+.check_jmp:
+        mov rsi, 0x706d6a       ; jmp
         call .testinst
         cmp rax, 1
         jne .check_lea
         lea rsi, [rbp - 32]
-        call as_int
+        call as_jmp
         jmp .assemble
 .check_lea:
         mov rsi, 0x0061656c     ; lea
@@ -1303,6 +1313,14 @@ as_int:
         mov eax, 2              ; Return ERR_INVALID_OPERANDS
         mov rsp, rbp
         pop rbp
+        retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
+as_jmp:
+        mov dx, 0xe9
+        mov cl, 1
+        call as_genjmp
         retn
 
 ;;; rdi: `struct AsmCtx *ctx`
