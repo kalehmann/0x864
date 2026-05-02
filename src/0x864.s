@@ -3375,13 +3375,35 @@ isint:
         je .ret_false
 
         mov al, 0x30            ; Ascii zero ('0')
-        mov ah, 0x78            ; Ascii lowercase letter x
         cmp [rdi], al
         jne .check_decimal
-        cmp [rdi + 1], ah
-        jne .check_decimal
+        mov al, 0x62            ; Ascii lowercase letter b
+        cmp [rdi + 1], al
+        je .check_binary
+        mov al, 0x78            ; Ascii lowercase letter x
+        cmp [rdi + 1], al
+        je .check_hexadecimal
+        jmp .check_decimal
 
-.check_hexdecimal:
+.check_binary:
+        add rdi, 2
+        push rdi
+        call isopdlm
+        pop rdi
+        cmp rax, 1
+        je .ret_false
+
+.check_binary_loop:
+        mov al, 0x30            ; Ascii zero ('0')
+        mov ah, 0x31            ; Ascii one ('1')
+        cmp [rdi], al
+        jb .check_token_delim
+        cmp [rdi], ah
+        ja .check_token_delim
+        inc rdi
+        jmp .check_binary_loop
+
+.check_hexadecimal:
         add rdi, 2
         push rdi
         call isopdlm
@@ -3544,11 +3566,33 @@ pint:
         mov cl, 0x30            ; Ascii zero ('0')
         cmp [rsi], cl
         jne .parse_decimal
+        mov cl, 0x62            ; Ascii lowercase letter b
+        cmp [rsi + 1], cl
+        je .parse_binary
         mov cl, 0x78            ; Ascii lowercase letter x
         cmp [rsi + 1], cl
-        jne .parse_decimal
+        je .parse_hexadecimal
+        jmp .parse_decimal
 
-.parse_hexdecimal:
+.parse_binary:
+        add rsi, 2
+        mov cl, 0x30            ; Ascii zero ('0')
+        mov ch, 0x31            ; Ascii one ('1')
+.parse_binary_loop:
+        cmp [rsi], cl
+        jb .ret
+        cmp [rsi], ch
+        ja .ret
+
+        shl rax, 1
+        mov r8b, [rsi]
+        sub r8b, 0x30
+        or al, r8b
+
+        inc rsi
+        jmp .parse_binary_loop
+
+.parse_hexadecimal:
         add rsi, 2
         mov cl, 0x30            ; Ascii zero ('0')
         mov ch, 0x39            ; Ascii nine ('9')

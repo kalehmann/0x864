@@ -103,6 +103,13 @@ void test_isint(void)
         TEST_CHECK(isint("321, ") == 1);
         TEST_CHECK(isint("3a1, ") == 0);
         TEST_CHECK(isint("9323 ; <- this is a decimal integer ") == 1);
+        TEST_CHECK(isint("0b, ") == 0);
+        TEST_CHECK(isint("0b1, ") == 1);
+        TEST_CHECK(isint("0bg, ") == 0);
+        TEST_CHECK(isint("0b0000, ") == 1);
+        TEST_CHECK(isint("0b10001000, ") == 1);
+        TEST_CHECK(isint("0b1111, ") == 1);
+        TEST_CHECK(isint("0b2, ") == 0);
         TEST_CHECK(isint("0x, ") == 0);
         TEST_CHECK(isint("0xff, ") == 1);
         TEST_CHECK(isint("0x1a, ") == 1);
@@ -188,6 +195,21 @@ void test_pint(void)
         strncpy(buf, "18446744073709551615", 32);
         TEST_CHECK(pint(&buf) == 0xffffffffffffffff);
         TEST_CHECK(buf == b + 20);
+        buf = b;
+
+        strncpy(buf, "0b00", 32);
+        TEST_CHECK(pint(&buf) == 0);
+        TEST_CHECK(buf == b + 4);
+        buf = b;
+
+        strncpy(buf, "0b11", 32);
+        TEST_CHECK(pint(&buf) == 3);
+        TEST_CHECK(buf == b + 4);
+        buf = b;
+
+        strncpy(buf, "0b00101010", 32);
+        TEST_CHECK(pint(&buf) == 42);
+        TEST_CHECK(buf == b + 10);
         buf = b;
 
         strncpy(buf, "0x00", 32);
