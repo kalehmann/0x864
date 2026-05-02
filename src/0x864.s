@@ -2160,7 +2160,8 @@ clr:
 .loop:
         mov [rdi], al
         inc rdi
-        loop .loop
+        dec rcx
+        jnz .loop
 .end:
         retn
 
