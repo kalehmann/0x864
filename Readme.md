@@ -35,6 +35,7 @@
 | `shr`       | Only `shr r/m*, imm8`                                           |
 | `sub`       | One operand must be a register                                  |
 | `syscall`   |                                                                 |
+| `xchg`      |                                                                 |
 | `xor`       | At least one operand must be a register direct access           |
 
 ### Executing assembled programs

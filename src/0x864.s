@@ -47,6 +47,7 @@
         global  as_shr
         global  as_sub
         global  as_syscall
+        global  as_xchg
         global  as_xor
         global  cklb
         global  ckln
@@ -990,9 +991,17 @@ as_snginst:
         mov rsi, 0x006c6c6163737973
         call .testinst
         cmp rax, 1
-        jne .check_xor
+        jne .check_xchg
         lea rsi, [rbp - 32]
         call as_syscall
+        jmp .assemble
+.check_xchg:
+        mov rsi, 0x67686378     ; xchg
+        call .testinst
+        cmp rax, 1
+        jne .check_xor
+        lea rsi, [rbp - 32]
+        call as_xchg
         jmp .assemble
 .check_xor:
         mov rsi, 0x726f78       ; xor
@@ -1907,6 +1916,93 @@ as_sub:
         mov [rbp - 8], rax      ; uint8_t modrm_mod = 5
         call as_genop2ax32
 
+        mov rsp, rbp
+        pop rbp
+        retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
+as_xchg:
+        push rbp
+        mov rbp, rsp
+        sub rsp, 32
+        mov [rbp - 8], rdi
+        mov [rbp - 16], rsi
+        xor eax, eax
+        mov [rbp - 18], ax      ; uint16_t op_tps = 0
+
+        call skp2lbinst
+
+        mov rdi, [rbp - 8]
+        mov rdi, [rdi]          ; char *assembly = ctx->assembly
+        mov rsi, 2              ; uint8_t n_ops = 2
+        call ckoptps
+        mov [rbp - 18], ax      ; op_tps = ckoptps(ctx->assembly, 2)
+
+        cmp ax, 0               ; (OP_TYPE_REG << 4) | OP_TYPE_REG
+        je .xchg_rrgndrct
+        cmp ax, 1               ; (OP_TYPE_REG << 4) | OP_TYPE_RGNDRCT
+        je .xchg_rrgndrct
+        cmp ax, 0b00010000      ; (OP_TYPE_RGNDRCT << 4) | OP_TYPE_REG
+        je .xchg_rgndrctr
+        jmp .ret_invalid_operands
+
+.xchg_rgndrctr:
+        mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
+        mov rsi, [rbp - 16]     ; struct AsmOp *op = op
+        mov dl, 0x86            ; uint8_t op8 = 0x86
+        call genop2rmr
+        jmp .check_rax
+
+.xchg_rrgndrct:
+        mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
+        mov rsi, [rbp - 16]     ; struct AsmOp *op = op
+        mov dl, 0x86            ; uint8_t op8 = 0x86
+        call genop2rrm
+        jmp .check_rax
+
+.ret_invalid_operands:
+        mov eax, 2              ; Return ERR_INVALID_OPERANDS
+        mov rsp, rbp
+        pop rbp
+        retn
+
+.check_rax:
+        mov rsi, [rbp - 16]
+        mov al, [rsi + 1]
+        ;; Special xchg encoding for ax/rax only covers 16-bit upwards operation
+        cmp al, 8               ; if (op->op_size == 8)
+        je .ret_success
+        ;; I don't think, this is necessary but it increases the compatibility
+        ;; with nasm
+        cmp al, 32              ; if (op->op_size == 32)
+        je .ret_success
+        mov ax, [rbp - 18]
+        cmp ax, 0               ; if (op_tps != (OP_TYPE_REG << 4) | OP_TYPE_REG)
+        jne .ret_success
+        mov al, [rsi + 2]
+        cmp al, 0               ; if (op->src_reg == 0) // ax/eax/rax
+        je .xchg_rax
+        mov al, [rsi + 3]
+        cmp al, 0               ; if (op->dst_reg == 0) // ax/eax/rax
+        je .xchg_rax
+        jmp .ret_success
+
+.xchg_rax:
+        mov al, 6
+        mov [rsi], al           ; op->encoding = ENCODING_O
+        mov al, 0x90
+        mov [rsi + 6], al       ; op->opcodes[0] = 0x90
+        mov al, [rsi + 3]
+        cmp al, 0               ; if (op->dst_reg != 0)
+        jne .ret_success
+        mov al, [rsi + 2]
+        mov [rsi + 3], al       ; op->dst_reg = op->src_reg
+        xor eax, eax
+        mov [rsi + 2], al       ; op->src_reg = 0
+
+.ret_success:
+        xor eax, eax            ; Return `ERR_NONE`
         mov rsp, rbp
         pop rbp
         retn
