@@ -723,7 +723,7 @@ void test_scndpss(void)
         ctx->reftab[1].rel_target = 20;
 
         // Act
-        scndpss(ctx);
+        TEST_CHECK(scndpss(ctx) == ERR_NONE);
 
         // Test can replace an absolute reference
         target = ((void *)ctx->bintxt) + 4;
@@ -732,6 +732,17 @@ void test_scndpss(void)
         // Test can replace a relative reference
         target = ((void *)ctx->bintxt) + 16;
         TEST_CHECK(*target == -7);
+
+        free_asmctx(ctx);
+
+        // Test an error is returned for an unknown reference and `ctx->label`
+        // set accordingly.
+        ctx = make_asmctx(NULL, 32, 8, 8, 0);
+        TEST_ASSERT(ctx != NULL);
+        strncpy(ctx->reftab[0].label, "test", 5);
+
+        TEST_CHECK(scndpss(ctx) == ERR_UNKNOWN_REFERENCE);
+        TEST_CHECK(strncmp(ctx->label, "test", 5) == 0);
 
         free_asmctx(ctx);
 }

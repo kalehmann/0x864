@@ -154,7 +154,6 @@ assemble:
         mov rdi, [rbp - 8]      ; Stores ctx in rdi
         call scndpss
 
-        xor rax, rax
         mov rsp, rbp
         pop rbp
         retn
@@ -4527,8 +4526,11 @@ scndpss:
         mov r9, 0               ; uint32_t *rel_target = 0
         call rslvref
 
+        cmp eax, 1
+        je .err_invalid_ref
+
         mov eax, [rbp - 12]
-        cmp eax, 0x1
+        cmp eax, 0x1            ; if (flags == FLAG_RELATIVE)
         je .resolve_relative
 
 .resolve_absolute:
@@ -4562,6 +4564,27 @@ scndpss:
         jmp .loop_reftab
 
 .end:
+        xor eax, eax            ; Return `ERR_NONE`
+        mov rsp, rbp
+        pop rbp
+        retn
+
+.err_invalid_ref:
+        mov rdi, [rbp - 8]
+        lea rdi, [rdi + 80]
+        mov rsi, [rbp - 32]
+
+.copy_label_loop:
+        mov cx, 240
+        mov al, [rsi]
+        movsb
+        dec cx
+        jz .ret_err_invalid_ref
+        cmp al, 0
+        jne .copy_label_loop
+
+.ret_err_invalid_ref:
+        mov eax, 3            ; Return `ERR_UNKNOWN_REFERENCE`
         mov rsp, rbp
         pop rbp
         retn

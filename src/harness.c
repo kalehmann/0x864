@@ -197,6 +197,9 @@ void print_error(const char * const assembly_text, struct AsmCtx *ctx,
                         "arround \"%s\"\n", ckln(assembly_text, ctx->assembly),
                         line);
                 break;
+        case ERR_UNKNOWN_REFERENCE:
+                fprintf(stderr, "Reference to unknown label \"%s\" \n", ctx->label);
+                break;
         default:
                 fprintf(stderr, "Unknown error in line %zu arround \"%s\"\n",
                         ckln(assembly_text, ctx->assembly), line);

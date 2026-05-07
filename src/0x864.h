@@ -64,6 +64,7 @@ enum AsmErr {
         ERR_NONE = 0,
         ERR_UNKNOWN_INSTRUCTION = 1,
         ERR_INVALID_OPERANDS = 2,
+        ERR_UNKNOWN_REFERENCE = 3,
 };
 
 struct SymTabNtr {
@@ -1010,8 +1011,10 @@ extern int rslvref(char *label, struct SymTabNtr *symtab, size_t n,
  * Performs the second pass of the output generation and resolves all references.
  *
  * @param ctx is the pointer to the AsmCtx structure.
+ *
+ * @returns `ERR_NONE` on success or `ERR_UNKNOWN_REFERENCE`
  */
-extern void scndpss(struct AsmCtx *ctx);
+extern enum AsmErr scndpss(struct AsmCtx *ctx);
 
 /**
  * Advances the assembly text to the next token.
