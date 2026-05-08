@@ -25,6 +25,7 @@
 | `jz`        | Only `jz rel32` to a label                                      |
 | `lea`       |                                                                 |
 | `mov`       | At least one operand must be a register direct access           |
+| `movs`      | Only no-operands forms `movsb`, `movsd`, `movsq`, `movsw`       |
 | `mul`       | Only registers supported as operand                             |
 | `nop`       |                                                                 |
 | `or`        | At least one operand must be a register direct access           |

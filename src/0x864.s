@@ -37,6 +37,10 @@
         global  as_jne
         global  as_lea
         global  as_mov
+        global  as_movsb
+        global  as_movsw
+        global  as_movsd
+        global  as_movsq
         global  as_mul
         global  as_nop
         global  as_or
@@ -459,6 +463,16 @@ assemble_op:
         retn
 
 .zo:
+        lea rsi, [rbp - 34]
+        call .store_rex_w
+
+        mov rdi, [rbp - 16]     ; struct AsmOp *op = op
+        lea rsi, [rbp - 34]
+        lea rdx, [rbp - 32]
+        lea rcx, [rbp - 33]
+        call .store_prefixes
+
+        mov rdi, [rbp - 16]     ; struct AsmOp *op = op
         lea rsi, [rbp - 32]     ; uint8_t *buffer = &buffer
         lea rdx, [rbp - 33]     ; uint8_t *bytes_to_write = &bytes_to_write
         call .store_opcodes
@@ -929,12 +943,44 @@ as_snglinst:
         mov rsi, 0x00766f6d     ; mov
         call .testinst
         cmp rax, 1
-        jne .check_mul
+        jne .check_movsb
         lea rsi, [rbp - 32]
         call as_mov
         jmp .assemble
+.check_movsb:
+        mov rsi, 0x6273766f6d   ; movsb
+        call .testinst
+        cmp rax, 1
+        jne .check_movsd
+        lea rsi, [rbp - 32]
+        call as_movsb
+        jmp .assemble
+.check_movsd:
+        mov rsi, 0x6473766f6d   ; movsd
+        call .testinst
+        cmp rax, 1
+        jne .check_movsq
+        lea rsi, [rbp - 32]
+        call as_movsd
+        jmp .assemble
+.check_movsq:
+        mov rsi, 0x7173766f6d   ; movsq
+        call .testinst
+        cmp rax, 1
+        jne .check_movsw
+        lea rsi, [rbp - 32]
+        call as_movsq
+        jmp .assemble
+.check_movsw:
+        mov rsi, 0x7773766f6d   ; movsw
+        call .testinst
+        cmp rax, 1
+        jne .check_mul
+        lea rsi, [rbp - 32]
+        call as_movsw
+        jmp .assemble
 .check_mul:
-        mov rsi, 0x6c756d     ; mul
+        mov rsi, 0x6c756d       ; mul
         call .testinst
         cmp rax, 1
         jne .check_nop
@@ -950,7 +996,7 @@ as_snglinst:
         call as_nop
         jmp .assemble
 .check_or:
-        mov rsi, 0x726f     ; or
+        mov rsi, 0x726f         ; or
         call .testinst
         cmp rax, 1
         jne .check_pop
@@ -1650,6 +1696,62 @@ as_mov:
         mov eax, 2              ; Return ERR_INVALID_OPERANDS
         mov rsp, rbp
         pop rbp
+        retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
+as_movsb:
+        mov al, 0
+        mov [rsi], al           ; op->encoding = ENCODING_ZO
+        mov al, 1
+        mov [rsi + 5], al       ; op->n_opcodes = 1
+        mov al, 0xa4
+        mov [rsi + 6], al       ; op->opcodes[0] = 0xa4
+
+        xor eax, eax            ; Return ERR_NONE
+        retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
+as_movsd:
+        mov al, 0
+        mov [rsi], al           ; op->encoding = ENCODING_ZO
+        mov al, 1
+        mov [rsi + 5], al       ; op->n_opcodes = 1
+        mov al, 0xa5
+        mov [rsi + 6], al       ; op->opcodes[0] = 0xa5
+
+        xor eax, eax            ; Return ERR_NONE
+        retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
+as_movsq:
+        mov al, 0
+        mov [rsi], al           ; op->encoding = ENCODING_ZO
+        mov al, 64
+        mov [rsi + 1], al       ; op->op_size = 64
+        mov al, 1
+        mov [rsi + 5], al       ; op->n_opcodes = 1
+        mov al, 0xa5
+        mov [rsi + 6], al       ; op->opcodes[0] = 0xa5
+
+        xor eax, eax            ; Return ERR_NONE
+        retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
+as_movsw:
+        mov al, 0
+        mov [rsi], al           ; op->encoding = ENCODING_ZO
+        mov al, 1
+        mov [rsi + 5], al       ; op->n_opcodes = 1
+        mov al, 0xa5
+        mov [rsi + 6], al       ; op->opcodes[0] = 0xa5
+        mov al, 8
+        or [rsi + 11], al       ; op->prefix |= PREFIX_OP_SIZE_OVERRIDE
+
+        xor eax, eax            ; Return ERR_NONE
         retn
 
 ;;; rdi: `struct AsmCtx *ctx`
