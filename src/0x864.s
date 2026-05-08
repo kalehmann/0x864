@@ -150,7 +150,7 @@ assemble:
         je .end
 
         mov rdi, [rbp - 8]      ; Stores ctx in rsi
-        call as_snginst
+        call as_snglinst
         cmp rax, 0
         jne .ret_err
 
@@ -762,7 +762,7 @@ assemble_op:
         retn
 
 ;;; rdi: `struct AsmCtx *ctx`
-as_snginst:
+as_snglinst:
         push rbp
         mov rbp, rsp
         sub rsp, 32
