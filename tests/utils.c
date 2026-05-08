@@ -43,6 +43,8 @@ void test_ckln(void)
         char const *cpos = strstr(assembly, "rbp");
 
         TEST_CHECK(ckln(assembly, cpos) == 6);
+        // Skip to newline
+        TEST_CHECK(ckln(assembly, cpos + 3) == 6);
 }
 
 void test_clr(void)

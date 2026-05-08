@@ -245,6 +245,11 @@ void print_error(const char * const assembly_text, struct AsmCtx *ctx,
                 fprintf(stderr, "Too many labels - unable to store \"%s\"\n",
                         ctx->label);
                 break;
+        case ERR_TOO_MANY_REFERENCES:
+                fprintf(stderr, "Too many referencess - unable to store "
+                        "reference to \"%s\" on line %zu\n",
+                        ctx->label, ckln(assembly_text, ctx->assembly));
+                break;
         default:
                 fprintf(stderr, "Unknown error in line %zu arround \"%s\"\n",
                         ckln(assembly_text, ctx->assembly), line);

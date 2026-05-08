@@ -67,6 +67,7 @@ enum AsmErr {
         ERR_UNKNOWN_REFERENCE = 3,
         ERR_TOO_MANY_GLOBALS = 4,
         ERR_TOO_MANY_LABELS = 5,
+        ERR_TOO_MANY_REFERENCES = 6,
 };
 
 struct SymTabNtr {
@@ -219,8 +220,10 @@ extern enum AsmErr assemble(struct AsmCtx *);
  *
  * @param ctx is the pointer to the AsmCtx structure.
  * @param op is the pointer to the AsmOp structure.
+ *
+ * @returns `ERR_NONE` on success or any error, that occured
  */
-extern void assemble_op(struct AsmCtx *ctx, struct AsmOp *op);
+extern enum AsmErr assemble_op(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles a single instruction.

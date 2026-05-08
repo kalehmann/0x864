@@ -492,7 +492,10 @@ assemble_op:
         mov r9, 0               ; uint32_t rel_target = 0
         mov rdi, [rdi + 48]     ; struct SymTabNtr *symtab = ctx->reftab
         call strsymtabntr
-        jmp .d_immediate
+        cmp eax, 0              ; if (strsymtabntr(...) == 0)
+        je .d_immediate
+        mov eax, 6              ; Return ERR_TOO_MANY_REFERENCES
+        jmp .ret_err
 
 .d_relative_label:
         mov rdi, [rbp - 8]
@@ -507,6 +510,11 @@ assemble_op:
         add r9, 4               ; uint32_t rel_target = offset + 4
         mov rdi, [rdi + 48]     ; struct SymTabNtr *symtab = ctx->reftab
         call strsymtabntr
+        cmp eax, 0              ; if (strsymtabntr(...) == 0)
+        je .d_immediate
+        mov eax, 6              ; Return ERR_TOO_MANY_REFERENCES
+        jmp .ret_err
+
         ;; Still store the immediate value to act as a dummy value until the
         ;; reference to the label is resolved.
 .d_immediate:
@@ -756,7 +764,11 @@ assemble_op:
         inc r10
         dec cl
         jne .write_buffer_copy
+
 .end:
+        xor eax, eax
+
+.ret_err:
         mov rsp, rbp
         pop rbp
         retn
@@ -1072,6 +1084,7 @@ as_snglinst:
         mov rdi, [rbp - 8]
         lea rsi, [rbp - 32]
         call assemble_op
+        jmp .ret_err            ; Return assemble_op(...)
 
 .end:
         xor rax, rax
@@ -4407,9 +4420,13 @@ readnlbl:
 .end:
         mov rsi, [rbp - 8]
         mov rdi, [rsi]
+        mov al, 0x3a            ; Ascii colon
+        cmp [rdi], al           ; if ((*assembly)[0] == ':')
+        jne .write_terminator
         inc rdi
         mov [rsi], rdi          ; (*assembly)++
 
+.write_terminator:
         mov r9, [rbp - 40]
         cmp r9, 1               ; if (overflow == 1)
         je .no_terminator

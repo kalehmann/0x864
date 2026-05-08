@@ -40,16 +40,17 @@ void test_assemble_op(void)
         op.encoding = ENCODING_ZO;
         op.n_opcodes = 1;
         op.opcodes[0] = 0x90;
-        assemble_op(ctx, &op);
+        TEST_CHECK(assemble_op(ctx, &op) == ERR_NONE);
         TEST_CHECK(ctx->bintxt_size == 1);
         TEST_CHECK(ctx->bintxt[0] == 0x90);
         free_asmctx(ctx);
         memset(&op, 0, sizeof(struct AsmOp));
 
-        // Test assembling the call near relative instruction
-        ctx = make_asmctx("", 16, 8, 8, 0);
-        strncpy(ctx->label, "label1", 7);
+        // Test assembling the call near relative instruction fails with
+        // ERR_TOO_MANY_REFERENCES for a full reftab
+        ctx = make_asmctx("", 16, 8, 0, 0);
         TEST_ASSERT(ctx != NULL);
+        strncpy(ctx->label, "label1", 7);
         op.encoding = ENCODING_D;
         op.op_size = 32;
         op.n_opcodes = 1;
@@ -57,7 +58,29 @@ void test_assemble_op(void)
         op.imm_size = 32;
         op.d_label = D_LABEL_RELATIVE;
         op.imm.imm32 = 0;
-        assemble_op(ctx, &op);
+        TEST_CHECK(assemble_op(ctx, &op) == ERR_TOO_MANY_REFERENCES);
+        TEST_CHECK(ctx->bintxt_size == 0);
+        TEST_CHECK(ctx->bintxt[0] == 0x00);
+        TEST_CHECK(ctx->bintxt[1] == 0x00);
+        TEST_CHECK(ctx->bintxt[2] == 0x00);
+        TEST_CHECK(ctx->bintxt[3] == 0x00);
+        TEST_CHECK(ctx->bintxt[4] == 0x00);
+
+        free_asmctx(ctx);
+        memset(&op, 0, sizeof(struct AsmOp));
+
+        // Test assembling the call near relative instruction
+        ctx = make_asmctx("", 16, 8, 8, 0);
+        TEST_ASSERT(ctx != NULL);
+        strncpy(ctx->label, "label1", 7);
+        op.encoding = ENCODING_D;
+        op.op_size = 32;
+        op.n_opcodes = 1;
+        op.opcodes[0] = 0xE8;
+        op.imm_size = 32;
+        op.d_label = D_LABEL_RELATIVE;
+        op.imm.imm32 = 0;
+        TEST_CHECK(assemble_op(ctx, &op) == ERR_NONE);
         TEST_CHECK(ctx->bintxt_size == 5);
         TEST_CHECK(ctx->bintxt[0] == 0xE8);
         TEST_CHECK(ctx->bintxt[1] == 0x00);
@@ -81,7 +104,7 @@ void test_assemble_op(void)
         op.opcodes[0] = 0x8D;
         op.modrm_mod = MOD_INDIRECT_32;
         op.disp.disp32 = -1234;
-        assemble_op(ctx, &op);
+        TEST_CHECK(assemble_op(ctx, &op) == ERR_NONE);
         TEST_CHECK(ctx->bintxt_size == 7);
         TEST_CHECK(ctx->bintxt[0] == 0x48);
         TEST_CHECK(ctx->bintxt[1] == 0x8D);
@@ -104,7 +127,7 @@ void test_assemble_op(void)
         op.n_opcodes = 1;
         op.opcodes[0] = 0x89;
         op.disp.disp8 = -8;
-        assemble_op(ctx, &op);
+        TEST_CHECK(assemble_op(ctx, &op) == ERR_NONE);
         TEST_CHECK(ctx->bintxt_size == 4);
         TEST_CHECK(ctx->bintxt[0] == 0x4C);
         TEST_CHECK(ctx->bintxt[1] == 0x89);
@@ -124,7 +147,7 @@ void test_assemble_op(void)
         op.opcodes[0] = 0x81;
         op.imm_size = 32;
         op.imm.imm32 = 0x11223344;
-        assemble_op(ctx, &op);
+        TEST_CHECK(assemble_op(ctx, &op) == ERR_NONE);
         TEST_CHECK(ctx->bintxt_size == 7);
         TEST_CHECK(ctx->bintxt[0] == 0x49);
         TEST_CHECK(ctx->bintxt[1] == 0x81);
@@ -144,7 +167,7 @@ void test_assemble_op(void)
         op.opcodes[0] = 0xcd;
         op.imm_size = 8;
         op.imm.imm8 = 0x80;
-        assemble_op(ctx, &op);
+        TEST_CHECK(assemble_op(ctx, &op) == ERR_NONE);
         TEST_CHECK(ctx->bintxt_size == 2);
         TEST_CHECK(ctx->bintxt[0] == 0xcd);
         TEST_CHECK(ctx->bintxt[1] == 0x80);
@@ -161,7 +184,7 @@ void test_assemble_op(void)
         op.modrm_mod = MOD_DIRECT;
         op.n_opcodes = 1;
         op.opcodes[0] = 0xff;
-        assemble_op(ctx, &op);
+        TEST_CHECK(assemble_op(ctx, &op) == ERR_NONE);
         TEST_CHECK(ctx->bintxt_size == 3);
         TEST_CHECK(ctx->bintxt[0] == 0x49);
         TEST_CHECK(ctx->bintxt[1] == 0xff);
@@ -179,7 +202,7 @@ void test_assemble_op(void)
         op.opcodes[0] = 0xb0;
         op.imm_size = 8;
         op.imm.imm8 = 0xab;
-        assemble_op(ctx, &op);
+        TEST_CHECK(assemble_op(ctx, &op) == ERR_NONE);
         TEST_CHECK(ctx->bintxt_size == 2);
         TEST_CHECK(ctx->bintxt[0] == 0xb3);
         TEST_CHECK(ctx->bintxt[1] == 0xab);
@@ -196,7 +219,7 @@ void test_assemble_op(void)
         op.opcodes[0] = 0xb0;
         op.imm_size = 8;
         op.imm.imm8 = 0xab;
-        assemble_op(ctx, &op);
+        TEST_CHECK(assemble_op(ctx, &op) == ERR_NONE);
         TEST_CHECK(ctx->bintxt_size == 3);
         TEST_CHECK(ctx->bintxt[0] == 0x41);
         TEST_CHECK(ctx->bintxt[1] == 0xb3);
@@ -215,7 +238,7 @@ void test_assemble_op(void)
         op.n_opcodes = 1;
         op.opcodes[0] = 0x89;
         op.prefix = PREFIX_OP_SIZE_OVERRIDE;
-        assemble_op(ctx, &op);
+        TEST_CHECK(assemble_op(ctx, &op) == ERR_NONE);
         TEST_CHECK(ctx->bintxt_size == 4);
         TEST_CHECK(ctx->bintxt[0] == 0x66);
         TEST_CHECK(ctx->bintxt[1] == 0x41);
@@ -231,7 +254,7 @@ void test_assemble_op(void)
         op.dst_reg = 0b0101;
         op.n_opcodes = 1;
         op.opcodes[0] = 0x58;
-        assemble_op(ctx, &op);
+        TEST_CHECK(assemble_op(ctx, &op) == ERR_NONE);
         TEST_CHECK(ctx->bintxt_size == 1);
         TEST_CHECK(ctx->bintxt[0] == 0x5d);
         free_asmctx(ctx);
