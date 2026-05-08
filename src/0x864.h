@@ -65,7 +65,8 @@ enum AsmErr {
         ERR_UNKNOWN_INSTRUCTION = 1,
         ERR_INVALID_OPERANDS = 2,
         ERR_UNKNOWN_REFERENCE = 3,
-        ERR_TOO_MANY_LABELS = 4,
+        ERR_TOO_MANY_GLOBALS = 4,
+        ERR_TOO_MANY_LABELS = 5,
 };
 
 struct SymTabNtr {

@@ -134,7 +134,7 @@ assemble:
         cmp eax, 0              ; if (strsymtabntr(...) == 0)
         je .check_label_end
 
-        mov eax, 4              ; Return `ERR_TOO_MANY_LABELS`
+        mov eax, 5              ; Return `ERR_TOO_MANY_LABELS`
         jmp .ret_err
 
 .check_label_end:
@@ -827,7 +827,12 @@ as_snglinst:
         cmp rax, 1
         jne .check_inc
         call strglbl
-        jmp .end
+        xor ecx, ecx
+        dec ecx
+        cmp eax, ecx            ; if (strglb(ctx) != -1)
+        jne .end
+        mov eax, 4              ; Return `ERR_TOO_MANY_GLOBALS`
+        jmp .ret_err
 .check_inc:
         mov rsi, 0x00636e69     ; inc
         call .testinst
@@ -4668,7 +4673,12 @@ strglbl:
         jmp .ret
 
 .ret_err:
-        mov rax, -1
+        mov rdi, [rbp - 8]      ; char const **assembly = &ctx->assembly
+        lea rsi, [rdi + 80]     ; char *label = ctx->label
+        mov edx, 64             ; size_t n = 64
+        call readnlbl
+        xor eax, eax
+        dec eax                 ; Return -1
 
 .ret:
         mov rsp, rbp

@@ -59,8 +59,16 @@ void test_assemble(void)
         TEST_CHECK(assemble(ctx) == ERR_UNKNOWN_INSTRUCTION);
         free_asmctx(ctx);
 
+        // Test that the `assemble` function returns `ERR_TOO_MANY_GLOBALS` if
+        // the globals table has no space left.
+        ctx = make_asmctx("global my_test\n", 0, 0, 0, 0);
+        TEST_ASSERT(ctx != NULL);
+        TEST_CHECK(assemble(ctx) == ERR_TOO_MANY_GLOBALS);
+        TEST_CHECK(strncmp(ctx->label, "my_test", 8) == 0);
+        free_asmctx(ctx);
+
         // Test that the `assemble` function returns `ERR_TOO_MANY_LABELS` if
-        // the symtab has no space left.
+        // the symbol table has no space left.
         ctx = make_asmctx("test:\n.sublabel:\n\tnop\n", 0, 1, 0, 0);
         TEST_ASSERT(ctx != NULL);
         TEST_CHECK(assemble(ctx) == ERR_TOO_MANY_LABELS);

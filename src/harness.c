@@ -237,6 +237,10 @@ void print_error(const char * const assembly_text, struct AsmCtx *ctx,
         case ERR_UNKNOWN_REFERENCE:
                 fprintf(stderr, "Reference to unknown label \"%s\" \n", ctx->label);
                 break;
+        case ERR_TOO_MANY_GLOBALS:
+                fprintf(stderr, "Too many globals - unable to store \"%s\"\n",
+                        ctx->label);
+                break;
         case ERR_TOO_MANY_LABELS:
                 fprintf(stderr, "Too many labels - unable to store \"%s\"\n",
                         ctx->label);
