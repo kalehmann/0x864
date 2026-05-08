@@ -259,6 +259,21 @@ void test_assemble_op(void)
         TEST_CHECK(ctx->bintxt[0] == 0x5d);
         free_asmctx(ctx);
         memset(&op, 0, sizeof(struct AsmOp));
+
+        // Test assembling `rep movsw`
+        ctx = make_asmctx("", 16, 0, 0, 0);
+        TEST_ASSERT(ctx != NULL);
+        op.encoding = ENCODING_ZO;
+        op.n_opcodes = 1;
+        op.opcodes[0] = 0xa5;
+        op.prefix |= PREFIX_REPE_REPZ | PREFIX_OP_SIZE_OVERRIDE;
+        TEST_CHECK(assemble_op(ctx, &op) == ERR_NONE);
+        TEST_CHECK(ctx->bintxt_size == 3);
+        TEST_CHECK(ctx->bintxt[0] == 0x66);
+        TEST_CHECK(ctx->bintxt[1] == 0xf3);
+        TEST_CHECK(ctx->bintxt[2] == 0xa5);
+        free_asmctx(ctx);
+        memset(&op, 0, sizeof(struct AsmOp));
 }
 
 void test_as_call(void)

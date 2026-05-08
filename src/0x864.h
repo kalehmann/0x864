@@ -512,6 +512,38 @@ extern enum AsmErr as_mov(struct AsmCtx *ctx, struct AsmOp *op);
 extern enum AsmErr as_movsb(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
+ * Assembles the movsd instruction.
+ *
+ * @param ctx is the pointer to the AsmCtx structure.
+ * @param op is a pointer to an empty AsmOp structure, that should be filled
+ *           with data about the encoded instruction.
+ *
+ * @returns `ERR_NONE` on success or any error, that occured
+ */
+extern enum AsmErr as_movsd(struct AsmCtx *ctx, struct AsmOp *op);
+
+/**
+ * Assembles the movsq instruction.
+ *
+ * @param ctx is the pointer to the AsmCtx structure.
+ * @param op is a pointer to an empty AsmOp structure, that should be filled
+ *           with data about the encoded instruction.
+ *
+ * @returns `ERR_NONE` on success or any error, that occured
+ */
+extern enum AsmErr as_movsq(struct AsmCtx *ctx, struct AsmOp *op);
+
+/**
+ * Assembles the movsw instruction.
+ *
+ * @param ctx is the pointer to the AsmCtx structure.
+ * @param op is a pointer to an empty AsmOp structure, that should be filled
+ *           with data about the encoded instruction.
+ *
+ * @returns `ERR_NONE` on success or any error, that occured
+ */
+extern enum AsmErr as_movsw(struct AsmCtx *ctx, struct AsmOp *op);
+/**
  * Assembles the mul instruction.
  *
  * @param ctx is the pointer to the AsmCtx structure.

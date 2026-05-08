@@ -31,6 +31,7 @@
 | `or`        | At least one operand must be a register direct access           |
 | `pop`       | Only `pop r64`                                                  |
 | `push`      | Only `push r64`                                                 |
+| `rep movs`  | Only no-operands forms `movsb`, `movsd`, `movsq`, `movsw`       |
 | `retn`      |                                                                 |
 | `shl`       | Only `shl r/m*, imm8`                                           |
 | `shr`       | Only `shr r/m*, imm8`                                           |

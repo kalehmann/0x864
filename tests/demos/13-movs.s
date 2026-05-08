@@ -7,4 +7,13 @@ demo_13_movs:
         movsq
         movsw
 
+        mov ecx, 1
+        rep movsb
+        mov ecx, 2
+        rep movsd
+        mov ecx, 4
+        rep movsq
+        mov ecx, 8
+        rep movsw
+
         retn

@@ -403,8 +403,18 @@ assemble_op:
         mov ah, [rdi + 11]
         and ah, 0x01
         cmp ah, 0               ; if ((op->prefix & PREFIX_LOCK) == 0)
-        je .store_prefixes_repne
+        je .store_prefixes_op_size
         mov ah, 0xf0
+        mov [rdx], ah
+        inc al
+        inc rdx
+
+.store_prefixes_op_size:
+        mov ah, [rdi + 11]
+        and ah, 0x08
+        cmp ah, 0               ; if ((op->prefix & PREFIX_OP_SIZE_OVERRIDE) == 0)
+        je .store_prefixes_repne
+        mov ah, 0x66
         mov [rdx], ah
         inc al
         inc rdx
@@ -423,18 +433,8 @@ assemble_op:
         mov ah, [rdi + 11]
         and ah, 0x04
         cmp ah, 0               ; if ((op->prefix & PREFIX_REPE_REPZ) == 0)
-        je .store_prefixes_op_size
-        mov ah, 0xf3
-        mov [rdx], ah
-        inc al
-        inc rdx
-
-.store_prefixes_op_size:
-        mov ah, [rdi + 11]
-        and ah, 0x08
-        cmp ah, 0               ; if ((op->prefix & PREFIX_OP_SIZE_OVERRIDE) == 0)
         je .store_prefixes_rex
-        mov ah, 0x66
+        mov ah, 0xf3
         mov [rdx], ah
         inc al
         inc rdx
@@ -1015,10 +1015,54 @@ as_snglinst:
         mov rsi, 0x0068737570   ; push
         call .testinst
         cmp rax, 1
-        jne .check_retn
+        jne .check_rep
         lea rsi, [rbp - 32]
         call as_push
         jmp .assemble
+.check_rep:
+        mov rsi, 0x706572       ; rep
+        call .testinst
+        cmp rax, 1
+        jne .check_retn
+        call skp2lbinst
+        mov rdi, [rbp - 8]
+        lea rsi, [rbp - 32]
+        mov al, 0x04
+        or [rsi + 11], al       ; op->prefix |= PREFX_REPE_REPZ
+
+.check_rep_movsb:
+        mov rsi, 0x6273766f6d  ; movsb
+        call .testinst
+        cmp rax, 1
+        jne .check_rep_movsd
+        lea rsi, [rbp - 32]
+        call as_movsb
+        jmp .assemble
+.check_rep_movsd:
+        mov rsi, 0x6473766f6d  ; movsd
+        call .testinst
+        cmp rax, 1
+        jne .check_rep_movsq
+        lea rsi, [rbp - 32]
+        call as_movsd
+        jmp .assemble
+.check_rep_movsq:
+        mov rsi, 0x7173766f6d  ; movsq
+        call .testinst
+        cmp rax, 1
+        jne .check_rep_movsw
+        lea rsi, [rbp - 32]
+        call as_movsq
+        jmp .assemble
+.check_rep_movsw:
+        mov rsi, 0x7773766f6d  ; movsw
+        call .testinst
+        cmp rax, 1
+        jne .check_err
+        lea rsi, [rbp - 32]
+        call as_movsw
+        jmp .assemble
+
 .check_retn:
         mov rsi, 0x006e746572   ; retn
         call .testinst
