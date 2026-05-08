@@ -36,10 +36,13 @@ struct args {
         enum Format format;
         FILE *fin;
         FILE *fout;
+        bool verbose;
 };
 
 void banner(void);
+void dump_context(const char * const, struct AsmCtx *);
 int parse_args(int, char * const [], struct args * const);
+void print_error(const char * const, struct AsmCtx *, enum AsmErr);
 void usage(const char * const);
 
 void banner(void)
@@ -76,12 +79,42 @@ void banner(void)
                "\033[0m\n");
 }
 
+void dump_context(const char * assembly_text, struct AsmCtx *ctx)
+{
+        size_t current_line = ckln(assembly_text, ctx->assembly);
+        size_t globals = 0;
+        size_t lines = 0;
+
+        while (*(assembly_text++) != '\0') {
+                if (*assembly_text == '\n')
+                        lines++;
+        }
+
+        for (size_t i = 0; i < ctx->max_globals; i++) {
+                if (ctx->globals[i][0] != '\0') {
+                        globals++;
+                }
+        }
+
+        printf("Context usage:\n"
+               " [%4zu of %4zu] globals \n"
+               " [%4zu of %4zu] labels \n"
+               " [%4zu of %4zu] references \n"
+               "\n"
+               "Parser is currently on line %zu of %zu\n",
+               globals, ctx->max_globals,
+               symtablen(ctx->symtab, ctx->max_symtab_entries),
+               ctx->max_symtab_entries,
+               symtablen(ctx->reftab, ctx->max_reftab_entries),
+               ctx->max_reftab_entries, current_line, lines);
+}
+
 int parse_args(int argc, char * const argv[], struct args * const args)
 {
         char opt;
         const char * const argv0 = argv[0];
 
-        while ((opt = getopt(argc, argv, "f:ho:")) != -1) {
+        while ((opt = getopt(argc, argv, "f:ho:v")) != -1) {
                 switch (opt) {
                 case 'f':
                         if (strlen(optarg) > 255) {
@@ -106,6 +139,9 @@ int parse_args(int argc, char * const argv[], struct args * const args)
                                 return 1;
                         }
                         strncpy(args->outpath, optarg, 255);
+                        break;
+                case 'v':
+                        args->verbose = true;
                         break;
                 case ':':
                 case '?':
@@ -273,6 +309,10 @@ int main(int argc, char * const argv[])
         }
 
 cleanup:
+        if (args.verbose == true) {
+                dump_context(assembly_buffer, ctx);
+        }
+
         if (args.fin != NULL)
                 fclose(args.fin);
         if (args.fout != NULL)
