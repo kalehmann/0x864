@@ -236,6 +236,10 @@ void print_error(const char * const assembly_text, struct AsmCtx *ctx,
         case ERR_UNKNOWN_REFERENCE:
                 fprintf(stderr, "Reference to unknown label \"%s\" \n", ctx->label);
                 break;
+        case ERR_TOO_MANY_LABELS:
+                fprintf(stderr, "Too many labels - unable to store \"%s\"\n",
+                        ctx->label);
+                break;
         default:
                 fprintf(stderr, "Unknown error in line %zu arround \"%s\"\n",
                         ckln(assembly_text, ctx->assembly), line);

@@ -51,11 +51,20 @@ void test_assemble(void)
         TEST_ASSERT(ctx != NULL);
         TEST_CHECK(assemble(ctx) == ERR_NONE);
         TEST_CHECK(ctx->bintxt_size == 0);
+        free_asmctx(ctx);
 
         // Test that the `assemble` function handles unknown instructions
         ctx = make_asmctx("\tnop\n\tinvalid\n", 0, 0, 0, 0);
         TEST_ASSERT(ctx != NULL);
         TEST_CHECK(assemble(ctx) == ERR_UNKNOWN_INSTRUCTION);
+        free_asmctx(ctx);
+
+        // Test that the `assemble` function returns `ERR_TOO_MANY_LABELS` if
+        // the symtab has no space left.
+        ctx = make_asmctx("test:\n\tnop\n", 0, 0, 0, 0);
+        TEST_ASSERT(ctx != NULL);
+        TEST_CHECK(assemble(ctx) == ERR_TOO_MANY_LABELS);
+        free_asmctx(ctx);
 }
 
 void test_cklb(void)

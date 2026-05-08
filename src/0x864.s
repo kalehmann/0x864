@@ -131,7 +131,13 @@ assemble:
         mov r8, 0               ; uint32_t flags = 0
         mov r9, 0               ; uint32_t rel_target = 0
         call strsymtabntr
+        cmp eax, 0              ; if (strsymtabntr(...) == 0)
+        je .check_label_end
 
+        mov eax, 4              ; Return `ERR_TOO_MANY_LABELS`
+        jmp .ret_err
+
+.check_label_end:
         mov rdi, [rbp - 8]      ; char **assembly = &ctx->assembly
         call skp2lbinst
         jmp .check_label
@@ -153,10 +159,6 @@ assemble:
 .end:
         mov rdi, [rbp - 8]      ; Stores ctx in rdi
         call scndpss
-
-        mov rsp, rbp
-        pop rbp
-        retn
 
 .ret_err:
         mov rsp, rbp
@@ -4738,12 +4740,15 @@ strsymtabntr:
 
         mov al, 0
         mov r10, 256
+        cmp rsi, 0              ; if (n == 0)
+        je .ret_err
+
 .find_free_entry_loop:
         cmp [rdi], al
         je .store_offset
         add rdi, r10
         dec rsi
-        jz .ret_err
+        jz .ret_err             ; if (--n == 0)
         jmp .find_free_entry_loop
 
 .store_offset:
