@@ -61,9 +61,10 @@ void test_assemble(void)
 
         // Test that the `assemble` function returns `ERR_TOO_MANY_LABELS` if
         // the symtab has no space left.
-        ctx = make_asmctx("test:\n\tnop\n", 0, 0, 0, 0);
+        ctx = make_asmctx("test:\n.sublabel:\n\tnop\n", 0, 1, 0, 0);
         TEST_ASSERT(ctx != NULL);
         TEST_CHECK(assemble(ctx) == ERR_TOO_MANY_LABELS);
+        TEST_CHECK(strncmp(ctx->label, "test.sublabel", 14) == 0);
         free_asmctx(ctx);
 }
 
