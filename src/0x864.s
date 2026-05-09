@@ -31,8 +31,12 @@
         global  as_inc
         global  as_int
         global  as_ja
+        global  as_jae
         global  as_jb
+        global  as_jbe
         global  as_je
+        global  as_jg
+        global  as_jl
         global  as_jmp
         global  as_jne
         global  as_lea
@@ -879,25 +883,57 @@ as_snglinst:
         mov rsi, 0x616a         ; ja
         call .testinst
         cmp rax, 1
-        jne .check_jb
+        jne .check_jae
         lea rsi, [rbp - 32]
         call as_ja
+        jmp .assemble
+.check_jae:
+        mov rsi, 0x65616a       ; jae
+        call .testinst
+        cmp rax, 1
+        jne .check_jb
+        lea rsi, [rbp - 32]
+        call as_jae
         jmp .assemble
 .check_jb:
         mov rsi, 0x626a         ; jb
         call .testinst
         cmp rax, 1
-        jne .check_je
+        jne .check_jbe
         lea rsi, [rbp - 32]
         call as_jb
+        jmp .assemble
+.check_jbe:
+        mov rsi, 0x65626a       ; jbe
+        call .testinst
+        cmp rax, 1
+        jne .check_je
+        lea rsi, [rbp - 32]
+        call as_jbe
         jmp .assemble
 .check_je:
         mov rsi, 0x656a         ; je
         call .testinst
         cmp rax, 1
-        jne .check_jmp
+        jne .check_jg
         lea rsi, [rbp - 32]
         call as_je
+        jmp .assemble
+.check_jg:
+        mov rsi, 0x676a         ; jg
+        call .testinst
+        cmp rax, 1
+        jne .check_jl
+        lea rsi, [rbp - 32]
+        call as_jg
+        jmp .assemble
+.check_jl:
+        mov rsi, 0x6c6a         ; jl
+        call .testinst
+        cmp rax, 1
+        jne .check_jmp
+        lea rsi, [rbp - 32]
+        call as_jl
         jmp .assemble
 .check_jmp:
         mov rsi, 0x706d6a       ; jmp
@@ -1551,6 +1587,14 @@ as_ja:
 
 ;;; rdi: `struct AsmCtx *ctx`
 ;;; rsi: `struct AsmOp *op`
+as_jae:
+        mov dx, 0x830f
+        mov cl, 2               ; uint8_t n_opcodes = 2
+        call as_genjmp
+        retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
 as_jb:
         mov dx, 0x820f
         mov cl, 2               ; uint8_t n_opcodes = 2
@@ -1559,8 +1603,32 @@ as_jb:
 
 ;;; rdi: `struct AsmCtx *ctx`
 ;;; rsi: `struct AsmOp *op`
+as_jbe:
+        mov dx, 0x860f
+        mov cl, 2               ; uint8_t n_opcodes = 2
+        call as_genjmp
+        retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
 as_je:
         mov dx, 0x840f
+        mov cl, 2               ; uint8_t n_opcodes = 2
+        call as_genjmp
+        retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
+as_jg:
+        mov dx, 0x8f0f
+        mov cl, 2               ; uint8_t n_opcodes = 2
+        call as_genjmp
+        retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
+as_jl:
+        mov dx, 0x8c0f
         mov cl, 2               ; uint8_t n_opcodes = 2
         call as_genjmp
         retn

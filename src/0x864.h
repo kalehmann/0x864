@@ -435,6 +435,17 @@ extern enum AsmErr as_int(struct AsmCtx *ctx, struct AsmOp *op);
 extern enum AsmErr as_ja(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
+ * Assembles the jae instruction.
+ *
+ * @param ctx is the pointer to the AsmCtx structure.
+ * @param op is a pointer to an empty AsmOp structure, that should be filled
+ *           with data about the encoded instruction.
+ *
+ * @returns `ERR_NONE` on success or any error, that occured
+ */
+extern enum AsmErr as_jae(struct AsmCtx *ctx, struct AsmOp *op);
+
+/**
  * Assembles the jb instruction.
  *
  * @param ctx is the pointer to the AsmCtx structure.
@@ -446,6 +457,17 @@ extern enum AsmErr as_ja(struct AsmCtx *ctx, struct AsmOp *op);
 extern enum AsmErr as_jb(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
+ * Assembles the jbe instruction.
+ *
+ * @param ctx is the pointer to the AsmCtx structure.
+ * @param op is a pointer to an empty AsmOp structure, that should be filled
+ *           with data about the encoded instruction.
+ *
+ * @returns `ERR_NONE` on success or any error, that occured
+ */
+extern enum AsmErr as_jbe(struct AsmCtx *ctx, struct AsmOp *op);
+
+/**
  * Assembles the je instruction.
  *
  * @param ctx is the pointer to the AsmCtx structure.
@@ -455,6 +477,28 @@ extern enum AsmErr as_jb(struct AsmCtx *ctx, struct AsmOp *op);
  * @returns `ERR_NONE` on success or any error, that occured
  */
 extern enum AsmErr as_je(struct AsmCtx *ctx, struct AsmOp *op);
+
+/**
+ * Assembles the jg instruction.
+ *
+ * @param ctx is the pointer to the AsmCtx structure.
+ * @param op is a pointer to an empty AsmOp structure, that should be filled
+ *           with data about the encoded instruction.
+ *
+ * @returns `ERR_NONE` on success or any error, that occured
+ */
+extern enum AsmErr as_jg(struct AsmCtx *ctx, struct AsmOp *op);
+
+/**
+ * Assembles the jl instruction.
+ *
+ * @param ctx is the pointer to the AsmCtx structure.
+ * @param op is a pointer to an empty AsmOp structure, that should be filled
+ *           with data about the encoded instruction.
+ *
+ * @returns `ERR_NONE` on success or any error, that occured
+ */
+extern enum AsmErr as_jl(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the jmp instruction.

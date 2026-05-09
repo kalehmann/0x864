@@ -41,8 +41,12 @@ source code, to get a list of supported features and their quirks.
 | `inc`       | Only registers supported as destination operand                 |
 | `int`       |                                                                 |
 | `ja`        | Only `ja rel32` to a label                                      |
+| `jae`       | Only `jae rel32` to a label                                     |
 | `jb`        | Only `jb rel32` to a label                                      |
+| `jbe`       | Only `jbe rel32` to a label                                     |
 | `je`        | Only `je rel32` to a label                                      |
+| `jg`        | Only `jg rel32` to a label                                      |
+| `jl`        | Only `jl rel32` to a label                                      |
 | `jmp`       | Only `jmp rel32` to a label                                     |
 | `jne`       | Only `jne rel32` to a label                                     |
 | `jnz`       | Only `jnz rel32` to a label                                     |

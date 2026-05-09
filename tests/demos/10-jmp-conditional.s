@@ -4,9 +4,13 @@
 demo_10_jmp_conditional:
         cmp eax, 0xaabbccdd
         ja .end
+        jae .end
         jb .end
+        jbe .end
         cmp r15d, 0
         je .end
+        jg .end
+        jl .end
         jz .end
         jne .end
         jnz .end
