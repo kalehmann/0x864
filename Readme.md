@@ -8,7 +8,7 @@
 
 | Instruction | Notes                                                           |
 |-------------|-----------------------------------------------------------------|
-| `and`       | One operand must be a register                                  |
+| `add`       | One operand must be a register                                  |
 | `and`       | At least one operand must be a register direct access           |
 | `call`      | Only `call rel32` to a label                                    |
 | `cmp`       | At least one operand must be a register direct access           |
