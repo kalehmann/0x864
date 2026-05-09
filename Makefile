@@ -1,5 +1,12 @@
+ifneq (, $(shell which gcc))
 CC = gcc
 CC_FLAGS = -Wall -g -fno-eliminate-unused-debug-types
+else ifneq (, $(shell which tcc))
+CC = tcc
+CC_FLAGS = -Wall -g
+else
+$(error "No C-Compiler found. Checked for `gcc` and `tcc`")
+endif
 CC_TEST_FLAGS = -Isrc -Ivendor/acutest/include -Itests
 NASM = nasm
 OBJCOPY = objcopy
