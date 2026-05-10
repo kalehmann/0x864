@@ -46,6 +46,7 @@
         global  as_movsd
         global  as_movsq
         global  as_mul
+        global  as_neg
         global  as_nop
         global  as_or
         global  as_pop
@@ -1019,9 +1020,17 @@ as_snglinst:
         mov rsi, 0x6c756d       ; mul
         call .testinst
         cmp rax, 1
-        jne .check_nop
+        jne .check_neg
         lea rsi, [rbp - 32]
         call as_mul
+        jmp .assemble
+.check_neg:
+        mov rsi, 0x67656e       ; neg
+        call .testinst
+        cmp rax, 1
+        jne .check_nop
+        lea rsi, [rbp - 32]
+        call as_neg
         jmp .assemble
 .check_nop:
         mov rsi, 0x00706f6e     ; nop
@@ -1871,6 +1880,14 @@ as_movsw:
 as_mul:
         mov dl, 0xf6
         mov ecx, 4
+        call as_genop1rm
+        retn
+
+;;; rdi: `struct AsmCtx *ctx`
+;;; rsi: `struct AsmOp *op`
+as_neg:
+        mov dl, 0xf6
+        mov ecx, 3
         call as_genop1rm
         retn
 

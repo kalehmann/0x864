@@ -599,6 +599,17 @@ extern enum AsmErr as_movsw(struct AsmCtx *ctx, struct AsmOp *op);
 extern enum AsmErr as_mul(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
+ * Assembles the neg instruction.
+ *
+ * @param ctx is the pointer to the AsmCtx structure.
+ * @param op is a pointer to an empty AsmOp structure, that should be filled
+ *           with data about the encoded instruction.
+ *
+ * @returns `ERR_NONE` on success or any error, that occured
+ */
+extern enum AsmErr as_neg(struct AsmCtx *ctx, struct AsmOp *op);
+
+/**
  * Assembles the nop instruction.
  *
  * @param ctx is the pointer to the AsmCtx structure.

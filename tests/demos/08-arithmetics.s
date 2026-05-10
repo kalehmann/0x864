@@ -30,6 +30,11 @@ demo_08_arithmetics:
         add ecx, [rbp - 4]
         add rdx, [rbp - 8]
 
+        neg al
+        neg bx
+        neg ecx
+        neg rdx
+
         sub al, 8
         sub ax, 0x1234
         sub eax, 0x12345678

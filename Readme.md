@@ -55,6 +55,7 @@ source code, to get a list of supported features and their quirks.
 | `mov`       | At least one operand must be a register direct access           |
 | `movs`      | Only no-operands forms `movsb`, `movsd`, `movsq`, `movsw`       |
 | `mul`       | Only registers supported as operand                             |
+| `neg`       | Only registers supported as destination operand                 |
 | `nop`       |                                                                 |
 | `or`        | At least one operand must be a register direct access           |
 | `pop`       | Only `pop r64`                                                  |
