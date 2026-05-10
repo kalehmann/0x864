@@ -62,7 +62,12 @@ test-unit: tests/unit_test_suite
 	@./tests/unit_test_suite
 
 src/0x864: $(0x864_SOURCES)
-	@$(CC) $(CC_FLAGS) -o src/0x864 src/harness.c src/0x864.c.o src/0x864.s.o
+	@$(CC) $(CC_FLAGS) \
+		-static \
+		-o src/0x864 \
+		src/harness.c \
+		src/0x864.c.o \
+		src/0x864.s.o
 
 src/%.c.o: src/%.c
 	@$(CC) $(CC_FLAGS) -c -o $@ $<
@@ -90,6 +95,7 @@ tests/unit_test_suite: $(UNIT_TEST_SOURCES)
 	@$(CC) \
 		$(CC_FLAGS) \
 		$(CC_TEST_FLAGS) \
+		-static \
 		tests/unit_test_suite.c \
 		src/0x864.c.o \
 		src/0x864.s.o \
