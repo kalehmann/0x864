@@ -3704,6 +3704,13 @@ isint:
         cmp rax, 1
         je .ret_false
 
+        mov al, 0x2d            ; Ascii hyphen ('-')
+        cmp [rdi], al
+        jne .check_int_type
+        inc rdi                 ; assembly++ // Skip leading minus sign
+        jmp .check_decimal
+
+.check_int_type:
         mov al, 0x30            ; Ascii zero ('0')
         cmp [rdi], al
         jne .check_decimal
@@ -3887,12 +3894,22 @@ len:
 pint:
         push rbp
         mov rbp, rsp
-        sub rsp, 8
+        sub rsp, 16
         mov [rbp - 8], rdi
         xor eax, eax
+        mov [rbp - 9], al       ; uint8_t is_negative = 0
         xor r8d, r8d
 
         mov rsi, [rdi]
+        mov cl, 0x2d            ; Ascii hyphen ('-')
+        cmp [rsi], cl
+        jne .check_int_type
+        mov cl, 1
+        mov [rbp - 9], cl       ; is_negative = 1
+        inc rsi
+        jmp .parse_decimal
+
+.check_int_type:
         mov cl, 0x30            ; Ascii zero ('0')
         cmp [rsi], cl
         jne .parse_decimal
@@ -3964,15 +3981,21 @@ pint:
         xor r9d, r9d
 .parse_decimal_loop:
         cmp [rsi], cl
-        jb .ret
+        jb .check_negative
         cmp [rsi], ch
-        ja .ret
+        ja .check_negative
         mul r8                  ; rax = 10 * eax
         mov r9b, [rsi]
         sub r9b, 0x30
         add rax, r9
         inc rsi
         jmp .parse_decimal_loop
+
+.check_negative:
+        mov cl, [rbp - 9]
+        cmp cl, 1               ; if (is_negative == 1)
+        jne .ret
+        neg rax
 
 .ret:
         mov [rdi], rsi
