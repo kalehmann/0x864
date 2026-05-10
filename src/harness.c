@@ -213,7 +213,7 @@ void print_error(const char * const assembly_text, struct AsmCtx *ctx,
         if (linebreak != NULL) {
                 n = linebreak - ctx->assembly;
         } else {
-                n = strlen(ctx->assembly) - 1;
+                n = strlen(ctx->assembly);
         }
 
         line = calloc(n + 1, 1);
