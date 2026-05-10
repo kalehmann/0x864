@@ -1350,7 +1350,7 @@ as_genjmp:
         jne .ret_invalid_operands
 
         mov rdi, [rbp - 8]
-        call strlbl
+        call strlbl_jmp
 
         xor eax, eax            ; Return ERR_NONE
         mov rsp, rbp
@@ -4969,7 +4969,54 @@ strlbl:
         jne .store_top_label
 
 .store_sub_label:
+        call strsblbl
+        jmp .end
+
+.store_top_label:
+        call strtplbl
+
+        ;; Copy ctx->label to ctx->_label
         mov rdi, [rbp - 8]      ; Stores ctx in rdi
+        lea rsi, [rdi + 320]    ; void *dst = ctx->_label
+        lea rdi, [rdi + 80]     ; void *src = ctx->label
+        mov rdx, 240            ; size_t n = 240
+        call cpy
+
+.end:
+        mov rsp, rbp
+        pop rbp
+        retn
+
+;;; Stores the next token as label for a generic jmp instruction.
+;;; Regardless if the label is absolute or relative - the last parsed top-label
+;;; is not modified.
+;;;
+;;; rdi: `struct AsmCtx *ctx`
+strlbl_jmp:
+        mov rsi, [rdi]          ; Stores ctx->assembly in ri
+        mov al, 0x2e            ; Ascii dot ('.')
+        cmp [rsi], al
+        jne .store_top_label
+
+.store_sub_label:
+        call strsblbl
+        retn
+
+.store_top_label:
+        call strtplbl
+        retn
+
+;;; Stores the next token as sub-label.
+;;; That means, it is appended to the last top-label and writen to
+;;; `ctx->label`
+;;;
+;;; rdi: `struct AsmCtx *ctx`
+strsblbl:
+        push rbp
+        mov rbp, rsp
+        sub rsp, 8
+        mov [rbp - 8], rdi
+
         lea rsi, [rdi + 80]     ; void *dst = ctx->label
         lea rdi, [rdi + 320]    ; void *src = ctx->_label
         mov rdx, 240            ; size_t n = 240
@@ -4987,11 +5034,24 @@ strlbl:
         sub rdx, rax            ; n -= len(ctx->_label)
         call readnlbl
 
-        jmp .end
+        mov rsp, rbp
+        pop rbp
+        retn
 
-.store_top_label:
+;;; Stores the next token as top-label to `ctx->label`.
+;;; The last parsed top-label is not modified by this function - so during
+;;; parsing, `ctx->label` needs to be copied to `ctx->_label` afterwards.
+;;;
+;;; rdi: `struct AsmCtx *ctx`
+;;; rdi: `struct AsmCtx *ctx`
+strtplbl:
+        push rbp
+        mov rbp, rsp
+        sub rsp, 8
+        mov [rbp - 8], rdi
+
         lea rdi, [rdi + 80]
-        mov rsi, 480
+        mov rsi, 240
         call clr
 
         mov rdi, [rbp - 8]      ; char **assembly = &ctx->assembly
@@ -4999,12 +5059,6 @@ strlbl:
         mov rdx, 240            ; size_t n = 240
         call readnlbl
 
-        mov rdi, [rbp - 8]      ; Stores ctx in rdi
-        lea rsi, [rdi + 320]    ; void *dst = ctx->_label
-        lea rdi, [rdi + 80]     ; void *src = ctx->label
-        mov rdx, 240            ; size_t n = 240
-        call cpy
-.end:
         mov rsp, rbp
         pop rbp
         retn
