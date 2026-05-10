@@ -10,6 +10,10 @@ demo_09_jmp:
         nop
 .forward:
         nop
+        call foobar
         jmp .backward
 .end:
+        retn
+
+foobar:
         retn
