@@ -772,8 +772,9 @@ assemble_op:
         mov cl, [rbp - 33]      ; cl = bytes_to_write
         add r10, r9
         add r9, rcx             ; r9 += bytes_to_write
+        mov eax, 7              ; eax = ERR_BINTXT_BUFFER_TOO_SMALL
         cmp r9, r8
-        ja .end
+        ja .ret_err
         mov [rdi + 24], r9
         lea rsi, [rbp - 32]     ; rsi = buffer
 .write_buffer_copy:

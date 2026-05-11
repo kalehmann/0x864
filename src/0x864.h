@@ -68,6 +68,7 @@ enum AsmErr {
         ERR_TOO_MANY_GLOBALS = 4,
         ERR_TOO_MANY_LABELS = 5,
         ERR_TOO_MANY_REFERENCES = 6,
+        ERR_BINTXT_BUFFER_TOO_SMALL = 7,
 };
 
 struct SymTabNtr {

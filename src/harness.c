@@ -98,11 +98,13 @@ void dump_context(const char * assembly_text, struct AsmCtx *ctx)
         }
 
         printf("Context usage:\n"
+               " [%4zu of %4zu] bytes of assembled code \n"
                " [%4zu of %4zu] globals \n"
                " [%4zu of %4zu] labels \n"
                " [%4zu of %4zu] references \n"
                "\n"
                "Parser is currently on line %zu of %zu\n",
+               ctx->bintxt_size, ctx->max_bintxt_size,
                globals, ctx->max_globals,
                symtablen(ctx->symtab, ctx->max_symtab_entries),
                ctx->max_symtab_entries,
@@ -249,6 +251,10 @@ void print_error(const char * const assembly_text, struct AsmCtx *ctx,
                 fprintf(stderr, "Too many referencess - unable to store "
                         "reference to \"%s\" on line %zu\n",
                         ctx->label, ckln(assembly_text, ctx->assembly));
+                break;
+        case ERR_BINTXT_BUFFER_TOO_SMALL:
+                fprintf(stderr, "bintxt buffer is full - assembled program "
+                        "exceeds %zu bytes\n", ctx->max_bintxt_size);
                 break;
         default:
                 fprintf(stderr, "Unknown error in line %zu arround \"%s\"\n",
