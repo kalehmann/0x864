@@ -84,7 +84,7 @@ void dump_context(const char * assembly_text, struct AsmCtx *ctx)
 {
         size_t current_line = ckln(assembly_text, ctx->assembly);
         size_t globals = 0;
-        size_t lines = 0;
+        size_t lines = 1;
 
         while (*(assembly_text++) != '\0') {
                 if (*assembly_text == '\n')
