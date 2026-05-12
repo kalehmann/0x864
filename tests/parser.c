@@ -42,7 +42,7 @@ void test_assemble(void)
         // to the output buffer.
         struct AsmCtx *ctx = make_asmctx("\tnop\n", 0, 0, 0, 0);
         TEST_ASSERT(ctx != NULL);
-        TEST_CHECK(assemble(ctx) == ERR_NONE);
+        TEST_CHECK(assemble(ctx) == ERR_BINTXT_BUFFER_TOO_SMALL);
         TEST_CHECK(ctx->bintxt_size == 0);
         free_asmctx(ctx);
 
@@ -54,7 +54,7 @@ void test_assemble(void)
         free_asmctx(ctx);
 
         // Test that the `assemble` function handles unknown instructions
-        ctx = make_asmctx("\tnop\n\tinvalid\n", 0, 0, 0, 0);
+        ctx = make_asmctx("\tnop\n\tinvalid\n", 16, 0, 0, 0);
         TEST_ASSERT(ctx != NULL);
         TEST_CHECK(assemble(ctx) == ERR_UNKNOWN_INSTRUCTION);
         free_asmctx(ctx);
