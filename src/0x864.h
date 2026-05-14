@@ -17,97 +17,328 @@
  *  long with 0x864. If not, see <http://www.gnu.org/licenses/>.
  */
 
+/**
+ * @file src/0x864.h
+ * @brief Interfaces to the selfh0sted x86 4ssembler.
+ *
+ * This file contains the constants, structures and function declarations to
+ * interface C-code with 0x864.
+ *
+ * Relevant function for implementing a harness around the Assembler are
+ * - @ref make_asmctx to allocate the context structure for the assembly process.
+ * - @ref assemble to encode the human readable assembly program as binary.
+ * - @ref elf64_dump to produce a relocatable elf64 file from the binary code.
+ * - @ref free_asmctx to deallocate the context structure.
+ *
+ * The rest is only exposed for testing and documentation of the internal
+ * structures.
+ */
+
 #ifndef _0x864_H
 #define _0x864_H
 
 #include <stddef.h>
 #include <stdint.h>
 
-// Possible values for the `encoding` field of the AsmOp structure.
-#define ENCODING_ZO 0x00
-#define ENCODING_D 0x01
-#define ENCODING_I 0x02
-#define ENCODING_M 0x03
-#define ENCODING_MI 0x04
-#define ENCODING_MR 0x05
-#define ENCODING_O 0x06
-#define ENCODING_OI 0x07
-#define ENCODING_RM 0x08
-
-// Possible values for the `flags` field of the SymTabNtr structure.
-#define FLAG_RELATIVE 0x01
-
-// Possible values for the `d_label` field of the AsmOp structure.
-#define D_LABEL_NONE 0x00
-#define D_LABEL_ABSOLUTE 0x01
-#define D_LABEL_RELATIVE 0x02
-
-// Possible values for the `modrm_mod` field of the AsmOp structure.
-#define MOD_INDIRECT 0b00
-#define MOD_INDIRECT_8 0b01
-#define MOD_INDIRECT_32 0b10
-#define MOD_DIRECT 0b11
-
-// Possible encodings of operand types for ckoptps
-#define OP_TYPE_REG 0b00
-#define OP_TYPE_RGNDRCT 0b01
-#define OP_TYPE_IMM 0b10
-#define OP_TYPE_LBL 0b11
-
-// Possible values for the `prefix` field of the AsmOp structure.
-#define PREFIX_LOCK 0x01
-#define PREFIX_REPNE_REPNZ 0x02
-#define PREFIX_REPE_REPZ 0x04
-#define PREFIX_OP_SIZE_OVERRIDE 0x08
-
-enum AsmErr {
+/**
+ * Possible error values for functions exposed by 0x864
+ */
+enum AsmErr : uint32_t {
+        /**
+         * Returned on success.
+         */
         ERR_NONE = 0,
+        /**
+         * Returned in case an instruction not understood by 0x864 (yet) is
+         * encountered.
+         */
         ERR_UNKNOWN_INSTRUCTION = 1,
+        /**
+         * Returned in case 0x864 is unable to encode the given operands for the
+         * instruction.
+         */
         ERR_INVALID_OPERANDS = 2,
+        /**
+         * Returned in case of a call or jump to a target, that is not in the
+         * symbol table.
+         */
         ERR_UNKNOWN_REFERENCE = 3,
+        /**
+         * Returned in case the @ref AsmCtx.globals table does not have enough
+         * space to hold all globals declared in the code.
+         */
         ERR_TOO_MANY_GLOBALS = 4,
+        /**
+         * Returned in case the @ref AsmCtx.symtab table does not have enough
+         * space to hold all labels declared in the code.
+         */
         ERR_TOO_MANY_LABELS = 5,
+        /**
+         * Returned in case the @ref AsmCtx.reftab table does not have enough
+         * space to hold all references to labels from calls or jumps in the
+         * assembly code.
+         */
         ERR_TOO_MANY_REFERENCES = 6,
+        /**
+         * Returned in case the @ref AsmCtx.bintxt buffer is smaller than the
+         * assembled binary.
+         */
         ERR_BINTXT_BUFFER_TOO_SMALL = 7,
 };
 
-struct SymTabNtr {
-        char label[240];
-        uint32_t __reserved;
-        uint32_t flags;
-        uint32_t rel_target;
-        uint32_t offset;
+/**
+ * Possible values for the @ref AsmOp.d_label field.
+ */
+enum AsmOp_d_label : uint8_t {
+        /**
+         * Use immediate as operand for call or jump.
+         */
+        D_LABEL_NONE = 0x00,
+        /**
+         * Use absolute address @ref AsmCtx.label as target for call or jump.
+         */
+        D_LABEL_ABSOLUTE = 0x01,
+        /**
+         * Use address @ref AsmCtx.label relative to current position in binary
+         * as target for call or jump.
+         */
+        D_LABEL_RELATIVE = 0x02,
 };
 
-struct AsmCtx {
-        char const *assembly;
-        uint8_t *bintxt;
-        size_t max_bintxt_size;
-        size_t bintxt_size;
-        struct SymTabNtr *symtab;
-        size_t max_symtab_entries;
-        struct SymTabNtr *reftab;
-        size_t max_reftab_entries;
-        char (*globals)[64];
-        size_t max_globals;
-        char label[240];
-        char _label[240];
+/**
+ * Possible values for the @ref AsmOp.encoding field.
+ */
+enum AsmOp_encoding : uint8_t {
+        /**
+         * No operands.
+         */
+        ENCODING_ZO = 0x00,
+        /**
+         * Offset for call or jump as single operand.
+         */
+        ENCODING_D = 0x01,
+        /**
+         * An immediate as single operand.
+         */
+        ENCODING_I = 0x02,
+        /**
+         * Register stored in the ModRM.rm bits as single operand.
+         */
+        ENCODING_M = 0x03,
+        /**
+         * Destination stored in the ModRM.rm bits followed by an immediate.
+         */
+        ENCODING_MI = 0x04,
+        /**
+         * Destination stored in the ModRM.rm bits, source stored in the
+         * ModRM.reg bits.
+         */
+        ENCODING_MR = 0x05,
+        /**
+         * Destination encoded in the opcode.
+         */
+        ENCODING_O = 0x06,
+        /**
+         * Destination encoded in the opcode followed by an immediate as source.
+         */
+        ENCODING_OI = 0x07,
+        /**
+         * Destination stored in the ModRM.reg bits, source stored in the
+         * ModRM.rm bits.
+         */
+        ENCODING_RM = 0x08,
 };
 
+/**
+ * Possible values for the @ref AsmOp.modrm_mod field.
+ */
+enum AsmOp_modrm_mod : uint8_t {
+        /**
+         * Use value from memory address stored in register as target.
+         */
+        MOD_INDIRECT = 0b00,
+        /**
+         * Use value from memory address stored in register plus the following
+         * byte as 8-bit signed displacement as target.
+         */
+        MOD_INDIRECT_8 = 0b01,
+        /**
+         * Use value from memory address stored in register plus the following
+         * four byte as 32-bit signed displacement as target.
+         */
+        MOD_INDIRECT_32 = 0b10,
+        /**
+         * Use value stored in register as target.
+         */
+        MOD_DIRECT = 0b11,
+};
+
+/**
+ * Possible flags for the @ref AsmOp.prefix field.
+ */
+enum AsmOp_prefix : uint8_t {
+        /**
+         * Add the LOCK prefix (`0xf0`) before the opcode.
+         */
+        PREFIX_LOCK = 0x01,
+        /**
+         * Add the REPNE/REPNZ prefix (`0xf2`) before the opcode.
+         * Note, that this is not valid in combination with
+         * @ref AsmOp_prefix.PREFIX_REPE_REPZ.
+         */
+        PREFIX_REPNE_REPNZ = 0x02,
+        /**
+         * Add the REP/REPE/REPZ prefix (`0xf3`) before the opcode.
+         * Note, that this is not valid in combination with
+         * @ref AsmOp_prefix.PREFIX_REPNE_REPNZ.
+         */
+        PREFIX_REPE_REPZ = 0x04,
+        /**
+         * Add the Operand-size override prefix (`0x66`) before the opcode.
+         */
+        PREFIX_OP_SIZE_OVERRIDE = 0x08,
+};
+
+/**
+ * Possible operand types for the @ref ckoptps function.
+ */
+enum OpType : uint8_t {
+        /**
+         * Operand is a register.
+         */
+        OP_TYPE_REG = 0b00,
+        /**
+         * Operand is a register indirect memory access, e.g. `[rax]` or
+         * `[rbp - 8]`.
+         */
+        OP_TYPE_RGNDRCT = 0b01,
+        /**
+         * Operand is an immediate.
+         */
+        OP_TYPE_IMM = 0b10,
+        /**
+         * Operand is a label.
+         */
+        OP_TYPE_LBL = 0b11,
+};
+
+/**
+ * Possible flags for the @ref SymTabNtr.flags field.
+ */
+enum SymTabNtr_flags : uint32_t {
+        /**
+         * No special handling.
+         */
+        FLAG_NONE = 0x00,
+        /**
+         * When resolving references, resolve the relative offset to the stored
+         * label from the current position in the binary.
+         */
+        FLAG_RELATIVE = 0x01,
+};
+
+/**
+ * Union type for displacement values in register indirect memory access.
+ */
 union Disp{
+        /**
+         * Signed 8-bit displacement for register-indirect memory access.
+         */
         int8_t disp8;
+        /**
+         * Signed 32-bit displacement for register-indirect memory access.
+         */
         int32_t disp32;
 };
 
+/**
+ * Union type for immediate values.
+ */
 union Immediate{
+        /**
+         * 8-bit signed immediate value.
+         */
         int8_t imm8;
+        /**
+         * 16-bit signed immediate value.
+         */
         int16_t imm16;
+        /**
+         * 32-bit signed immediate value.
+         */
         int32_t imm32;
+        /**
+         * 64-bit signed immediate value.
+         */
         int64_t imm64;
 };
 
+/**
+ * Context for the assembly of a script into a binary.
+ *
+ * This structure holds common information related to the assembly process.
+ */
+struct AsmCtx {
+        /**
+         * Pointer to the program in human readable assembly language.
+         */
+        char const *assembly;
+        /**
+         * Buffer for the binary / assembled program.
+         */
+        uint8_t *bintxt;
+        /**
+         * Size of the @ref AsmCtx.bintxt buffer.
+         */
+        size_t max_bintxt_size;
+        /**
+         * Actual size of the binary program in the @ref AsmCtx.bintxt buffer.
+         */
+        size_t bintxt_size;
+        /**
+         * Table with all symbols (labels) in the assembly code.
+         */
+        struct SymTabNtr *symtab;
+        /**
+         * Number of entries allocated for @ref AsmCtx.symtab.
+         */
+        size_t max_symtab_entries;
+        /**
+         * Table with all references to symbols, their location and information
+         * how they should be resolved.
+         */
+        struct SymTabNtr *reftab;
+        /**
+         * Number of entries allocated for @ref AsmCtx.reftab.
+         */
+        size_t max_reftab_entries;
+        /**
+         * Contains each global symbol in the assembly code.
+         */
+        char (*globals)[64];
+        /**
+         * Number of entries allocated for @ref AsmCtx.globals.
+         */
+        size_t max_globals;
+        /**
+         * Last parsed label. Maybe filled with a label related to an error in
+         * case a function return a result other than @ref AsmErr.ERR_NONE.
+         */
+        char label[240];
+        /**
+         * Last parsed top-level label (not starting with a dot).
+         */
+        char _label[240];
+};
+
+/**
+ * This structures describes an operation, so that it can be encoded.
+ */
 struct AsmOp {
-        uint8_t encoding;
+        /**
+         * Specifies the instruction operand encoding.
+         */
+        enum AsmOp_encoding encoding;
         /**
          * Size of the operation. 8, 16, 32 or 64 bit.
          */
@@ -122,14 +353,14 @@ struct AsmOp {
         uint8_t dst_reg;
         /**
          * The two mod bits of the ModRM byte.
-         */
-        uint8_t modrm_mod;
-        /**
-         * The number of opcodes stored in the `opcodes` array.
          * - 00 -> register indirect
          * - 01 -> register indirect + `disp.disp8`
          * - 10 -> register indirect + `disp.disp32`
          * - 11 -> register direct
+         */
+        enum AsmOp_modrm_mod modrm_mod;
+        /**
+         * The number of opcodes stored in the `opcodes` array.
          */
         uint8_t n_opcodes;
         /**
@@ -143,15 +374,15 @@ struct AsmOp {
          */
         uint8_t imm_size;
         /**
-         * For encoding `ENCODING_D`, this specifies if the value from the `imm`
-         * field should be used as targed or the address referenced by the label
-         * currently stored in the context.
+         * For encoding @ref AsmOp_encoding.ENCODING_D, this specifies if the
+         * value from the @ref AsmOp.imm field should be used as targed or the
+         * address referenced by the label currently stored in the context.
          */
-        uint8_t d_label;
+        enum AsmOp_d_label d_label;
         /**
          * Additional prefixes for the instruction
          */
-        uint8_t prefix;
+        enum AsmOp_prefix prefix;
         /**
          * The displacement of an register indirect access. The usage of
          * `disp.disp8` or `disp.disp32` is determined by the `modrm_mod`
@@ -165,19 +396,54 @@ struct AsmOp {
 };
 
 /**
+ * Entry in a symbol table like @ref AsmCtx.symtab or @ref AsmCtx.reftab.
+ */
+struct SymTabNtr {
+        /**
+         * Name of the symbol
+         */
+        char label[240];
+        /**
+         * May be used in future revisions.
+         */
+        uint32_t __reserved;
+        /**
+         * When used in a reference table like @ref AsmCtx.reftab, this field
+         * contains additional information how the reference will be resolved.
+         */
+        enum SymTabNtr_flags flags;
+        /**
+         * When used in a reference table like @ref AsmCtx.reftab and
+         * @ref SymTabNtr.flags contains the @ref SymTabNtr_flags.FLAG_RELATIVE,
+         * the reference is resolved relative to the address stored in this
+         * field.
+         */
+        uint32_t rel_target;
+        /**
+         * When used in a symbol table, this field contains the offset of the
+         * symbol in the binary.
+         *
+         * Otherwise, when used in a reference table like @ref AsmCtx.reftab this
+         * field contains the offset in the binary where the address of the
+         * resolved reference shall be inserted.
+         */
+        uint32_t offset;
+};
+
+/**
  * Allocates a AsmCtx structure including it's members.
  *
  * @param assembly is a pointer to the string containing the assembly code
  * @param max_bintxt_size is the size of the buffer allocated for binary output
- * @param max_symbtab_entries is the number of entries for the allocated symbol
- *                            table. This parameter should be larger than the
- *                            number of labels in the assembly could.
+ * @param max_symtab_entries is the number of entries for the allocated symbol
+ *                           table. This parameter should be larger than the
+ *                           number of labels in the assembly could.
  * @param max_reftab_entries is the number of entries for the allocated reference
- *                           table. This parameter should be largern than the
+ *                           table. This parameter should be larger than the
  *                           number of jump and call instructions in the assembly
  *                           code, that use labels as target.
  * @param max_globals is the number of entries for the globals table. This
- *                    parameter should be largern than the number of global
+ *                    parameter should be larger than the number of global
  *                    statements in the assembly code.
  *
  * @returns a pointer to the newly allocated AsmCtx structure or NULL on failure
@@ -197,24 +463,29 @@ void free_asmctx(struct AsmCtx *ctx);
 /**
  * Aligns an offset to a multiple of 16.
  *
+ * @code
+ * assert(algn16(16) == 16);
+ * assert(algn16(17) == 32);
+ * @endcode
+ *
  * @param off is the offset to align
  *
- * @returns the aligned offset
+ * @returns the offset aligned to the next multiple of 16.
  */
 extern size_t algn16(size_t off);
 
 /**
  * Assembles the given assembly.
  *
- * Fills the `bintxt` field and sets the `bintxt_size` field of the AsmCtx
- * structure. The `assembly` field of the AsmCtx structure is advanced to the
- * end.
+ * Fills the @ref AsmCtx.bintxt field and sets the @ref AsmCtx.bintxt_size field.
+ * The pointer @ref AsmCtx.assembly will be advanced to the end of the human
+ * readable assembly program in the process.
  *
- * @param ctx is the pointer to the AsmCtx structure.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
-extern enum AsmErr assemble(struct AsmCtx *);
+extern enum AsmErr assemble(struct AsmCtx *ctx);
 
 /**
  * Encodes an instruction described by the AsmOp structure.
@@ -222,7 +493,7 @@ extern enum AsmErr assemble(struct AsmCtx *);
  * @param ctx is the pointer to the AsmCtx structure.
  * @param op is the pointer to the AsmOp structure.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr assemble_op(struct AsmCtx *ctx, struct AsmOp *op);
 
@@ -231,73 +502,73 @@ extern enum AsmErr assemble_op(struct AsmCtx *ctx, struct AsmOp *op);
  *
  * @param ctx is the pointer to the AsmCtx structure.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_snglinst(struct AsmCtx *ctx);
 
 /**
  * Assembles the add instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_add(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the and instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_and(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the call instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_call(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the cmp instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_cmp(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the dec instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_dec(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the div instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_div(struct AsmCtx *ctx, struct AsmOp *op);
 
@@ -308,13 +579,13 @@ extern enum AsmErr as_div(struct AsmCtx *ctx, struct AsmOp *op);
  * (jcc) instructions. The instruction operand encoding is always D and the
  * offset rel32 with no optimizations for shorter jump offsets.
  *
- * @param ctx is a pointer to the AsmCtx structure
- * @param op is a pointer to the AsmOp structure
- * @param opcodes are the opcodes for the instruction
+ * @param ctx is a pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to the @ref AsmOp structure.
+ * @param opcodes are the opcodes for the instruction.
  * @param n_opcodes is the number of opcodes (one or two) in the `opcodes`
- *                  parameters
+ *                  parameters.
  *
- * @returns `ERR_NONE` on success or any error, that occured.
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred.
  */
 extern enum AsmErr as_genjmp(struct AsmCtx *ctx, struct AsmOp *op,
                              uint16_t opcodes, uint8_t n_opcodes);
@@ -338,12 +609,12 @@ extern enum AsmErr as_genjmp(struct AsmCtx *ctx, struct AsmOp *op,
  *   the REX.W bit
  * - there may be additional data in the ModRM.reg field
  *
- * @param ctx is a pointer to the AsmCtx structure
- * @param op is a pointer to the AsmOp structure
- * @param op8_rm8 is the opcode for the 8-bit operation
+ * @param ctx is a pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to the @ref AsmOp structure.
+ * @param op_rm8 is the opcode for the 8-bit operation.
  * @param modrm_reg is additional data to encode in the ModRM.reg
  *
- * @returns `ERR_NONE` on success or any error, that occured.
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred.
  */
 extern enum AsmErr as_genop1rm(struct AsmCtx *ctx, struct AsmOp *op,
                                uint8_t op_rm8, uint8_t modrm_reg);
@@ -365,7 +636,7 @@ extern enum AsmErr as_genop1rm(struct AsmCtx *ctx, struct AsmOp *op,
  *   and an immediate as source
  * - the instruction operand encoding is MR for R/M as destination and a register
  *   as source
- * - the instruction operand encoding is RM for a register as destination and R\M
+ * - the instruction operand encoding is RM for a register as destination and R/M
  *   as source
  * - the 8-bit operation uses a single opcode
  * - the 16-bit operation uses the opcode of the 8-bit operation plus one and
@@ -380,22 +651,22 @@ extern enum AsmErr as_genop1rm(struct AsmCtx *ctx, struct AsmOp *op,
  *   REX.W bit while the opcode stays the same
  * - the MI encoding may have additional data in the ModRM.reg field
  *
- * @param ctx is a pointer to the AsmCtx structure
- * @param op is a pointer to the AsmOp structure
- * @param op8_al_imm8 is the opcode for the 8-bit operation with `al` as
- *                    destination and an immediate as source.
- * @param op8_rimm8 is the opcode for the 8-bit operation with any register other
- *                  than `al` as destination and an immediate as source.
- * @param op8_rsimm8 is the opcode for the operation with a register of any size
- *                   and a sign-extended 8-bit immediate as source.
- * @param op8_rmr8 is the opcode for the 8-bit operation with a R\M as source
- *                 and a register as destination.
- * @param op8_rrm8 is the opcode for the 8-bit operation with a register as
- *                 source and R/M as destination.
+ * @param ctx is a pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to the @ref AsmOp structure.
+ * @param op_al_imm8 is the opcode for the 8-bit operation with `al` as
+ *                   destination and an immediate as source.
+ * @param op_rimm8 is the opcode for the 8-bit operation with any register other
+ *                 than `al` as destination and an immediate as source.
+ * @param op_rsimm8 is the opcode for the operation with a register of any size
+ *                  and a sign-extended 8-bit immediate as source.
+ * @param op_rmr8 is the opcode for the 8-bit operation with a R/M as source
+ *                and a register as destination.
+ * @param op_rrm8 is the opcode for the 8-bit operation with a register as
+ *                source and R/M as destination.
  * @param modrm_reg is additional data to encode in the ModRM.reg field for the I
  *                  instruction operand encoding.
  *
- * @returns `ERR_NONE` on success or any error, that occured.
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred.
  */
 extern enum AsmErr as_genop2ax32(struct AsmCtx *ctx, struct AsmOp *op,
                                  uint8_t op_al_imm8, uint8_t op_rimm8,
@@ -405,329 +676,329 @@ extern enum AsmErr as_genop2ax32(struct AsmCtx *ctx, struct AsmOp *op,
 /**
  * Assembles the inc instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_inc(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the int instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_int(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the ja instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_ja(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the jae instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_jae(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the jb instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_jb(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the jbe instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_jbe(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the je instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_je(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the jg instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_jg(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the jl instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_jl(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the jmp instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_jmp(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the jne instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_jne(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the lea instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_lea(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the mov instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_mov(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the movsb instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_movsb(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the movsd instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_movsd(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the movsq instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_movsq(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the movsw instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_movsw(struct AsmCtx *ctx, struct AsmOp *op);
 /**
  * Assembles the mul instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_mul(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the neg instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_neg(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the nop instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_nop(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the or instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_or(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the pop instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_pop(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the push instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_push(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the retn instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_retn(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the shl instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_shl(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the shr instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_shr(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the sub instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_sub(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the syscall instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_syscall(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the xchg instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_xchg(struct AsmCtx *ctx, struct AsmOp *op);
 
 /**
  * Assembles the xor instruction.
  *
- * @param ctx is the pointer to the AsmCtx structure.
- * @param op is a pointer to an empty AsmOp structure, that should be filled
- *           with data about the encoded instruction.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to an empty @ref AsmOp structure, that should be
+ *           filled with data about the encoded instruction.
  *
- * @returns `ERR_NONE` on success or any error, that occured
+ * @returns @ref AsmErr.ERR_NONE on success or any error, that occurred
  */
 extern enum AsmErr as_xor(struct AsmCtx *ctx, struct AsmOp *op);
 
@@ -741,7 +1012,7 @@ extern enum AsmErr as_xor(struct AsmCtx *ctx, struct AsmOp *op);
 extern int cklb(char const *assembly);
 
 /**
- * Get the current line in the assmebly text.
+ * Get the current line in the assembly text.
  *
  * @param assembly is the programs code in assembly language
  * @param cpos is a pointer to the current position of the parser in the
@@ -784,7 +1055,7 @@ extern void clr(void *buf, size_t n);
  * Copies bytes from one buffer into another.
  *
  * @param src is a pointer to the source buffer
- * @param dst is a pointer to the destination buffer
+ * @param dest is a pointer to the destination buffer
  * @param n is the number of bytes to copy.
  */
 extern void cpy(void *src, void *dest, size_t n);
@@ -802,7 +1073,7 @@ extern size_t elf64_clcshstrtabsz(void);
 /**
  * Calculates the size of a `.strtab` section in an ELF file.
  *
- * @param ctx is a pointer to the AsmCtx structure
+ * @param ctx is a pointer to the @ref AsmCtx structure.
  * @param filename is the name of the source file, that will be embedded in the
  *                 strtab
  *
@@ -813,7 +1084,7 @@ extern size_t elf64_clcstrtabsz(struct AsmCtx *ctx, char *filename);
 /**
  * Calculates the size of a `.symtab` section in an ELF file.
  *
- * @param ctx is a pointer to the AsmCtx structure
+ * @param ctx is a pointer to the @ref AsmCtx structure.
  *
  * @returns the size of the `.symtab` section in bytes
  */
@@ -822,7 +1093,7 @@ extern size_t elf64_clcsymtabsz(struct AsmCtx *ctx);
 /**
  * Calculates the size of a `.text` section in an ELF file.
  *
- * @param ctx is a pointer to the AsmCtx structure
+ * @param ctx is a pointer to the @ref AsmCtx structure.
  *
  * @returns the size of the `.text` section in bytes
  */
@@ -831,7 +1102,7 @@ extern size_t elf64_clctextsz(struct AsmCtx *ctx);
 /**
  * Stores the assembled program as ELF data into a buffer.
  *
- * @param ctx is a pointer to the AsmCtx structure
+ * @param ctx is a pointer to the @ref AsmCtx structure.
  * @param buffer is a zero allocated buffer, where the ELF data will be written
  *               to.
  * @param n is the size of the buffer in bytes
@@ -846,7 +1117,7 @@ extern size_t elf64_dump(struct AsmCtx *ctx, void *buffer, size_t n,
 /**
  * Stores the ELF-header of the assembled program into a buffer.
  *
- * @param ctx is a pointer to the AsmCtx structure
+ * @param ctx is a pointer to the @ref AsmCtx structure.
  * @param buffer is a zero allocated buffer, where the ELF data will be written
  *               to.
  * @param n is the size of the buffer in bytes
@@ -856,7 +1127,7 @@ extern size_t elf64_dump(struct AsmCtx *ctx, void *buffer, size_t n,
 extern size_t elf64_dump_header(struct AsmCtx *ctx, void *buffer, size_t n);
 
 /**
- * Fills the AsmOp structure for an immediate to ax instruction with 32 bit limit
+ * Fills @ref AsmOp for an immediate to ax instruction with 32 bit limit.
  *
  * This function can be used as a generic implementation of the instruction under
  * the following assumptions:
@@ -870,14 +1141,14 @@ extern size_t elf64_dump_header(struct AsmCtx *ctx, void *buffer, size_t n);
  * - the 32-bit operation uses a single opcode `op8 + 1`
  * - the 64-bit operation uses a single opcode `op8 + 1` and the REX.W bit
  *
- * @param ctx is a pointer to the AsmCtx structure
- * @param op is a pointer to the AsmOp structure
+ * @param ctx is a pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to the @ref AsmOp structure.
  * @param op8 is the opcode for the 8-bit operation.
  */
 extern void genop2aximm32(struct AsmCtx *ctx, struct AsmOp *op, uint8_t op8);
 
 /**
- * Fills the AsmOp structure for a immediate to R\M instruction with 32 bit limit
+ * Fills @ref AsmOp for a immediate to R/M instruction with 32 bit limit.
  *
  * This function can be used as a generic implementation of the instruction under
  * the following assumptions:
@@ -896,8 +1167,8 @@ extern void genop2aximm32(struct AsmCtx *ctx, struct AsmOp *op, uint8_t op8);
  *   utilizes the operand size override prefix and the 64-bit operation sets the
  *   REX.W bit while the opcode stays the same
  *
- * @param ctx is a pointer to the AsmCtx structure
- * @param op is a pointer to the AsmOp structure
+ * @param ctx is a pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to the @ref AsmOp structure.
  * @param op8 is the opcode for the 8-bit operation.
  * @param op_simm8 is the opcode for the operation with a sign-extended 8-bit
  *                 immediate.
@@ -907,7 +1178,7 @@ extern void genop2rimm32(struct AsmCtx *ctx, struct AsmOp *op, uint8_t op8,
                          uint8_t op_simm8, uint8_t modrm_reg);
 
 /**
- * Fills the AsmOp structure for a R source and R\M destination instruction.
+ * Fills @ref AsmOp for a R source and R/M destination instruction.
  *
  * This function can be used as a generic implementation of the instruction under
  * the following assumptions:
@@ -920,14 +1191,14 @@ extern void genop2rimm32(struct AsmCtx *ctx, struct AsmOp *op, uint8_t op8,
  * - the 32-bit operation uses a single opcode `op8 + 1`
  * - the 64-bit operation uses a single opcode `op8 + 1` and the REX.W bit
  *
- * @param ctx is a pointer to the AsmCtx structure
- * @param op is a pointer to the AsmOp structure
+ * @param ctx is a pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to the @ref AsmOp structure.
  * @param op8 is the opcode for the 8-bit operation.
  */
 extern void genop2rmr(struct AsmCtx *ctx, struct AsmOp *op, uint8_t op8);
 
 /**
- * Fills the AsmOp structure for a R\M source and R destination instruction.
+ * Fills the AsmOp structure for a R/M source and R destination instruction.
  *
  * This function can be used as a generic implementation of the instruction under
  * the following assumptions:
@@ -940,8 +1211,8 @@ extern void genop2rmr(struct AsmCtx *ctx, struct AsmOp *op, uint8_t op8);
  * - the 32-bit operation uses a single opcode `op8 + 1`
  * - the 64-bit operation uses a single opcode `op8 + 1` and the REX.W bit
  *
- * @param ctx is a pointer to the AsmCtx structure
- * @param op is a pointer to the AsmOp structure
+ * @param ctx is a pointer to the @ref AsmCtx structure.
+ * @param op is a pointer to the @ref AsmOp structure.
  * @param op8 is the opcode for the 8-bit operation.
  */
 extern void genop2rrm(struct AsmCtx *ctx, struct AsmOp *op, uint8_t op8);
@@ -949,7 +1220,7 @@ extern void genop2rrm(struct AsmCtx *ctx, struct AsmOp *op, uint8_t op8);
 /**
  * Checks whether the given label is declared as global.
  *
- * @param ctx is a pointer to the AsmCtx structure
+ * @param ctx is a pointer to the @ref AsmCtx structure
  * @param label is the label to check
  *
  * @returns one if the label is declared global or zero otherwise
@@ -966,7 +1237,7 @@ extern int isglbl(struct AsmCtx *ctx, char *label);
 extern int isint(char *assembly);
 
 /**
- * Checks if the next character is a delimiter for operants.
+ * Checks if the next character is a delimiter for operands.
  *
  * @param assembly is a pointer to the assembly string.
  *
@@ -1105,18 +1376,24 @@ extern int readnlbl(char const **assembly, char *label, size_t n);
  * @param n is the number of entries in the symbol table
  * @param offset is a pointer to the location where the offset of the label will
  *               be stored on success.
+ * @param flags is a pointer to the location where the flags of the entry in the
+ *              symbol table will be stored on success.
+ *              See @ref SymTabNtr_flags for further information.
+ * @param rel_target is a pointer to the location where the
+ *                   @ref SymTabNtr.rel_target will be stored on success.
  *
  * @returns 0 on success or 1 in case the label is not found in the symbol table
  */
 extern int rslvref(char *label, struct SymTabNtr *symtab, size_t n,
-                   uint32_t *offset, uint32_t *flags, uint32_t *rel_target);
+                   uint32_t *offset, enum SymTabNtr_flags *flags,
+                   uint32_t *rel_target);
 
 /**
  * Performs the second pass of the output generation and resolves all references.
  *
- * @param ctx is the pointer to the AsmCtx structure.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
  *
- * @returns `ERR_NONE` on success or `ERR_UNKNOWN_REFERENCE`
+ * @returns @ref AsmErr.ERR_NONE on success or @ref AsmErr.ERR_UNKNOWN_REFERENCE
  */
 extern enum AsmErr scndpss(struct AsmCtx *ctx);
 
@@ -1141,28 +1418,28 @@ extern void skp2lbinst(char const **assembly);
 extern void skp2nxtop(char const **assembly);
 
 /**
- * Stores the ModRM.mod bits in the AsmOp structure based on the displacement.
+ * Sets @ref AsmOp.modrm_mod based on @ref AsmOp.disp.
  *
- * @param op is the pointer to the AsmOp structure.
+ * @param op is the pointer to the @ref AsmOp structure.
  */
 extern void strdspmodrmmod(struct AsmOp *op);
 
 /**
- * Stores the next token as global.
+ * Stores the next token as global symbol.
  *
- * @param ctx is the pointer to the AsmCtx structure.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
  *
- * @returns the number of bytes stored or -1 on failure.
+ * @returns the number of bytes stored or `-1` on failure.
  */
 extern int strglbl(struct AsmCtx *ctx);
 
 /**
- * Stores next token of the assembly text as label in `ctx->label`.
+ * Stores next token of the assembly text as label in @ref AsmCtx.label.
  *
  * If the label starts with a dot, it will be prepended with the previous label
  * that did not start with a dot.
  *
- * @param ctx is the pointer to the AsmCtx structure.
+ * @param ctx is the pointer to the @ref AsmCtx structure.
  */
 extern void strlbl(struct AsmCtx *ctx);
 
@@ -1175,22 +1452,23 @@ extern void strlbl(struct AsmCtx *ctx);
  * @param offset is the offset to store for the label
  * @param flags is only relevant when the symbol table is used to resolve
  *              references and holds additional information how the references
- *              shall be resolved. Available flags:
- *              - 0x01 RESOLVE_RELATIVE
- * @param rel_target is used when the RESOLVE_RELATIVE bit is set in the flags
+ *              shall be resolved.
+ * @param rel_target is used when @ref SymTabNtr_flags.FLAG_RELATIVE is set
+ *                   in `flags`.
  *
  * @returns 0 on success or 1 in case there is no free entry in the symbol table
  */
 extern int strsymtabntr(struct SymTabNtr *symtab, size_t n, char *label,
-                        uint32_t offset, uint32_t flags, uint32_t rel_target);
+                        uint32_t offset, enum SymTabNtr_flags flags,
+                        uint32_t rel_target);
 
 /**
- * @returns the number of entries in the symbol table
+ * @returns the number of entries in the symbol table.
  */
 extern size_t symtablen(struct SymTabNtr *symtab, size_t n);
 
 /**
- * @returns the number of global entries in the symbol table
+ * @returns the number of global entries in the symbol table.
  */
 extern size_t symtabnglbls(struct AsmCtx *ctx);
 
