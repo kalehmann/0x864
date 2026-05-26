@@ -1,0 +1,18 @@
+# General
+PROJECT_NAME           = "0x864"
+TAB_SIZE               = 8
+INPUT                  = docs src
+FILE_PATTERNS          = *.h *.md
+RECURSIVE              = YES
+
+# Disable LaTeX output
+GENERATE_LATEX         = NO
+
+# HTML output
+GENERATE_HTML          = YES
+HTML_COLORSTYLE_HUE    = 110
+HTML_EXTRA_STYLESHEET  = docs/crt.css
+HTML_OUTPUT            = _html
+
+# C related
+OPTIMIZE_OUTPUT_FOR_C  = YES

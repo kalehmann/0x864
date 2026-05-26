@@ -48,6 +48,9 @@ clean:
 		tests/demos/*.o \
 		tests/demos/*.bin
 
+docs: src/0x864.h
+	doxygen
+
 test: test-unit test-binary
 
 test-binary: $(DEMO_0x864_OBJECTS) \
@@ -105,4 +108,4 @@ tests/unit_test_suite: $(UNIT_TEST_SOURCES)
 		tests/utils.o \
 		-o $@
 
-.PHONY: all clean test test-binary test-unit
+.PHONY: all clean docs test test-binary test-unit
