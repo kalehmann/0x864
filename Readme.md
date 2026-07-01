@@ -25,6 +25,7 @@ source code, to get a list of supported features and their quirks.
 **Milestones:**
 
 - 2234b86bbc: Assembled a relocatable elf file for hello world.
+- f63de09031: Reached ability to self-host the projects assembly code.
 
 ## Usage
 
