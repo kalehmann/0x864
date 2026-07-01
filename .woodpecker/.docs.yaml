@@ -36,5 +36,5 @@ steps:
       depends_on:
           - "Generate documentation"
 depends_on:
-    - "tests"
+    - "selfhosting-elf"
 ...
