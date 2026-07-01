@@ -11,6 +11,12 @@ demo_10_jmp_conditional:
         je .end
         jg .end
         jl .end
+
+        cmp eax, 1
+        cmp ecx, 1
+        cmp ax, 128
+        cmp edx, -128
+
         jz .end
         jne .end
         jnz .end

@@ -76,7 +76,7 @@ src/%.c.o: src/%.c
 	@$(CC) $(CC_FLAGS) -c -o $@ $<
 
 src/%.s.o: src/%.s
-	@$(NASM) -felf64 -o $@ $<
+	@$(NASM) -O1 -felf64 -o $@ $<
 
 tests/demos/%.0x864.o: tests/demos/%.s src/0x864
 	@./src/0x864 -felf64 -o $@ $< > /dev/null

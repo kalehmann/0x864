@@ -7,6 +7,7 @@ demo_07_and_or_xor:
 
         and al, 0x12
         and ax, 0x1234
+        and ax, 0b1111
         and eax, 0x12345678
         and rax, 0x12345678
         and bl, 0xff
@@ -33,6 +34,7 @@ demo_07_and_or_xor:
         or al, 0x12
         or ax, 0x1234
         or eax, 0x12345678
+        or rax, 0x1
         or rax, 0x12345678
         or bl, 0xff
         or cx, 0xabcd
@@ -56,6 +58,7 @@ demo_07_and_or_xor:
 
         xor al, 0x12
         xor ax, 0x1234
+        xor eax, 1
         xor eax, 0x12345678
         xor rax, 0x12345678
         xor bl, 0xff

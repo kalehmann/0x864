@@ -12,6 +12,7 @@ demo_08_arithmetics:
         add rbx, 2
 
         add ah, 0x1f
+        add eax, 1
         add bx, 0xabcd
         add ecx, 0xabcdef
         add r15, 0xabcdef
@@ -38,6 +39,7 @@ demo_08_arithmetics:
         sub al, 8
         sub ax, 0x1234
         sub eax, 0x12345678
+        sub eax, 0b1
         sub rax, 0x12345678
 
         sub ah, 0x1f

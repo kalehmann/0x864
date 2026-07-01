@@ -1481,12 +1481,37 @@ as_genop2ax32:
         ;; Peak register
         mov rdi, [rbp - 8]
         mov r8, [rdi]
-        mov [rbp - 32], r8
+        mov [rbp - 32], r8      ; char *tmp = ctx->assembly
         lea rdi, [rbp - 32]
         call preg
-        cmp rax, 0              ; if (preg(...) != ax)
+        cmp rax, 0              ; if (preg(&tmp) != ax)
         jne .rimm
 
+        ;; Peak immediate
+        lea rdi, [rbp - 32]     ; char **assembly = &tmp
+        call skp2nxtop
+
+        lea rdi, [rbp - 32]     ; char **assembly = &tmp
+        call pint
+        push rax
+
+        mov rdi, [rbp - 8]
+        mov rdi, [rdi]          ; char *assembly = ctx->assembly
+        mov rsi, 2              ; uint8_t n_ops = 2
+        call ckopsize
+        pop rcx
+
+        ;; If the operation size is greater than 8 bit, but the immediate fits
+        ;; into a single byte, use the sign-extended operation even with the ax
+        ;; register to save some bytes.
+        cmp rcx, 127            ; if (pint(&tmp) > 127)
+        jg .aximm
+        cmp rcx, -128           ; if (pint(&tmp) < -128)
+        jl .aximm
+        cmp eax, 8              ; if (ckopsize(ctx->assembly != 8)
+        jne .rimm
+
+.aximm:
         mov rdi, [rbp - 8]      ; struct AsmCtx *ctx = ctx
         mov rsi, [rbp - 16]     ; struct AsmOp *op = op
         mov dl, [rbp - 17]      ; uint8_t op8 = op_al_imm8
@@ -3434,6 +3459,7 @@ genop2rimm32:
         mov dl, [rsi + 1]
         cmp dl, 8               ; if (op->op_size == 8)
         je .op8
+
         cmp dl, 16              ; if (op->op_size == 16)
         je .op16
         cmp dl, 32              ; if (op->op_size == 32)
@@ -3449,8 +3475,13 @@ genop2rimm32:
 .op16:
         mov cl, 0x08
         mov [rsi + 11], cl      ; op->prefix = PREFIX_OP_SIZE_OVERRIDE
-        cmp ax, 128             ; if (pint(...) < 128)
-        jb .op_sign_extended
+        cmp eax, 127            ; if (pint(...) > 127)
+        jg .continue_op16
+        cmp eax, -128           ; if (pint(...) < -128)
+        jl .continue_op16
+        jmp .op_sign_extended
+
+.continue_op16:
         mov [rsi + 16], ax      ; op->imm.imm16 = pint(...)
         mov al, [rbp - 17]
         inc al
@@ -3458,8 +3489,13 @@ genop2rimm32:
         jmp .end
 
 .op32:
-        cmp eax, 128            ; if (pint(...) < 128)
-        jb .op_sign_extended
+        cmp eax, 127            ; if (pint(...) > 127)
+        jg .continue_op32
+        cmp eax, -128           ; if (pint(...) < -128)
+        jl .continue_op32
+        jmp .op_sign_extended
+
+.continue_op32:
         mov [rsi + 16], eax     ; op->imm.imm32 = pint(...)
         mov al, [rbp - 17]
         inc al
@@ -3467,8 +3503,13 @@ genop2rimm32:
         jmp .end
 
 .op64:
-        cmp eax, 128            ; if (pint(...) < 128)
-        jb .op_sign_extended
+        cmp eax, 127            ; if (pint(...) > 127)
+        jg .continue_op64
+        cmp eax, -128           ; if (pint(...) < -128)
+        jl .continue_op64
+        jmp .op_sign_extended
+
+.continue_op64:
         mov [rsi + 16], eax     ; op->imm.imm32 = pint(...)
         mov al, [rbp - 17]
         inc al
