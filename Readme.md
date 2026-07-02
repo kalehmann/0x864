@@ -24,8 +24,10 @@ source code, to get a list of supported features and their quirks.
 
 **Milestones:**
 
-- 2234b86bbc: Assembled a relocatable elf file for hello world.
-- f63de09031: Reached ability to self-host the projects assembly code.
+- [`2234b86bbc`](/../../commit/2234b86bbc272bf60adbb5a9485ff68d06f07bdd):
+  Assembled a relocatable elf file for hello world.
+- [`f63de09031`](/../../commit/f63de090311f011ac148e7bc81742c18ed4698d5):
+  Reached ability to self-host the projects assembly code.
 
 ## Usage
 
