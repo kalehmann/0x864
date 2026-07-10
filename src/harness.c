@@ -42,13 +42,13 @@ struct args {
         FILE *fout;
 };
 
-void banner(void);
-void dump_context(const char * const, struct AsmCtx *);
-int parse_args(int, char * const [], struct args * const);
-void print_error(const char * const, struct AsmCtx *, enum AsmErr);
-void usage(const char * const);
+static void banner(void);
+static void dump_context(const char * const, struct AsmCtx *);
+static int parse_args(int, char * const [], struct args * const);
+static void print_error(const char * const, struct AsmCtx *, enum AsmErr);
+static void usage(const char * const);
 
-void banner(void)
+static void banner(void)
 {
         printf("\033[1m0x864\033[0m - "
                "\033[38;5;52ms"
@@ -82,7 +82,7 @@ void banner(void)
                "\033[0m\n");
 }
 
-void dump_context(const char * assembly_text, struct AsmCtx *ctx)
+static void dump_context(const char * assembly_text, struct AsmCtx *ctx)
 {
         size_t current_line = ckln(assembly_text, ctx->assembly);
         size_t globals = 0;
@@ -114,7 +114,7 @@ void dump_context(const char * assembly_text, struct AsmCtx *ctx)
                ctx->max_reftab_entries, current_line, lines);
 }
 
-int parse_args(int argc, char * const argv[], struct args * const args)
+static int parse_args(int argc, char * const argv[], struct args * const args)
 {
         char opt;
         const char * const argv0 = argv[0];
@@ -211,8 +211,8 @@ int parse_args(int argc, char * const argv[], struct args * const args)
         return 0;
 }
 
-void print_error(const char * const assembly_text, struct AsmCtx *ctx,
-                 enum AsmErr err)
+static void print_error(const char * const assembly_text, struct AsmCtx *ctx,
+                        enum AsmErr err)
 {
         fflush(stdout);
         char *line = NULL;
@@ -269,7 +269,7 @@ void print_error(const char * const assembly_text, struct AsmCtx *ctx,
         }
 }
 
-void usage(const char * const argv0)
+static void usage(const char * const argv0)
 {
         printf("Usage: %s [...options] filename\n", argv0);
         printf("    Options:\n");
