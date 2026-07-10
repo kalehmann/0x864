@@ -26,6 +26,8 @@
 #include <unistd.h>
 #include "0x864.h"
 
+#define VERSION "0.1.0"
+
 enum Format {
         BIN = 0,
         ELF64,
@@ -117,7 +119,7 @@ int parse_args(int argc, char * const argv[], struct args * const args)
         char opt;
         const char * const argv0 = argv[0];
 
-        while ((opt = getopt(argc, argv, "df:ho:")) != -1) {
+        while ((opt = getopt(argc, argv, "df:ho:v")) != -1) {
                 switch (opt) {
                 case 'd':
                         args->debug = true;
@@ -146,6 +148,11 @@ int parse_args(int argc, char * const argv[], struct args * const args)
                         }
                         strncpy(args->outpath, optarg, 255);
                         break;
+                case 'v':
+                        fprintf(stdout, "Version " VERSION ", build on "
+                                __DATE__ "\n");
+
+                        return 0;
                 case ':':
                 case '?':
                 default:
@@ -270,6 +277,7 @@ void usage(const char * const argv0)
         printf("        -f [bin|elf64] Output format\n");
         printf("        -h             Show help\n");
         printf("        -o outfile     Write output to outfile\n");
+        printf("        -v             Show version and build date\n");
 }
 
 
