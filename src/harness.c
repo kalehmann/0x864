@@ -32,12 +32,12 @@ enum Format {
 };
 
 struct args {
+        bool debug;
         char inpath[256];
         char outpath[256];
         enum Format format;
         FILE *fin;
         FILE *fout;
-        bool verbose;
 };
 
 void banner(void);
@@ -117,8 +117,11 @@ int parse_args(int argc, char * const argv[], struct args * const args)
         char opt;
         const char * const argv0 = argv[0];
 
-        while ((opt = getopt(argc, argv, "f:ho:v")) != -1) {
+        while ((opt = getopt(argc, argv, "df:ho:")) != -1) {
                 switch (opt) {
+                case 'd':
+                        args->debug = true;
+                        break;
                 case 'f':
                         if (strlen(optarg) > 255) {
                                 fprintf(stderr, "Format is too long!\n");
@@ -142,9 +145,6 @@ int parse_args(int argc, char * const argv[], struct args * const args)
                                 return 1;
                         }
                         strncpy(args->outpath, optarg, 255);
-                        break;
-                case 'v':
-                        args->verbose = true;
                         break;
                 case ':':
                 case '?':
@@ -266,6 +266,7 @@ void usage(const char * const argv0)
 {
         printf("Usage: %s [...options] filename\n", argv0);
         printf("    Options:\n");
+        printf("        -d             Debug. Show ressource usage\n");
         printf("        -f [bin|elf64] Output format\n");
         printf("        -h             Show help\n");
         printf("        -o outfile     Write output to outfile\n");
@@ -329,7 +330,7 @@ int main(int argc, char * const argv[])
         }
 
 cleanup:
-        if (args.verbose == true) {
+        if (args.debug == true) {
                 dump_context(assembly_buffer, ctx);
         }
 
